@@ -1,0 +1,61 @@
+## Stitch Instructions
+
+Get the images and code for the following Stitch project's screens:
+
+## Project
+
+ID: 13005864818346174761
+
+## Screens:
+1. Quantmind PRD & Technical Spec
+    ID: 51f4673d66a244619ebb37ea43a3a432
+
+2. Portfolio Dashboard
+    ID: af4280f86e0e47688f1d830d2f5d5723
+
+3. FX1 Portfolio Dashboard
+    ID: 1c8811ad3cee40539b45ffeb5be31340
+
+4. FX1 Portfolio Builder
+    ID: 89efb4f77f6c4b8d886696e3a2ff54a3
+
+5. FX1 Simulation Results
+    ID: ef3189f519a247c79131093e536c642f
+
+6. FX1 AI Risk Assistant
+    ID: beaa179cda2f45b2a7eab245548c8a46
+
+7. FX1 Management Dashboard Overview
+    ID: b4c89f219f0b44e097326e380ef0111f
+
+8. FX1 AI Control Center
+    ID: c52934456f174784b830795deea47305
+
+9. FX1 Marketing Landing Page
+    ID: e3bcc464fbaf49ffa352d32b90d31628
+
+10. FX1 User Management
+    ID: 924467bc929c48a8a14bca1308478e6b
+
+11. FX1 OTA Release Board
+    ID: ed9a9681ca3647a8a5750d740cb6db75
+
+12. FX1 Knowledge Base Editor
+    ID: 9a5e3e8d542645a88eb4f6696996bfd9
+
+13. FX1 Support & AI Auto-Draft (Refined)
+    ID: 3f10aa87fdde419ba8a416d74adc69c3
+
+14. FX1 Mobile Auth & Onboarding
+    ID: 728cea66585f4e529c831eb6d55b938d
+
+15. FX1 Portfolio List
+    ID: d6db1953714140b8b211f064a58f8b36
+
+16. FX1 Asset Detail View
+    ID: 50dd68bb68304382ae488cbf8aa0072c
+
+17. FX1 Mobile Settings
+    ID: e22191eab5754aa6b971fc9487a0fc5f
+
+Use a utility like `curl -L` to download the hosted URLs.

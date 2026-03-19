@@ -1,0 +1,13 @@
+
+> quantmind@1.0.0 lint
+> eslint .
+
+'eslint' is not recognized as an internal or external command,
+operable program or batch file.
+npm error Lifecycle script `lint` failed with error:
+npm error code 1
+npm error path C:\Projects\Quantmind Application\QuantMind\apps\mobile
+npm error workspace quantmind@1.0.0
+npm error location C:\Projects\Quantmind Application\QuantMind\apps\mobile
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c eslint .

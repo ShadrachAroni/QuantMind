@@ -1,0 +1,77 @@
+// Auth validation shared utilities for Edge Functions
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+export interface AuthenticatedUser {
+  id: string;
+  email: string;
+  tier: string;
+  role?: string;
+}
+
+export async function requireAuth(req: Request): Promise<AuthenticatedUser> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    throw new Error('Missing or invalid Authorization header');
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  const supabase = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_ANON_KEY')!
+  );
+
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  if (error || !user) {
+    throw new Error('Unauthorized: Invalid or expired token');
+  }
+
+  // Get subscription tier from user_profiles
+  const supabaseAdmin = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  );
+
+  const { data: profile } = await supabaseAdmin
+    .from('user_profiles')
+    .select('tier')
+    .eq('id', user.id)
+    .single();
+
+  return {
+    id: user.id,
+    email: user.email!,
+    tier: profile?.tier || 'free',
+    role: user.app_metadata?.role,
+  };
+}
+
+export function unauthorizedResponse(message = 'Unauthorized'): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status: 401,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+export function forbiddenResponse(message = 'Forbidden'): Response {
+  return new Response(JSON.stringify({ error: message }), {
+    status: 403,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+// Validate redirect URLs against allow-list
+const ALLOWED_REDIRECTS = new Set([
+  'https://quantmind.app/auth/callback',
+  'https://admin.quantmind.app/auth/callback',
+  'https://dashboard.quantmind.app/auth/callback',
+  'quantmind://auth/callback',
+]);
+
+export function validateRedirectUrl(url: string): string {
+  try {
+    if (ALLOWED_REDIRECTS.has(url)) return url;
+    return 'https://quantmind.app';
+  } catch {
+    return 'https://quantmind.app';
+  }
+}
