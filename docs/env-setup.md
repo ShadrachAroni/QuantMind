@@ -10,7 +10,7 @@ The root `.env` file centralises common variables used by multiple applications.
 | `SUPABASE_URL` | Your Supabase Project URL | [Supabase Dashboard](https://supabase.com/dashboard) |
 | `SUPABASE_ANON_KEY` | Public access key | Supabase Dashboard > Settings > API |
 | `SUPABASE_SERVICE_ROLE_KEY`| Admin access key (Server-only!) | Supabase Dashboard > Settings > API |
-| `ANTHROPIC_API_KEY` | Key for Claude AI | [Anthropic Console](https://console.anthropic.com/) |
+| `GEMINI_API_KEY` | Key for Gemini AI | [Google AI Studio](https://aistudio.google.com/) |
 | `RESEND_API_KEY` | Key for email services | [Resend Dashboard](https://resend.com/overview) |
 
 ---
@@ -18,7 +18,7 @@ The root `.env` file centralises common variables used by multiple applications.
 ## 2. Service-Specific Keys
 
 ### Supabase Edge Functions (`supabase/functions/.env`)
-These keys must be set in the Supabase Dashboard as "Secrets" for deployment.
+These keys must be set in the Supabase Dashboard as "Secrets" for deployment. See [supabase-secrets.md](file:///c:/Projects/Quantmind%20Application/QuantMind/docs/supabase-secrets.md) for the full list and manual set instructions.
 - **`UPSTASH_REDIS_URL` / `TOKEN`**: Get from [Upstash](https://upstash.com/) (Redis for Job Queues).
 - **`ALPHA_VANTAGE_API_KEY`**: Get a free key from [Alpha Vantage](https://www.alphavantage.co/support/#api-key).
 - **`TWELVE_DATA_API_KEY`**: Get a free key from [Twelve Data](https://twelvedata.com/pricing).
@@ -45,8 +45,8 @@ These keys must be set in the Supabase Dashboard as "Secrets" for deployment.
 1. **Supabase**: Create a project at [supabase.com](https://supabase.com). You will need the URL, Anon Key, and Service Role Key.
 2. **Upstash**: Create a Redis database. Copy the REST URL and Token. This powers our job queuing and rate limiting.
 
-### AI Engine (Claude)
-1. **Anthropic**: Create an account at [anthropic.com](https://anthropic.com). Create a new API Key. QuantMind specifically uses **Claude 3.5 Sonnet** and **Opus**.
+### AI Engine (Gemini)
+1. **Google Gemini**: Managed via [Google AI Studio](https://aistudio.google.com/). Create a new API Key for **Gemini 1.5 Flash**.
 
 ### Payments (RevenueCat)
 1. **RevenueCat**: Create an app and set up your products. Copy the Webhook Secret to allow the backend to sync subscription statuses.

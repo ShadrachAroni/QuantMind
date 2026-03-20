@@ -7,5 +7,6 @@
   },
   "deno.lint": true,
   "deno.unstable": true,
-  "deno.config": "supabase/functions/deno.json"
+  "deno.config": "supabase/functions/deno.json",
+  "deno.suggest.imports.autoDiscover": true
 }

@@ -1,17 +1,27 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TextInput, TouchableOpacity, Alert, Platform, KeyboardAvoidingView } from 'react-native';
+import { View, StyleSheet, TextInput, TouchableOpacity, Platform, KeyboardAvoidingView, Dimensions } from 'react-native';
 import { supabase } from '../../services/supabase';
-import { theme } from '../../constants/theme';
 import { Typography } from '../../components/ui/Typography';
 import { LoadingOverlay } from '../../components/ui/LoadingOverlay';
+import { useTheme } from '../../context/ThemeContext';
+import { useToast } from '../../context/ToastContext';
+import { sharedTheme } from '../../constants/theme';
+import { ChevronLeft, Key } from 'lucide-react-native';
+
+const { width } = Dimensions.get('window');
 
 export function ForgotPasswordScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
+  const { theme, isDark } = useTheme();
+  const { showToast } = useToast();
+
+  const BackIcon = ChevronLeft as any;
+  const KeyIcon = Key as any;
 
   const handleReset = async () => {
     if (!email) {
-      Alert.alert('Error', 'Please enter your email address.');
+      showToast('IDENT_ERROR: Email required.', 'error');
       return;
     }
 
@@ -22,103 +32,126 @@ export function ForgotPasswordScreen({ navigation }: any) {
     setLoading(false);
 
     // Always show success to prevent email enumeration (App Rules 10.2)
-    Alert.alert(
-      'Request Received', 
-      'If this email exists in our system, a password reset link has been sent.',
-      [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
-    );
+    showToast('REQUEST_ACKNOWLEDGED: Recovery link dispatched if user exists.', 'info');
+    navigation.navigate('Login');
   };
 
+  const dynamicStyles = getStyles(theme, isDark);
+
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <Typography variant="button" style={styles.backText}>← Back</Typography>
+    <KeyboardAvoidingView 
+      style={[dynamicStyles.container, { backgroundColor: theme.background }]} 
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <View style={dynamicStyles.content}>
+        <View style={dynamicStyles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={[dynamicStyles.backBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', borderColor: theme.border }]}>
+            <BackIcon size={20} color={theme.textSecondary} />
           </TouchableOpacity>
-          <Typography variant="h2" style={styles.title}>Credential Recovery</Typography>
+          <Typography variant="mono" style={[dynamicStyles.subHeader, { color: theme.textTertiary }]}>CREDENTIAL_RECOVERY_PROTOCOL</Typography>
+          <Typography variant="h2" style={[dynamicStyles.title, { color: theme.textPrimary }]}>ACCESS_RESTORE</Typography>
         </View>
 
-        <View style={styles.formContainer}>
-          <Typography variant="body" style={styles.instructions}>
-            Enter your institution email address requested during registration.
+        <View style={dynamicStyles.formContainer}>
+          <Typography variant="body" style={[dynamicStyles.instructions, { color: theme.textSecondary }]}>
+            Enter your institutional email address to request a kernel access override.
           </Typography>
 
-          <View style={styles.inputGroup}>
-            <TextInput
-              style={styles.input}
-              placeholder="operator@institution.com"
-              placeholderTextColor={theme.colors.textTertiary}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
+          <View style={dynamicStyles.inputGroup}>
+            <Typography variant="caption" style={[dynamicStyles.label, { color: theme.textTertiary }]}>OPERATOR_IDENTIFIER</Typography>
+            <View style={[dynamicStyles.inputContainer, { backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)', borderColor: theme.border }]}>
+              <TextInput
+                style={[dynamicStyles.input, { color: theme.textPrimary, fontFamily: sharedTheme.typography.fonts.mono }]}
+                placeholder="operator@quantmind.io"
+                placeholderTextColor={theme.textTertiary}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+            </View>
           </View>
 
-          <TouchableOpacity style={styles.primaryButton} onPress={handleReset} disabled={loading}>
-            <Typography variant="button" style={styles.primaryButtonText}>REQUEST RESET</Typography>
+          <TouchableOpacity 
+            style={[dynamicStyles.primaryButton, { backgroundColor: theme.primary }]} 
+            onPress={handleReset} 
+            disabled={loading}
+          >
+            <Typography variant="monoBold" style={[dynamicStyles.primaryButtonText, { color: theme.background }]}>EXECUTE_RECOVERY</Typography>
+            <KeyIcon size={16} color={theme.background} style={{ marginLeft: 8 }} />
           </TouchableOpacity>
         </View>
       </View>
 
-      <LoadingOverlay visible={loading} message="Processing..." />
+      <LoadingOverlay visible={loading} message="SYNCHRONIZING_OVERRIDE..." />
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
   },
   content: {
     flex: 1,
     justifyContent: 'center',
-    padding: theme.spacing.xl,
+    padding: 24,
   },
   header: {
-    marginBottom: theme.spacing.xl,
+    marginBottom: 40,
   },
-  backButton: {
-    marginBottom: theme.spacing.md,
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    marginBottom: 24,
   },
-  backText: {
-    color: theme.colors.textSecondary,
+  subHeader: {
+    fontSize: 10,
+    letterSpacing: 2,
+    marginBottom: 4,
   },
   title: {
-    color: '#FFFFFF',
+    fontSize: 24,
+    letterSpacing: 2,
   },
   instructions: {
-    marginBottom: theme.spacing.xl,
+    fontSize: 13,
+    lineHeight: 20,
+    marginBottom: 32,
   },
   formContainer: {
-    backgroundColor: theme.colors.surface,
-    padding: theme.spacing.xl,
-    borderRadius: theme.roundness.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    gap: 8,
   },
   inputGroup: {
-    marginBottom: theme.spacing.xl,
+    marginBottom: 24,
+    gap: 8,
+  },
+  label: {
+    fontSize: 9,
+    letterSpacing: 1.5,
+    marginLeft: 4,
+  },
+  inputContainer: {
+    borderRadius: 16,
+    borderWidth: 1,
   },
   input: {
-    backgroundColor: theme.colors.surfaceLight,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.roundness.md,
-    padding: theme.spacing.md,
-    color: theme.colors.textPrimary,
+    padding: 16,
+    fontSize: 13,
   },
   primaryButton: {
-    backgroundColor: theme.colors.primary,
-    padding: theme.spacing.md,
-    borderRadius: theme.roundness.md,
+    height: 60,
+    borderRadius: 18,
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
   },
   primaryButtonText: {
-    color: theme.colors.background,
+    fontSize: 14,
     letterSpacing: 1,
-    fontFamily: theme.typography.fonts.mono,
   },
 });

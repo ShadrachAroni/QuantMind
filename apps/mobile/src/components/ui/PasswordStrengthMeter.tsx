@@ -1,81 +1,85 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Animated } from 'react-native';
 import { Typography } from './Typography';
-import { theme } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
+import { GlowEffect } from './GlowEffect';
 
 interface PasswordStrengthMeterProps {
-  score: number; // 0 to 4 (zxcvbn score)
+  score: number; // 0 to 4
   feedback?: string;
 }
 
 export function PasswordStrengthMeter({ score, feedback }: PasswordStrengthMeterProps) {
+  const { theme } = useTheme();
+  
   const getScoreDetails = () => {
     switch (score) {
-      case 0: return { label: 'Very Weak', color: theme.colors.error, blocks: 1 };
-      case 1: return { label: 'Weak', color: theme.colors.error, blocks: 1 };
-      case 2: return { label: 'Fair', color: theme.colors.warning, blocks: 2 };
-      case 3: return { label: 'Strong', color: theme.colors.success, blocks: 3 };
-      case 4: return { label: 'Very Strong', color: theme.colors.primary, blocks: 4 };
-      default: return { label: '', color: theme.colors.border, blocks: 0 };
+      case 0: return { label: 'LOW_ENTROPY', color: '#EF4444', width: '20%' };
+      case 1: return { label: 'WEAK_CIPHER', color: '#F97316', width: '40%' };
+      case 2: return { label: 'FAIR_SECURITY', color: '#F59E0B', width: '60%' };
+      case 3: return { label: 'STRONG_ENCRYPTION', color: '#10B981', width: '80%' };
+      case 4: return { label: 'PROTOCOL_SECURE', color: theme.primary, width: '100%' };
+      default: return { label: 'IDLE', color: theme.border, width: '0%' };
     }
   };
 
-  const { label, color, blocks } = getScoreDetails();
+  const { label, color, width } = getScoreDetails();
 
   return (
     <View style={styles.container}>
-      <View style={styles.blocksContainer}>
-        {[1, 2, 3, 4].map((index) => (
-          <View
-            key={`block-${index}`}
-            style={[
-              styles.block,
-              { backgroundColor: index <= blocks ? color : theme.colors.border },
-            ]}
-          />
-        ))}
+      <View style={styles.header}>
+        <Typography variant="mono" style={[styles.label, { color }]}>{label}</Typography>
+        <Typography variant="caption" style={{ color: theme.textTertiary, fontSize: 8 }}>{width}</Typography>
       </View>
-      <View style={styles.textContainer}>
-        <Typography variant="caption" style={[styles.label, { color }]}>
-          {label}
+      
+      <View style={[styles.track, { backgroundColor: theme.border + '22' }]}>
+        <View style={[styles.progress, { width: width as any, backgroundColor: color }]}>
+          <GlowEffect color={color} size={20} glowRadius={10} style={styles.glow} />
+        </View>
+      </View>
+      
+      {feedback && (
+        <Typography variant="caption" style={[styles.feedback, { color: theme.textTertiary }]}>
+          {feedback.toUpperCase()}
         </Typography>
-        {feedback && (
-          <Typography variant="caption" style={styles.feedback}>
-            {feedback}
-          </Typography>
-        )}
-      </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: theme.spacing.sm,
+    marginVertical: 12,
   },
-  blocksContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 4,
-    marginBottom: theme.spacing.xs,
-  },
-  block: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-  },
-  textContainer: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 6,
   },
   label: {
-    fontWeight: '600',
+    fontSize: 9,
+    letterSpacing: 1.5,
+  },
+  track: {
+    height: 2,
+    borderRadius: 1,
+    overflow: 'hidden',
+  },
+  progress: {
+    height: '100%',
+    borderRadius: 1,
+    position: 'relative',
+  },
+  glow: {
+    position: 'absolute',
+    right: -10,
+    top: -9,
   },
   feedback: {
-    color: theme.colors.textSecondary,
-    flex: 1,
-    textAlign: 'right',
-    marginLeft: theme.spacing.md,
+    marginTop: 6,
+    fontSize: 8,
+    letterSpacing: 0.5,
+    opacity: 0.7,
   },
 });

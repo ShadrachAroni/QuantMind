@@ -1,10 +1,18 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { supabase } from '../../services/supabase';
-import { theme } from '../../constants/theme';
+import { View, StyleSheet, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Dimensions } from 'react-native';
+import { supabase, getRedirectUrl } from '../../services/supabase';
 import { Typography } from '../../components/ui/Typography';
 import { PasswordStrengthMeter } from '../../components/ui/PasswordStrengthMeter';
 import { LoadingOverlay } from '../../components/ui/LoadingOverlay';
+import { useTheme } from '../../context/ThemeContext';
+import { useToast } from '../../context/ToastContext';
+import { sharedTheme } from '../../constants/theme';
+import { ChevronLeft, UserPlus, Check } from 'lucide-react-native';
+import { GlowEffect } from '../../components/ui/GlowEffect';
+
+import { OTPVerificationModal } from '../../components/auth/OTPVerificationModal';
+
+const { width } = Dimensions.get('window');
 
 // A simple zxcvbn shim since we don't have the npm package installed in this task
 function estimateStrength(password: string) {
@@ -20,14 +28,32 @@ function estimateStrength(password: string) {
 export function SignUpScreen({ navigation }: any) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [dob, setDob] = useState('');
+  const [tosAccepted, setTosAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const { theme, isDark } = useTheme();
+  const { showToast } = useToast();
   
   const score = password ? estimateStrength(password) : 0;
+  const BackIcon = ChevronLeft as any;
+  const UserPlusIcon = UserPlus as any;
+  const CheckIcon = Check as any;
 
   const handleSignUp = async () => {
-    if (!email || !password || !dob) {
-      Alert.alert('Error', 'Please fill in all fields.');
+    if (!email || !password || !confirmPassword || !dob) {
+      showToast('All parameters must be initialized.', 'error');
+      return;
+    }
+
+    if (!tosAccepted) {
+      showToast('You must acknowledge the Operating Protocol.', 'error');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      showToast('Secure passphrases do not match.', 'error');
       return;
     }
 
@@ -35,12 +61,12 @@ export function SignUpScreen({ navigation }: any) {
     const birthYear = new Date(dob).getFullYear();
     const currentYear = new Date().getFullYear();
     if (isNaN(birthYear) || (currentYear - birthYear < 13)) {
-      Alert.alert('Access Denied', 'You must be at least 13 years old to use QuantMind.');
+      showToast('Compliance failure: Operator age < 13.', 'error');
       return;
     }
 
     if (score < 2) {
-      Alert.alert('Security Notice', 'Please use a stronger password.');
+      showToast('Entropy too low. Increase passphrase complexity.', 'error');
       return;
     }
 
@@ -52,147 +78,305 @@ export function SignUpScreen({ navigation }: any) {
     setLoading(false);
 
     if (error) {
-      Alert.alert('Registration failed', error.message);
+      showToast(error.message.toUpperCase(), 'error');
     } else {
-      Alert.alert('Success', 'Check your email for the confirmation link.', [
-        { text: 'OK', onPress: () => navigation.navigate('Login') }
-      ]);
+      showToast('PROVISIONING_INITIATED: Verify OTP.', 'success');
+      setShowOtpModal(true);
     }
   };
 
+  const handleVerifySuccess = () => {
+    setShowOtpModal(false);
+    navigation.navigate('Login');
+  };
+
+  const handleOAuthLogin = async (provider: 'google' | 'apple') => {
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: getRedirectUrl(),
+      },
+    });
+    setLoading(false);
+    
+    if (error) {
+      showToast(error.message.toUpperCase(), 'error');
+    }
+  };
+
+  const dynamicStyles = getStyles(theme, isDark);
+
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.header}>
-          <Typography variant="h2" style={styles.title}>Operator Registration</Typography>
-          <Typography variant="body" style={styles.subtitle}>Secure access provision</Typography>
+    <KeyboardAvoidingView 
+      style={[dynamicStyles.container, { backgroundColor: theme.background }]} 
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView contentContainerStyle={dynamicStyles.scroll} showsVerticalScrollIndicator={false}>
+        <View style={dynamicStyles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={[dynamicStyles.backBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', borderColor: theme.border }]}>
+            <BackIcon size={20} color={theme.textSecondary} />
+          </TouchableOpacity>
+          <Typography variant="mono" style={[dynamicStyles.subHeader, { color: theme.textTertiary }]}>PROVISIONING_WORKFLOW_V2.1</Typography>
+          <Typography variant="h2" style={[dynamicStyles.title, { color: theme.textPrimary }]}>NEW_OPERATOR</Typography>
         </View>
 
-        <View style={styles.formContainer}>
-          <View style={styles.inputGroup}>
-            <Typography variant="caption" style={styles.label}>EMAIL ADDRESS</Typography>
-            <TextInput
-              style={styles.input}
-              placeholder="operator@institution.com"
-              placeholderTextColor={theme.colors.textTertiary}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
+        <View style={dynamicStyles.formContainer}>
+          <View style={dynamicStyles.inputGroup}>
+            <Typography variant="caption" style={[dynamicStyles.label, { color: theme.textTertiary }]}>OPERATOR_IDENTIFIER</Typography>
+            <View style={[dynamicStyles.inputContainer, { backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)', borderColor: theme.border }]}>
+              <TextInput
+                style={[dynamicStyles.input, { color: theme.textPrimary, fontFamily: sharedTheme.typography.fonts.mono }]}
+                placeholder="operator@quantmind.io"
+                placeholderTextColor={theme.textTertiary}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+            </View>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Typography variant="caption" style={styles.label}>SECURE PASSPHRASE</Typography>
-            <TextInput
-              style={styles.input}
-              placeholder="••••••••••••"
-              placeholderTextColor={theme.colors.textTertiary}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
+          <View style={dynamicStyles.inputGroup}>
+            <Typography variant="caption" style={[dynamicStyles.label, { color: theme.textTertiary }]}>SECURE_PASSPHRASE</Typography>
+            <View style={[dynamicStyles.inputContainer, { backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)', borderColor: theme.border }]}>
+              <TextInput
+                style={[dynamicStyles.input, { color: theme.textPrimary, fontFamily: sharedTheme.typography.fonts.mono }]}
+                placeholder="••••••••••••"
+                placeholderTextColor={theme.textTertiary}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
+            </View>
             {password.length > 0 && <PasswordStrengthMeter score={score} />}
           </View>
 
-          <View style={styles.inputGroup}>
-            <Typography variant="caption" style={styles.label}>DATE OF BIRTH (YYYY-MM-DD)</Typography>
-            <TextInput
-              style={styles.input}
-              placeholder="1990-01-01"
-              placeholderTextColor={theme.colors.textTertiary}
-              value={dob}
-              onChangeText={setDob}
-            />
-            <Typography variant="caption" style={styles.helperText}>Required for compliance per App Rules §10.1.</Typography>
+          <View style={dynamicStyles.inputGroup}>
+            <Typography variant="caption" style={[dynamicStyles.label, { color: theme.textTertiary }]}>CONFIRM_PASSPHRASE</Typography>
+            <View style={[dynamicStyles.inputContainer, { backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)', borderColor: theme.border }]}>
+              <TextInput
+                style={[dynamicStyles.input, { color: theme.textPrimary, fontFamily: sharedTheme.typography.fonts.mono }]}
+                placeholder="••••••••••••"
+                placeholderTextColor={theme.textTertiary}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                secureTextEntry
+              />
+            </View>
           </View>
 
-          <TouchableOpacity style={styles.primaryButton} onPress={handleSignUp} disabled={loading}>
-            <Typography variant="button" style={styles.primaryButtonText}>PROVISION ACCESS</Typography>
+          <View style={dynamicStyles.inputGroup}>
+            <Typography variant="caption" style={[dynamicStyles.label, { color: theme.textTertiary }]}>DATE_OF_BIRTH (YYYY-MM-DD)</Typography>
+            <View style={[dynamicStyles.inputContainer, { backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)', borderColor: theme.border }]}>
+              <TextInput
+                style={[dynamicStyles.input, { color: theme.textPrimary, fontFamily: sharedTheme.typography.fonts.mono }]}
+                placeholder="1990-01-01"
+                placeholderTextColor={theme.textTertiary}
+                value={dob}
+                onChangeText={setDob}
+              />
+            </View>
+            <Typography variant="caption" style={[dynamicStyles.helperText, { color: theme.textTertiary }]}>Required for compliance per App Rules §10.1.</Typography>
+          </View>
+
+          <TouchableOpacity 
+            style={dynamicStyles.tosRow} 
+            onPress={() => setTosAccepted(!tosAccepted)}
+            activeOpacity={0.7}
+          >
+            <View style={[
+              dynamicStyles.checkbox, 
+              { borderColor: tosAccepted ? theme.primary : theme.border, backgroundColor: tosAccepted ? theme.primary + '15' : 'transparent' }
+            ]}>
+              {tosAccepted && <CheckIcon size={12} color={theme.primary} />}
+            </View>
+            <Typography variant="caption" style={[dynamicStyles.tosLabel, { color: theme.textSecondary }]}>
+              I accept the QuantMind Operating Protocol and Conditions of Use.
+            </Typography>
           </TouchableOpacity>
 
-          <View style={styles.footerRow}>
-            <Typography variant="caption">Existing operator? </Typography>
+          <TouchableOpacity 
+            style={[dynamicStyles.primaryButton, { backgroundColor: theme.primary }]} 
+            onPress={handleSignUp} 
+            disabled={loading}
+          >
+            <Typography variant="monoBold" style={[dynamicStyles.primaryButtonText, { color: theme.background }]}>PROVISION_ACCESS</Typography>
+            <UserPlusIcon size={16} color={theme.background} style={{ marginLeft: 8 }} />
+          </TouchableOpacity>
+
+          <View style={dynamicStyles.dividerRow}>
+            <View style={[dynamicStyles.dividerLine, { backgroundColor: theme.border }]} />
+            <Typography variant="mono" style={[dynamicStyles.dividerText, { color: theme.textTertiary }]}>OR_PROVISION_VIA</Typography>
+            <View style={[dynamicStyles.dividerLine, { backgroundColor: theme.border }]} />
+          </View>
+
+          <View style={dynamicStyles.oauthRow}>
+            <TouchableOpacity 
+              style={[dynamicStyles.oauthBtn, { borderColor: theme.border, backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }]}
+              onPress={() => handleOAuthLogin('google')}
+            >
+              <Typography variant="monoBold" style={[dynamicStyles.oauthBtnText, { color: theme.textPrimary }]}>GOOGLE</Typography>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[dynamicStyles.oauthBtn, { borderColor: theme.border, backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }]}
+              onPress={() => handleOAuthLogin('apple')}
+            >
+              <Typography variant="monoBold" style={[dynamicStyles.oauthBtnText, { color: theme.textPrimary }]}>APPLE_ID</Typography>
+            </TouchableOpacity>
+          </View>
+
+          <View style={dynamicStyles.footerRow}>
+            <Typography variant="caption" style={{ color: theme.textTertiary }}>Existing operator? </Typography>
             <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-              <Typography variant="caption" style={styles.linkText}>Initialize Session</Typography>
+              <Typography variant="mono" style={[dynamicStyles.linkText, { color: theme.primary }]}>Initialize Session</Typography>
             </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
 
-      <LoadingOverlay visible={loading} message="Provisioning..." />
+      <LoadingOverlay visible={loading} message="PROVISIONING_IDENT..." />
+      
+      <OTPVerificationModal 
+        visible={showOtpModal}
+        email={email}
+        onVerify={handleVerifySuccess}
+        onClose={() => setShowOtpModal(false)}
+      />
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
   },
   scroll: {
     flexGrow: 1,
+    padding: 24,
     justifyContent: 'center',
-    padding: theme.spacing.xl,
+    paddingTop: 64,
   },
   header: {
-    marginBottom: theme.spacing.xl,
+    marginBottom: 40,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    marginBottom: 24,
+  },
+  subHeader: {
+    fontSize: 10,
+    letterSpacing: 2,
+    marginBottom: 4,
   },
   title: {
-    color: '#FFFFFF',
-    marginBottom: theme.spacing.xs,
-  },
-  subtitle: {
-    color: theme.colors.primary,
-    fontFamily: theme.typography.fonts.mono,
+    fontSize: 24,
+    letterSpacing: 2,
   },
   formContainer: {
-    backgroundColor: theme.colors.surface,
-    padding: theme.spacing.xl,
-    borderRadius: theme.roundness.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
+    gap: 8,
   },
   inputGroup: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: 20,
+    gap: 8,
   },
   label: {
-    color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.xs,
-    fontFamily: theme.typography.fonts.mono,
-    letterSpacing: 1,
+    fontSize: 9,
+    letterSpacing: 1.5,
+    marginLeft: 4,
+  },
+  inputContainer: {
+    borderRadius: 16,
+    borderWidth: 1,
   },
   input: {
-    backgroundColor: theme.colors.surfaceLight,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.roundness.md,
-    padding: theme.spacing.md,
-    color: theme.colors.textPrimary,
+    padding: 16,
+    fontSize: 13,
   },
   helperText: {
     marginTop: 4,
-    color: theme.colors.textTertiary,
     fontSize: 10,
+    marginLeft: 4,
   },
   primaryButton: {
-    backgroundColor: theme.colors.primary,
-    padding: theme.spacing.md,
-    borderRadius: theme.roundness.md,
+    height: 60,
+    borderRadius: 18,
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: theme.spacing.md,
-    marginBottom: theme.spacing.lg,
+    marginTop: 12,
+    marginBottom: 24,
   },
   primaryButtonText: {
-    color: theme.colors.background,
+    fontSize: 14,
     letterSpacing: 1,
-    fontFamily: theme.typography.fonts.mono,
   },
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 40,
   },
   linkText: {
-    color: theme.colors.primary,
+    fontSize: 10,
+    letterSpacing: 0.5,
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 24,
+    gap: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    opacity: 0.2,
+  },
+  dividerText: {
+    fontSize: 8,
+    letterSpacing: 1.5,
+    opacity: 0.5,
+  },
+  oauthRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 8,
+  },
+  oauthBtn: {
+    flex: 1,
+    height: 50,
+    borderRadius: 14,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  oauthBtnText: {
+    fontSize: 10,
+    letterSpacing: 2,
+  },
+  tosRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 4,
+    gap: 12,
+  },
+  checkbox: {
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tosLabel: {
+    fontSize: 10,
+    flex: 1,
   },
 });

@@ -52,6 +52,7 @@ export interface Asset {
     weight: number; // 0-1
     expected_return?: number; // Annual return (μ)
     volatility?: number; // Annual volatility (σ)
+    dividend_yield?: number; // Annual dividend yield
     asset_class?: AssetClass;
     exchange?: string;
 }
@@ -246,6 +247,8 @@ export interface TierEntitlements {
     allow_pdf_export: boolean;
     allow_custom_scenarios: boolean;
     allow_market_streaming: boolean;
+    allow_ai_tuning: boolean;
+    allow_asset_management: boolean;
 }
 
 export const TIER_ENTITLEMENTS: Record<SubscriptionTier, TierEntitlements> = {
@@ -257,6 +260,8 @@ export const TIER_ENTITLEMENTS: Record<SubscriptionTier, TierEntitlements> = {
         allow_pdf_export: false,
         allow_custom_scenarios: false,
         allow_market_streaming: false,
+        allow_ai_tuning: false,
+        allow_asset_management: false,
     },
     plus: {
         max_portfolios: 10,
@@ -266,6 +271,8 @@ export const TIER_ENTITLEMENTS: Record<SubscriptionTier, TierEntitlements> = {
         allow_pdf_export: true,
         allow_custom_scenarios: false,
         allow_market_streaming: true,
+        allow_ai_tuning: true,
+        allow_asset_management: true,
     },
     pro: {
         max_portfolios: -1, // Unlimited
@@ -275,6 +282,8 @@ export const TIER_ENTITLEMENTS: Record<SubscriptionTier, TierEntitlements> = {
         allow_pdf_export: true,
         allow_custom_scenarios: true,
         allow_market_streaming: true,
+        allow_ai_tuning: true,
+        allow_asset_management: true,
     },
     student: {
         max_portfolios: 5,
@@ -284,5 +293,7 @@ export const TIER_ENTITLEMENTS: Record<SubscriptionTier, TierEntitlements> = {
         allow_pdf_export: true,
         allow_custom_scenarios: false,
         allow_market_streaming: true,
+        allow_ai_tuning: false,
+        allow_asset_management: false,
     },
 };

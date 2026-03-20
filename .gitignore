@@ -62,4 +62,9 @@ supabase/.temp/
 supabase/functions/.env
 
 # sensitive documents
-Documents/Credentials and API keys.txt
+Documents/
+Assets and Designs/
+
+# stitch
+StitchAssets
+download_stitch.ps1

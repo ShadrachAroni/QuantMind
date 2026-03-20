@@ -1,13 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Alert, FlatList } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, FlatList, Linking, Dimensions } from 'react-native';
 import { Typography } from '../../components/ui/Typography';
-import { theme } from '../../constants/theme';
+import { sharedTheme } from '../../constants/theme';
 import { useAuthStore } from '../../store/authStore';
-import { Plus, MessageSquare, Clock, CheckCircle, ChevronLeft, Send } from 'lucide-react-native';
+import { useTheme } from '../../context/ThemeContext';
+import { useToast } from '../../context/ToastContext';
+import { 
+  Plus, 
+  MessageSquare, 
+  Clock, 
+  CheckCircle, 
+  ChevronLeft, 
+  Send, 
+  Phone, 
+  Mail, 
+  Shield, 
+  Activity,
+  Headphones,
+  Cpu
+} from 'lucide-react-native';
 import { supabase } from '../../services/supabase';
+import { GlassCard } from '../../components/ui/GlassCard';
+import { GlowEffect } from '../../components/ui/GlowEffect';
+
+const { width } = Dimensions.get('window');
+
+const SUPPORT_PHONE = '+254 746 741 690';
+const SUPPORT_EMAIL = 'Shadracking7@gmail.com';
 
 export function SupportScreen({ navigation }: any) {
   const { user } = useAuthStore();
+  const { theme, isDark } = useTheme();
+  const { showToast } = useToast();
+  
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [tickets, setTickets] = useState<any[]>([]);
@@ -16,10 +41,22 @@ export function SupportScreen({ navigation }: any) {
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
 
+  const PlusIcon = Plus as any;
+  const MessageIcon = MessageSquare as any;
+  const BackIcon = ChevronLeft as any;
+  const SendIcon = Send as any;
+  const PhoneIcon = Phone as any;
+  const MailIcon = Mail as any;
+  const ShieldIcon = Shield as any;
+  const ActivityIcon = Activity as any;
+  const SupportIcon = Headphones as any;
+  const CpuIcon = Cpu as any;
+
+  const dynamicStyles = getStyles(theme, isDark);
+
   useEffect(() => {
     fetchTickets();
     
-    // Real-time subscription for updates
     const channel = supabase
       .channel('support-updates')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets', filter: `user_id=eq.${user?.id}` }, fetchTickets)
@@ -50,13 +87,12 @@ export function SupportScreen({ navigation }: any) {
 
   const handleSubmitTicket = async () => {
     if (!subject.trim() || !content.trim()) {
-      Alert.alert('Incomplete Data', 'Please provide both a subject and a description of your issue.');
+      showToast('DATA_INCOMPLETE: Subject and details required.', 'error');
       return;
     }
 
     setSubmitting(true);
     try {
-      // 1. Create Ticket
       const { data: ticket, error: ticketError } = await supabase
         .from('support_tickets')
         .insert({
@@ -70,7 +106,6 @@ export function SupportScreen({ navigation }: any) {
 
       if (ticketError) throw ticketError;
 
-      // 2. Create Initial Message
       const { error: messageError } = await supabase
         .from('support_messages')
         .insert({
@@ -82,289 +117,434 @@ export function SupportScreen({ navigation }: any) {
 
       if (messageError) throw messageError;
 
-      Alert.alert('Success', 'Your ticket has been submitted. An AI assistant will provide a first-pass reply shortly.');
+      showToast('TICKET_INITIALIZED: Support request queued.', 'success');
       setShowNewTicket(false);
       setSubject('');
       setContent('');
       fetchTickets();
     } catch (err: any) {
-      Alert.alert('Submission Failed', err.message);
+      showToast(err.message.toUpperCase(), 'error');
     } finally {
       setSubmitting(false);
     }
   };
 
+  const ContactCard = () => (
+    <GlassCard style={dynamicStyles.contactCard} intensity="low">
+      <Typography variant="mono" style={[dynamicStyles.contactTitle, { color: theme.textTertiary }]}>// DIRECT_HQ_UPLINK</Typography>
+      <View style={dynamicStyles.contactActions}>
+        <TouchableOpacity style={[dynamicStyles.contactBtn, { borderColor: theme.border, backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)' }]} onPress={() => Linking.openURL(`tel:${SUPPORT_PHONE.replace(/\s/g, '')}`)}>
+          <PhoneIcon size={16} color={theme.primary} />
+          <Typography variant="mono" style={[dynamicStyles.contactValue, { color: theme.primary }]}>{SUPPORT_PHONE}</Typography>
+        </TouchableOpacity>
+        <TouchableOpacity style={[dynamicStyles.contactBtn, { borderColor: theme.border, backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)' }]} onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=QuantMind%20Support`)}>
+          <MailIcon size={16} color={theme.primary} />
+          <Typography variant="mono" style={[dynamicStyles.contactValue, { color: theme.primary }]}>{SUPPORT_EMAIL.toUpperCase()}</Typography>
+        </TouchableOpacity>
+      </View>
+    </GlassCard>
+  );
+
   const TicketCard = ({ ticket }: { ticket: any }) => {
     const statusColor = 
-      ticket.status === 'open' ? theme.colors.primary :
-      ticket.status === 'resolved' ? theme.colors.success :
-      theme.colors.textTertiary;
+      ticket.status === 'open' ? theme.primary :
+      ticket.status === 'resolved' ? theme.success :
+      theme.textTertiary;
 
     const StatusIcon = (ticket.status === 'resolved' ? CheckCircle : Clock) as any;
 
     return (
       <TouchableOpacity 
-        style={styles.ticketCard}
-        onPress={() => Alert.alert('Ticket Detail', 'Feature coming soon: viewing full conversation history.')}
+        style={dynamicStyles.cardWrapper}
+        onPress={() => showToast('TICKET_DETAIL: Feature coming in next OTA update.', 'info')}
+        activeOpacity={0.8}
       >
-        <View style={styles.ticketHeader}>
-          <Typography variant="h3" style={styles.ticketSubject}>{ticket.subject}</Typography>
-          <View style={[styles.statusBadge, { backgroundColor: `${statusColor}20` }]}>
-            {StatusIcon({ size: 12, color: statusColor })}
-            <Typography variant="caption" style={[styles.statusText, { color: statusColor }]}>
-              {ticket.status.toUpperCase()}
-            </Typography>
+        <GlassCard style={dynamicStyles.ticketCard}>
+          <View style={dynamicStyles.ticketHeader}>
+            <View style={dynamicStyles.ticketMain}>
+              <Typography variant="h3" style={[dynamicStyles.ticketSubject, { color: theme.textPrimary }]}>{ticket.subject.toUpperCase()}</Typography>
+              <View style={dynamicStyles.ticketMetaRow}>
+                <Typography variant="caption" style={[dynamicStyles.metaText, { color: theme.textTertiary }]}>
+                  ID: {ticket.id.slice(0, 8).toUpperCase()} // {new Date(ticket.created_at).toLocaleDateString()}
+                </Typography>
+              </View>
+            </View>
+            <View style={[dynamicStyles.statusBadge, { borderColor: statusColor + '44' }]}>
+               <GlowEffect color={statusColor} size={6} glowRadius={6} />
+               <Typography variant="mono" style={[dynamicStyles.statusText, { color: statusColor }]}>
+                 {ticket.status.toUpperCase()}
+               </Typography>
+            </View>
           </View>
-        </View>
-        
-        <Typography variant="caption" style={styles.ticketMeta}>
-           Created {new Date(ticket.created_at).toLocaleDateString()} • {ticket.support_messages?.length || 0} messages
-        </Typography>
-
-        {ticket.status === 'open' && (
-          <View style={styles.aiIndicator}>
-            <ActivityIndicator size="small" color={theme.colors.primary} />
-            <Typography variant="caption" style={styles.aiText}>AI is reviewing your request...</Typography>
-          </View>
-        )}
+          
+          {ticket.status === 'open' && (
+            <View style={[dynamicStyles.aiWorking, { borderColor: theme.primary + '33', backgroundColor: theme.primary + '11' }]}>
+               <ActivityIcon size={12} color={theme.primary} />
+               <Typography variant="mono" style={[dynamicStyles.aiText, { color: theme.primary }]}>AI_KERNEL_REVIEWING_PARAMETERS...</Typography>
+            </View>
+          )}
+        </GlassCard>
       </TouchableOpacity>
     );
   };
 
   if (loading) {
     return (
-      <View style={[styles.container, styles.center]}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+      <View style={[dynamicStyles.container, dynamicStyles.center, { backgroundColor: theme.background }]}>
+        <GlowEffect color={theme.primary} size={100} glowRadius={50} />
+        <ActivityIndicator size="small" color={theme.primary} />
+        <Typography variant="mono" style={[dynamicStyles.loadingText, { color: theme.primary }]}>CONNECTING_TO_SUPPORT_GATEWAY...</Typography>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          {(ChevronLeft as any)({ size: 24, color: '#FFF' })}
-        </TouchableOpacity>
-        <Typography variant="h2" style={styles.headerTitle}>Support Center</Typography>
+    <View style={[dynamicStyles.container, { backgroundColor: theme.background }]}>
+      <View style={[dynamicStyles.header, { borderBottomColor: theme.border }]}>
+        <View style={dynamicStyles.headerTop}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={[dynamicStyles.backBtn, { borderColor: theme.border, backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)' }]}>
+            <BackIcon size={20} color={theme.textSecondary} />
+          </TouchableOpacity>
+          <View style={[dynamicStyles.encryptionBadge, { borderColor: theme.success + '33', backgroundColor: theme.success + '11' }]}>
+             <ShieldIcon size={12} color={theme.success} />
+             <Typography variant="mono" style={[dynamicStyles.encryptionText, { color: theme.success }]}>E2E_ENCRYPTED</Typography>
+          </View>
+        </View>
+        <View style={dynamicStyles.headerTitleRow}>
+          <View>
+            <Typography variant="mono" style={[dynamicStyles.subHeader, { color: theme.textTertiary }]}>INSTITUTIONAL_CARE</Typography>
+            <Typography variant="h2" style={[dynamicStyles.title, { color: theme.textPrimary }]}>BRIDGE_CHANNEL</Typography>
+          </View>
+          <CpuIcon size={32} color={theme.textTertiary} style={{ opacity: 0.1 }} />
+        </View>
       </View>
 
       {showNewTicket ? (
-        <ScrollView style={styles.formContainer} keyboardShouldPersistTaps="handled">
-          <Typography variant="h3" style={styles.formTitle}>New Support Request</Typography>
+        <ScrollView contentContainerStyle={dynamicStyles.formScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <Typography variant="mono" style={[dynamicStyles.formSectionTitle, { color: theme.textSecondary }]}>// INITIALIZE_TICKET</Typography>
           
-          <Typography variant="caption" style={styles.inputLabel}>SUBJECT</Typography>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g., Simulation error on BTC group"
-            placeholderTextColor={theme.colors.textTertiary}
-            value={subject}
-            onChangeText={setSubject}
-          />
+          <GlassCard style={dynamicStyles.formCard}>
+            <View style={dynamicStyles.inputGroup}>
+              <Typography variant="mono" style={[dynamicStyles.label, { color: theme.textTertiary }]}>MISSION_SUBJECT</Typography>
+              <View style={[dynamicStyles.inputWrapper, { borderColor: theme.border }]}>
+                <TextInput
+                  style={[dynamicStyles.input, { color: theme.textPrimary }]}
+                  placeholder="E.G., SIMULATION_KERNEL_EXCEPTION"
+                  placeholderTextColor={theme.textTertiary}
+                  value={subject}
+                  onChangeText={setSubject}
+                />
+              </View>
+            </View>
 
-          <Typography variant="caption" style={styles.inputLabel}>DESCRIPTION</Typography>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            placeholder="Describe your issue in detail..."
-            placeholderTextColor={theme.colors.textTertiary}
-            value={content}
-            onChangeText={setContent}
-            multiline
-            numberOfLines={6}
-          />
+            <View style={dynamicStyles.inputGroup}>
+              <Typography variant="mono" style={[dynamicStyles.label, { color: theme.textTertiary }]}>DETAILED_PARAMETERS</Typography>
+              <View style={[dynamicStyles.inputWrapper, { height: 160, borderColor: theme.border }]}>
+                <TextInput
+                  style={[dynamicStyles.input, { height: '100%', textAlignVertical: 'top', color: theme.textPrimary }]}
+                  placeholder="PROVIDE_REPRODUCTION_LOGS_OR_DESCRIPTION..."
+                  placeholderTextColor={theme.textTertiary}
+                  value={content}
+                  onChangeText={setContent}
+                  multiline
+                />
+              </View>
+            </View>
 
-          <TouchableOpacity 
-            style={[styles.submitButton, submitting && styles.disabledButton]} 
-            onPress={handleSubmitTicket}
-            disabled={submitting}
-          >
-            {submitting ? (
-              <ActivityIndicator color="#000" />
-            ) : (
-              <>
-                <Typography variant="button" style={styles.submitButtonText}>SUBMIT TICKET</Typography>
-                {(Send as any)({ size: 20, color: '#000' })}
-              </>
-            )}
+            <TouchableOpacity 
+              style={[dynamicStyles.submitBtn, { backgroundColor: theme.primary }, submitting && { opacity: 0.5 }]} 
+              onPress={handleSubmitTicket}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <ActivityIndicator color={theme.background} />
+              ) : (
+                <>
+                  <Typography variant="monoBold" style={[dynamicStyles.submitText, { color: theme.background }]}>COMMIT_TICKET</Typography>
+                  <SendIcon size={16} color={theme.background} />
+                </>
+              )}
+            </TouchableOpacity>
+          </GlassCard>
+
+          <TouchableOpacity style={dynamicStyles.cancelBtn} onPress={() => setShowNewTicket(false)}>
+            <Typography variant="mono" style={[dynamicStyles.cancelText, { color: theme.textTertiary }]}>ABORT_INITIALIZATION</Typography>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.cancelButton} onPress={() => setShowNewTicket(false)}>
-            <Typography variant="button" style={styles.cancelButtonText}>CANCEL</Typography>
-          </TouchableOpacity>
+          <ContactCard />
         </ScrollView>
       ) : (
-        <>
+        <View style={{ flex: 1 }}>
           <FlatList
             data={tickets}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => <TicketCard ticket={item} />}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={dynamicStyles.list}
+            showsVerticalScrollIndicator={false}
+            ListHeaderComponent={() => (
+              <Typography variant="mono" style={[dynamicStyles.sectionHeader, { color: theme.textSecondary }]}>// ACTIVE_COMMUNICATION_LOGS</Typography>
+            )}
             ListEmptyComponent={
-              <View style={styles.emptyState}>
-                {(MessageSquare as any)({ size: 48, color: theme.colors.border })}
-                <Typography variant="body" style={styles.emptyText}>No active support tickets.</Typography>
+              <View style={dynamicStyles.emptyState}>
+                <MessageIcon size={32} color={theme.textTertiary} strokeWidth={1} style={{ opacity: 0.5, marginBottom: 16 }} />
+                <Typography variant="mono" style={[dynamicStyles.emptyText, { color: theme.textSecondary }]}>NO_ACTIVE_CHANNELS</Typography>
+                <Typography variant="caption" style={[dynamicStyles.emptySubtext, { color: theme.textTertiary }]}>SUPPORT_HISTORY_IS_CURRENTLY_VACANT</Typography>
               </View>
             }
           />
 
-          <TouchableOpacity style={styles.fab} onPress={() => setShowNewTicket(true)}>
-            {(Plus as any)({ size: 24, color: '#000' })}
+          <ContactCard />
+
+          <TouchableOpacity 
+            style={[dynamicStyles.fab, { backgroundColor: theme.primary, shadowColor: theme.primary }]} 
+            onPress={() => setShowNewTicket(true)}
+            activeOpacity={0.8}
+          >
+            <PlusIcon size={24} color={theme.background} strokeWidth={3} />
+            <GlowEffect color={theme.primary} size={40} glowRadius={20} style={dynamicStyles.fabGlow} />
           </TouchableOpacity>
-        </>
+        </View>
       )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
   },
   center: {
     justifyContent: 'center',
     alignItems: 'center',
+    padding: 40,
+  },
+  loadingText: {
+    fontSize: 9,
+    marginTop: 20,
+    letterSpacing: 1,
   },
   header: {
+    padding: 24,
+    paddingTop: 64,
+    borderBottomWidth: 1,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  encryptionBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: theme.spacing.xl,
-    paddingTop: 60,
-    backgroundColor: theme.colors.surfaceLight,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.border,
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
   },
-  backButton: {
-    marginRight: theme.spacing.md,
+  encryptionText: {
+    fontSize: 8,
+    letterSpacing: 1,
   },
-  headerTitle: {
-    color: '#FFF',
+  headerTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  listContent: {
-    padding: theme.spacing.xl,
-    paddingBottom: 100,
+  subHeader: {
+    fontSize: 10,
+    letterSpacing: 2,
+    marginBottom: 4,
+  },
+  title: {
+    fontSize: 24,
+    letterSpacing: 2,
+  },
+  list: {
+    padding: 24,
+    paddingBottom: 120,
+  },
+  sectionHeader: {
+    fontSize: 10,
+    letterSpacing: 1.5,
+    marginBottom: 16,
+  },
+  cardWrapper: {
+    marginBottom: 16,
   },
   ticketCard: {
-    backgroundColor: theme.colors.surfaceLight,
-    padding: theme.spacing.lg,
-    borderRadius: theme.roundness.md,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginBottom: theme.spacing.md,
+    padding: 18,
+    borderRadius: 20,
   },
   ticketHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: theme.spacing.sm,
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  ticketMain: {
+    flex: 1,
   },
   ticketSubject: {
-    color: theme.colors.textPrimary,
-    flex: 1,
-    marginRight: theme.spacing.sm,
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  ticketMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  metaText: {
+    fontSize: 9,
+    fontFamily: sharedTheme.typography.fonts.mono,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 100,
-    gap: 4,
+    borderRadius: 8,
+    borderWidth: 1,
   },
   statusText: {
-    fontSize: 10,
-    fontWeight: '700',
-    fontFamily: theme.typography.fonts.mono,
+    fontSize: 8,
+    letterSpacing: 1,
   },
-  ticketMeta: {
-    color: theme.colors.textTertiary,
-  },
-  aiIndicator: {
-    marginTop: theme.spacing.md,
+  aiWorking: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: theme.spacing.sm,
-    backgroundColor: 'rgba(0, 217, 255, 0.05)',
-    padding: 8,
-    borderRadius: 4,
+    gap: 8,
+    marginTop: 16,
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
   },
   aiText: {
-    color: theme.colors.primary,
+    fontSize: 8,
+    letterSpacing: 0.5,
     fontStyle: 'italic',
   },
-  emptyState: {
-    alignItems: 'center',
-    marginTop: 100,
+  contactCard: {
+    margin: 24,
+    marginTop: 8,
+    padding: 20,
+    borderRadius: 24,
   },
-  emptyText: {
-    color: theme.colors.textTertiary,
-    marginTop: theme.spacing.lg,
+  contactTitle: {
+    fontSize: 9,
+    letterSpacing: 1.5,
+    marginBottom: 16,
+  },
+  contactActions: {
+    gap: 12,
+  },
+  contactBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  contactValue: {
+    fontSize: 11,
+    letterSpacing: 1,
   },
   fab: {
     position: 'absolute',
     right: 24,
-    bottom: 40,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: theme.colors.primary,
+    bottom: 120,
+    width: 60,
+    height: 60,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 8,
-    shadowColor: '#00D9FF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 15,
+    elevation: 10,
   },
-  formContainer: {
-    padding: theme.spacing.xl,
+  fabGlow: {
+    position: 'absolute',
+    opacity: 0.5,
   },
-  formTitle: {
-    color: '#FFF',
-    marginBottom: theme.spacing.xl,
+  formScroll: {
+    padding: 24,
+    paddingBottom: 60,
   },
-  inputLabel: {
-    color: theme.colors.textTertiary,
-    fontFamily: theme.typography.fonts.mono,
-    marginBottom: theme.spacing.sm,
+  formSectionTitle: {
+    fontSize: 10,
+    letterSpacing: 2,
+    marginBottom: 16,
     marginLeft: 4,
   },
-  input: {
-    backgroundColor: theme.colors.surfaceLight,
+  formCard: {
+    padding: 24,
+    borderRadius: 28,
+    gap: 24,
+  },
+  inputGroup: {
+    gap: 10,
+  },
+  label: {
+    fontSize: 9,
+    letterSpacing: 1.5,
+    marginLeft: 4,
+  },
+  inputWrapper: {
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: theme.colors.border,
-    borderRadius: theme.roundness.md,
-    padding: theme.spacing.lg,
-    color: '#FFF',
-    fontFamily: theme.typography.fonts.regular,
-    fontSize: 16,
-    marginBottom: theme.spacing.xl,
   },
-  textArea: {
-    textAlignVertical: 'top',
-    height: 150,
+  input: {
+    padding: 16,
+    fontFamily: sharedTheme.typography.fonts.mono,
+    fontSize: 13,
   },
-  submitButton: {
-    backgroundColor: theme.colors.primary,
+  submitBtn: {
+    height: 60,
+    borderRadius: 18,
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
-    padding: theme.spacing.lg,
-    borderRadius: theme.roundness.md,
-    gap: theme.spacing.md,
-    marginBottom: theme.spacing.md,
-  },
-  disabledButton: {
-    opacity: 0.6,
-  },
-  submitButtonText: {
-    color: '#000',
-    fontWeight: '800',
-  },
-  cancelButton: {
     alignItems: 'center',
-    padding: theme.spacing.lg,
+    gap: 12,
+    marginTop: 8,
   },
-  cancelButtonText: {
-    color: theme.colors.textTertiary,
+  submitText: {
+    fontSize: 14,
+    letterSpacing: 1,
+  },
+  cancelBtn: {
+    alignItems: 'center',
+    padding: 20,
+    marginTop: 8,
+  },
+  cancelText: {
+    fontSize: 10,
+    letterSpacing: 1,
+  },
+  emptyState: {
+    alignItems: 'center',
+    marginTop: 60,
+    marginBottom: 40,
+  },
+  emptyText: {
+    fontSize: 11,
+    letterSpacing: 2,
+    marginBottom: 8,
+  },
+  emptySubtext: {
+    fontSize: 8,
+    textAlign: 'center',
+    letterSpacing: 1,
   },
 });

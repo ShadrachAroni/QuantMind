@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Typography } from './Typography';
-import { theme } from '../../constants/theme';
+import { useTheme } from '../../context/ThemeContext';
 
 export type SubscriptionTier = 'free' | 'plus' | 'pro' | 'student';
 
@@ -11,30 +11,32 @@ interface TierBadgeProps {
   style?: any;
 }
 
-const TIER_COLORS = {
-  free: {
-    bg: 'rgba(148, 163, 184, 0.1)',
-    text: theme.colors.textSecondary,
-    border: 'rgba(148, 163, 184, 0.2)',
-  },
-  plus: {
-    bg: 'rgba(0, 217, 255, 0.1)',
-    text: theme.colors.primary,
-    border: 'rgba(0, 217, 255, 0.3)',
-  },
-  pro: {
-    bg: 'rgba(124, 58, 237, 0.1)',
-    text: theme.colors.secondary,
-    border: 'rgba(124, 58, 237, 0.3)',
-  },
-  student: {
-    bg: 'rgba(16, 185, 129, 0.1)',
-    text: '#10B981',
-    border: 'rgba(16, 185, 129, 0.3)',
-  },
-};
-
 export function TierBadge({ tier, size = 'small', style }: TierBadgeProps) {
+  const { theme } = useTheme();
+
+  const TIER_COLORS = {
+    free: {
+      bg: theme.textSecondary + '10',
+      text: theme.textSecondary,
+      border: theme.textSecondary + '33',
+    },
+    plus: {
+      bg: theme.primary + '15',
+      text: theme.primary,
+      border: theme.primary + '55',
+    },
+    pro: {
+      bg: theme.secondary + '15',
+      text: theme.secondary,
+      border: theme.secondary + '55',
+    },
+    student: {
+      bg: 'rgba(16, 185, 129, 0.1)',
+      text: '#10B981',
+      border: 'rgba(16, 185, 129, 0.3)',
+    },
+  };
+
   const colors = TIER_COLORS[tier] || TIER_COLORS.free;
   
   const sizeStyles = {
@@ -55,7 +57,7 @@ export function TierBadge({ tier, size = 'small', style }: TierBadgeProps) {
     },
   };
 
-  const currentSize = sizeStyles[size];
+  const currentSize = sizeStyles[size] as any;
 
   return (
     <View

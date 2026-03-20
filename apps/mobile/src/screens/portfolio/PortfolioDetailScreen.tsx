@@ -1,54 +1,68 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { Typography } from '../../components/ui/Typography';
-import { theme } from '../../constants/theme';
 import { usePortfolioStore } from '../../store/portfolioStore';
 import { AssetCard } from '../../components/ui/AssetCard';
 import { PieChart } from 'react-native-svg-charts';
 import { Text as SvgText } from 'react-native-svg';
-import { Play, Cpu, Trash2, Grid } from 'lucide-react-native';
-import { CorrelationHeatmap } from '../../components/charts/CorrelationHeatmap';
+import { Play, Cpu, ShieldAlert, ChevronLeft, Target, Activity } from 'lucide-react-native';
+import { GlassCard } from '../../components/ui/GlassCard';
+import { GlowEffect } from '../../components/ui/GlowEffect';
+import { useTheme } from '../../context/ThemeContext';
+import { sharedTheme } from '../../constants/theme';
+import { STRINGS } from '../../constants/strings';
+
+const { width } = Dimensions.get('window');
 
 export function PortfolioDetailScreen({ route, navigation }: any) {
   const { id } = route.params;
   const { portfolios } = usePortfolioStore();
+  const { theme, isDark } = useTheme();
   const portfolio = portfolios.find(p => p.id === id);
+
+  const PrevIcon = ChevronLeft as any;
+  const RunIcon = Play as any;
+  const ClinicIcon = Cpu as any;
+  const RiskIcon = ShieldAlert as any;
+  const TargetIcon = Target as any;
+  const ActivityIcon = Activity as any;
+
+  const dynamicStyles = getStyles(theme, isDark);
 
   if (!portfolio) {
     return (
-      <View style={styles.centerContainer}>
-        <Typography variant="body" style={{color: theme.colors.error}}>Portfolio not found.</Typography>
+      <View style={[dynamicStyles.centerContainer, { backgroundColor: theme.background }]}>
+        <Typography variant="body" style={{color: theme.error}}>{STRINGS.KERNEL_PANIC}: PORTFOLIO_NOT_FOUND</Typography>
         <TouchableOpacity style={{marginTop: 20}} onPress={() => navigation.goBack()}>
-          <Typography variant="button">Go Back</Typography>
+          <Typography variant="mono" style={{ color: theme.primary }}>{STRINGS.REBOOT_SESSION}</Typography>
         </TouchableOpacity>
       </View>
     );
   }
 
-  // Generate pie chart data
   const pieData = useMemo(() => {
-    const colors = [theme.colors.primary, theme.colors.secondary, '#10B981', '#F59E0B', '#F43F5E', '#3B82F6'];
+    const colors = [theme.primary, theme.secondary, '#10B981', '#F59E0B', '#F43F5E', '#8B5CF6'];
     return (portfolio.assets || []).map((asset, index) => ({
       value: asset.weight * 100,
       svg: { fill: colors[index % colors.length] },
       key: `pie-${index}`,
       ticker: asset.ticker,
     }));
-  }, [portfolio.assets]);
+  }, [portfolio.assets, theme]);
 
-  const Labels = ({ slices, height, width }: any) => {
+  const Labels = ({ slices }: any) => {
     return slices.map((slice: any, index: number) => {
-        const { labelCentroid, pieCentroid, data } = slice;
+        const { pieCentroid, data } = slice;
         return (
             <SvgText
                 key={index}
                 x={pieCentroid[0]}
                 y={pieCentroid[1]}
-                fill={theme.colors.background}
+                fill="#FFFFFF"
                 textAnchor={'middle'}
                 alignmentBaseline={'middle'}
-                fontSize={10}
-                fontFamily={theme.typography.fonts.mono}
+                fontSize={8}
+                fontFamily={sharedTheme.typography.fonts.mono}
                 fontWeight="bold"
             >
               {data.ticker}
@@ -60,73 +74,89 @@ export function PortfolioDetailScreen({ route, navigation }: any) {
   const formattedTotal = (portfolio.total_value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-             <Typography variant="button" style={{color: theme.colors.textSecondary}}>← Back</Typography>
+    <View style={[dynamicStyles.container, { backgroundColor: theme.background }]}>
+      <ScrollView contentContainerStyle={dynamicStyles.scroll} showsVerticalScrollIndicator={false}>
+        <View style={dynamicStyles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={[dynamicStyles.backBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', borderColor: theme.border }]}>
+            <PrevIcon size={18} color={theme.textSecondary} />
           </TouchableOpacity>
-          <Typography variant="h2" style={styles.title}>{portfolio.name}</Typography>
-          {portfolio.description && (
-            <Typography variant="body" style={styles.desc}>{portfolio.description}</Typography>
-          )}
+          <View>
+            <Typography variant="mono" style={[dynamicStyles.subHeader, { color: theme.textTertiary }]}>{STRINGS.IDENTIFIER}: {portfolio.id.slice(0, 8).toUpperCase()}</Typography>
+            <Typography variant="h2" style={[dynamicStyles.title, { color: theme.textPrimary }]}>{portfolio.name.toUpperCase()}</Typography>
+          </View>
         </View>
 
-        <View style={styles.topSection}>
-          <View style={styles.valueContainer}>
-            <Typography variant="caption" style={styles.label}>EST ACTIVE EXPOSURE</Typography>
-            <Typography variant="h1" style={styles.value}>${formattedTotal}</Typography>
+        <GlassCard intensity="high" style={dynamicStyles.mainStats}>
+          <View style={[dynamicStyles.statusRow, { backgroundColor: isDark ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.05)' }]}>
+              <GlowEffect color={theme.primary} size={6} glowRadius={8} />
+              <Typography variant="mono" style={[dynamicStyles.statusText, { color: theme.primary }]}>{STRINGS.SYSTEM_ACTIVE}</Typography>
           </View>
 
-          <View style={styles.actionRow}>
+          <Typography variant="mono" style={[dynamicStyles.label, { color: theme.textTertiary }]}>{STRINGS.TOTAL_CAPITAL_ALLOCATION}</Typography>
+          <View style={dynamicStyles.valueRow}>
+            <Typography variant="h1" style={[dynamicStyles.currency, { color: theme.primary }]}>$</Typography>
+            <Typography variant="h1" style={[dynamicStyles.totalValue, { color: theme.textPrimary }]}>{formattedTotal}</Typography>
+          </View>
+
+          <View style={dynamicStyles.actionGrid}>
             <TouchableOpacity 
-              style={[styles.actionBtn, { backgroundColor: theme.colors.primary }]}
+              style={[dynamicStyles.actionBtn, { backgroundColor: theme.primary + '15', borderColor: theme.primary + '33' }]}
               onPress={() => navigation.navigate('Simulations', { screen: 'SimulationSetup', params: { portfolioId: portfolio.id } })}
             >
-              {(Play as any)({ size: 16, color: theme.colors.background })}
-              <Typography variant="button" style={[styles.actionText, { color: theme.colors.background }]}>RUN MODEL</Typography>
+              <RunIcon size={14} color={theme.primary} />
+              <Typography variant="monoBold" style={[dynamicStyles.actionText, { color: theme.primary }]}>{STRINGS.MODEL}</Typography>
             </TouchableOpacity>
             
             <TouchableOpacity 
-              style={[styles.actionBtn, { backgroundColor: theme.colors.surfaceLight, borderWidth: 1, borderColor: theme.colors.secondary }]}
+              style={[dynamicStyles.actionBtn, { backgroundColor: theme.secondary + '15', borderColor: theme.secondary + '33' }]}
               onPress={() => navigation.navigate('AI', { screen: 'AIChat', params: { portfolioId: portfolio.id, workflow: 'portfolio_doctor' } })}
             >
-              {(Cpu as any)({ size: 16, color: theme.colors.secondary })}
-              <Typography variant="button" style={[styles.actionText, { color: theme.colors.secondary }]}>AI DOCTOR</Typography>
+              <ClinicIcon size={14} color={theme.secondary} />
+              <Typography variant="monoBold" style={[dynamicStyles.actionText, { color: theme.secondary }]}>{STRINGS.ORACLE}</Typography>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[dynamicStyles.actionBtn, { backgroundColor: theme.error + '15', borderColor: theme.error + '33' }]}
+              onPress={() => navigation.navigate('AI', { screen: 'AIChat', params: { portfolioId: portfolio.id, workflow: 'risk_assessment' } })}
+            >
+              <RiskIcon size={14} color={theme.error} />
+              <Typography variant="monoBold" style={[dynamicStyles.actionText, { color: theme.error }]}>{STRINGS.PENDING}</Typography>
             </TouchableOpacity>
           </View>
-        </View>
+        </GlassCard>
 
-        <View style={styles.chartCard}>
-          <Typography variant="caption" style={styles.sectionTitle}>ASSET ALLOCATION</Typography>
-          {portfolio.assets && portfolio.assets.length > 0 ? (
-            <View style={{ height: 200, marginTop: 10 }}>
-              <PieChart
-                style={{ height: 200 }}
-                valueAccessor={({ item }: { item: any }) => item.value}
-                data={pieData}
-                outerRadius={'95%'}
-                innerRadius={'50%'}
-              >
-                <Labels />
-              </PieChart>
-              <View style={styles.pieCenterOverlay}>
-                <Typography variant="h3" style={{fontFamily: theme.typography.fonts.mono}}>
-                  {portfolio.assets.length}
-                </Typography>
-                <Typography variant="caption" style={{fontSize: 10}}>Positions</Typography>
+        <View style={dynamicStyles.chartSection}>
+          <Typography variant="h3" style={[dynamicStyles.sectionTitle, { color: theme.textTertiary }]}>{STRINGS.WEIGHT_CALIBRATION}</Typography>
+          <GlassCard style={dynamicStyles.chartCard}>
+            {portfolio.assets && portfolio.assets.length > 0 ? (
+              <View style={dynamicStyles.chartContainer}>
+                <PieChart
+                  style={{ height: 180 }}
+                  valueAccessor={({ item }: { item: any }) => item.value}
+                  data={pieData}
+                  outerRadius={'90%'}
+                  innerRadius={'65%'}
+                  padAngle={0.03}
+                >
+                  <Labels />
+                </PieChart>
+                <View style={dynamicStyles.pieCenter}>
+                  <TargetIcon size={24} color={theme.textTertiary} style={{ opacity: 0.5 }} />
+                  <Typography variant="mono" style={[dynamicStyles.posCount, { color: theme.textPrimary }]}>{portfolio.assets.length}</Typography>
+                  <Typography variant="caption" style={[dynamicStyles.posLabel, { color: theme.textTertiary }]}>{STRINGS.ACTIVE_PORTFOLIOS}</Typography>
+                </View>
               </View>
-            </View>
-          ) : (
-            <Typography variant="body" style={styles.emptyChart}>No assets allocated</Typography>
-          )}
+            ) : (
+              <View style={dynamicStyles.emptyChart}>
+                <ActivityIcon size={32} color={theme.textTertiary} style={{ opacity: 0.3, marginBottom: 12 }} />
+                <Typography variant="mono" style={[dynamicStyles.emptyText, { color: theme.textTertiary }]}>{STRINGS.WAITING_FOR_DATA_INPUT}</Typography>
+              </View>
+            )}
+          </GlassCard>
         </View>
 
-        <Typography variant="caption" style={[styles.sectionTitle, { marginTop: theme.spacing.xl, marginBottom: theme.spacing.sm }]}>
-          CONSTITUENTS
-        </Typography>
-
-        <View style={styles.assetList}>
+        <Typography variant="h3" style={[dynamicStyles.sectionTitle, { marginTop: 32, color: theme.textTertiary }]}>CONSTITUENTS_VIEW</Typography>
+        <View style={dynamicStyles.assetList}>
           {portfolio.assets?.map((asset) => (
             <AssetCard 
               key={asset.ticker}
@@ -134,93 +164,127 @@ export function PortfolioDetailScreen({ route, navigation }: any) {
               name={asset.name}
               weight={asset.weight}
               amountValue={(portfolio.total_value || 0) * asset.weight}
+              onPress={() => {}}
             />
           ))}
         </View>
 
+        <View style={{ height: 60 }} />
       </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background,
   },
   centerContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: theme.colors.background,
   },
   scroll: {
-    padding: theme.spacing.xl,
-    paddingTop: theme.spacing.xxl,
+    padding: sharedTheme.spacing.xl,
+    paddingTop: 64,
   },
   header: {
-    marginBottom: theme.spacing.xl,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 32,
+    gap: 16,
   },
-  backButton: {
-    marginBottom: 8,
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+  },
+  subHeader: {
+    fontSize: 10,
+    letterSpacing: 1,
+    marginBottom: 2,
   },
   title: {
-    color: '#FFF',
+    fontSize: 20,
+    letterSpacing: 1,
   },
-  desc: {
-    color: theme.colors.textSecondary,
-    marginTop: 4,
+  mainStats: {
+    padding: 24,
+    borderRadius: 24,
+    marginBottom: 32,
   },
-  topSection: {
-    backgroundColor: theme.colors.surface,
-    padding: theme.spacing.xl,
-    borderRadius: theme.roundness.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    marginBottom: theme.spacing.xl,
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 20,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  statusText: {
+    fontSize: 9,
+    letterSpacing: 1,
   },
   label: {
-    color: theme.colors.textTertiary,
-    fontFamily: theme.typography.fonts.mono,
-    letterSpacing: 1,
+    fontSize: 10,
+    letterSpacing: 2,
     marginBottom: 8,
   },
-  valueContainer: {
-    marginBottom: theme.spacing.xl,
-  },
-  value: {
-    fontFamily: theme.typography.fonts.mono,
-  },
-  actionRow: {
+  valueRow: {
     flexDirection: 'row',
-    gap: theme.spacing.md,
+    alignItems: 'flex-start',
+    marginBottom: 24,
+  },
+  currency: {
+    fontSize: 24,
+    marginTop: 4,
+    marginRight: 4,
+  },
+  totalValue: {
+    fontSize: 32,
+    letterSpacing: -1,
+  },
+  actionGrid: {
+    flexDirection: 'row',
+    gap: 10,
   },
   actionBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: theme.spacing.md,
-    borderRadius: theme.roundness.md,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
     gap: 8,
   },
   actionText: {
-    fontFamily: theme.typography.fonts.mono,
+    fontSize: 9,
+    letterSpacing: 0.5,
+  },
+  chartSection: {
+    marginBottom: 32,
   },
   sectionTitle: {
-    color: theme.colors.textSecondary,
-    fontFamily: theme.typography.fonts.mono,
-    letterSpacing: 1,
+    fontSize: 11,
+    letterSpacing: 2,
+    marginBottom: 16,
+    marginLeft: 4,
   },
   chartCard: {
-    backgroundColor: theme.colors.surfaceLight,
-    padding: theme.spacing.lg,
-    borderRadius: theme.roundness.lg,
-    borderWidth: 1,
-    borderColor: theme.colors.border,
-    position: 'relative',
+    padding: 20,
+    borderRadius: 24,
   },
-  pieCenterOverlay: {
+  chartContainer: {
+    position: 'relative',
+    height: 180,
+  },
+  pieCenter: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -229,13 +293,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  posCount: {
+    fontSize: 20,
+    marginTop: 4,
+  },
+  posLabel: {
+    fontSize: 8,
+    letterSpacing: 1,
+  },
   emptyChart: {
-    textAlign: 'center',
-    marginTop: 40,
-    marginBottom: 40,
-    color: theme.colors.textTertiary,
+    height: 150,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 10,
+    letterSpacing: 1.5,
   },
   assetList: {
-    marginBottom: theme.spacing.xxl,
+    marginBottom: 40,
   },
 });

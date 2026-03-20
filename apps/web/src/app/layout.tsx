@@ -1,8 +1,5 @@
 import './globals.css';
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
-
-const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   title: 'QuantMind — Institutional Portfolio Terminal',
@@ -16,7 +13,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className="bg-background text-foreground antialiased overflow-x-hidden">
+        <div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(0,217,255,0.05)_0%,transparent_50%)] pointer-events-none" />
+        {children}
+      </body>
     </html>
   );
 }

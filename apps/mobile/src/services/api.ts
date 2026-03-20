@@ -62,5 +62,32 @@ export const api = {
     });
     if (error) throw error;
     return data;
+  },
+
+  async getWatchlist() {
+    const { data, error } = await supabase
+      .from('watchlists')
+      .select('tickers')
+      .eq('name', 'DEFAULT_WATCHLIST')
+      .single();
+    
+    if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows"
+    return data || { tickers: [] };
+  },
+
+  async updateWatchlist(tickers: string[]) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { error } = await supabase
+      .from('watchlists')
+      .upsert({ 
+        user_id: user.id,
+        name: 'DEFAULT_WATCHLIST',
+        tickers,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id, name' });
+    
+    if (error) throw error;
   }
 };

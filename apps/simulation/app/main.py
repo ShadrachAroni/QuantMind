@@ -159,6 +159,92 @@ def run_fat_tails(
     return initial_value * np.exp(cum_log)
 
 
+def run_jump_diffusion(
+    mu: float,
+    sigma: float,
+    initial_value: float,
+    time_horizon_years: float,
+    num_paths: int,
+    seed: Optional[int],
+    lambda_j: float = 0.1,  # average jumps per year
+    mu_j: float = -0.05,    # mean jump size
+    sigma_j: float = 0.1,   # jump volatility
+) -> np.ndarray:
+    """Merton's Jump Diffusion model."""
+    rng = np.random.default_rng(seed)
+    num_steps = max(int(time_horizon_years * 252), 252)
+    dt = 1/252
+
+    # GBM component
+    drift = (mu - 0.5 * sigma**2 - lambda_j * (np.exp(mu_j + 0.5 * sigma_j**2) - 1)) * dt
+    diffusion = sigma * np.sqrt(dt)
+    
+    Z = rng.standard_normal((num_paths, num_steps))
+    log_returns = drift + diffusion * Z
+    
+    # Jump component (Poisson process)
+    jumps = rng.poisson(lambda_j * dt, (num_paths, num_steps))
+    jump_sizes = rng.normal(mu_j, sigma_j, (num_paths, num_steps))
+    
+    log_returns += jumps * jump_sizes
+    
+    cum_log = np.concatenate([np.zeros((num_paths, 1)), np.cumsum(log_returns, axis=1)], axis=1)
+    return initial_value * np.exp(cum_log)
+
+
+def run_regime_switching(
+    mu: float,
+    sigma: float,
+    initial_value: float,
+    time_horizon_years: float,
+    num_paths: int,
+    seed: Optional[int],
+) -> np.ndarray:
+    """2-state Markov Regime Switching (Expansion/Contraction)."""
+    rng = np.random.default_rng(seed)
+    num_steps = max(int(time_horizon_years * 252), 252)
+    dt = 1/252
+
+    # Simplify: State 0 (Normal): μ, σ | State 1 (Stress): μ-5%, σ*2
+    mu0, sig0 = mu, sigma
+    mu1, sig1 = mu - 0.05, sigma * 2.0
+    
+    # Transition matrix (Prob of staying in state)
+    p00, p11 = 0.98, 0.95 
+    
+    paths = np.zeros((num_paths, num_steps + 1))
+    paths[:, 0] = initial_value
+    
+    states = np.zeros(num_paths, dtype=int) # All start in State 0
+    
+    current_prices = np.full(num_paths, initial_value)
+    
+    for t in range(1, num_steps + 1):
+        # Determine next states
+        r = rng.random(num_paths)
+        new_states = np.zeros(num_paths, dtype=int)
+        
+        # State transitions
+        mask0 = (states == 0)
+        new_states[mask0] = np.where(r[mask0] < p00, 0, 1)
+        
+        mask1 = (states == 1)
+        new_states[mask1] = np.where(r[mask1] < p11, 1, 0)
+        
+        states = new_states
+        
+        # Compute returns for this step based on state
+        mus = np.where(states == 0, mu0, mu1)
+        sigs = np.where(states == 0, sig0, sig1)
+        
+        Z = rng.standard_normal(num_paths)
+        rets = np.exp((mus - 0.5 * sigs**2) * dt + sigs * np.sqrt(dt) * Z)
+        current_prices *= rets
+        paths[:, t] = current_prices
+        
+    return paths
+
+
 def compute_risk_metrics(
     paths: np.ndarray,
     initial_value: float,
@@ -355,7 +441,23 @@ async def process_simulation(job: SimulationJob):
                 num_paths=params.num_paths,
                 seed=params.seed,
             )
-        else:  # gbm (default) or unsupported
+        elif params.model_type == "jump_diffusion":
+            paths = run_jump_diffusion(
+                mu=mu, sigma=sigma,
+                initial_value=params.initial_value,
+                time_horizon_years=params.time_horizon_years,
+                num_paths=params.num_paths,
+                seed=params.seed,
+            )
+        elif params.model_type == "regime_switching":
+            paths = run_regime_switching(
+                mu=mu, sigma=sigma,
+                initial_value=params.initial_value,
+                time_horizon_years=params.time_horizon_years,
+                num_paths=params.num_paths,
+                seed=params.seed,
+            )
+        else:  # gbm (default)
             paths = run_gbm(
                 mu=mu, sigma=sigma,
                 initial_value=params.initial_value,

@@ -8,6 +8,8 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { useAuthStore } from './src/store/authStore';
 import { theme } from './src/constants/theme';
 import { LoadingOverlay } from './src/components/ui/LoadingOverlay';
+import { ThemeProvider } from './src/context/ThemeContext';
+import { ToastProvider } from './src/context/ToastContext';
 
 // Create QueryClient instance
 const queryClient = new QueryClient({
@@ -43,8 +45,12 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <StatusBar style="light" />
-          <AppContent />
+          <ThemeProvider>
+            <ToastProvider>
+              <StatusBar style="light" />
+              <AppContent />
+            </ToastProvider>
+          </ThemeProvider>
         </QueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

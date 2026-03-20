@@ -186,6 +186,27 @@ serve(async (req: Request) => {
       .update({ processed: true, processed_at: new Date().toISOString() })
       .eq('event_id', eventId);
 
+    // Send Confirmation Email for purchases/renewals
+    if (['INITIAL_PURCHASE', 'RENEWAL', 'REACTIVATION'].includes(eventType)) {
+      try {
+        const { data: userData } = await supabase.auth.admin.getUserById(appUserId);
+        if (userData?.user?.email) {
+          const { sendEmail, getFX1Template } = await import('../_shared/email.ts');
+          const emailHtml = getFX1Template(
+            `<p>Your ${newTier.toUpperCase()} subscription is now active.</p><p>Thank you for choosing QuantMind for your institutional intelligence.</p>`,
+            'Subscription Activated'
+          );
+          await sendEmail({
+            to: userData.user.email,
+            subject: 'QuantMind Premium Activated',
+            html: emailHtml
+          });
+        }
+      } catch (emailErr) {
+        console.error('[webhook-revenuecat] Email notification failed:', emailErr);
+      }
+    }
+
     return new Response(JSON.stringify({ status: 'processed' }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },

@@ -14,10 +14,11 @@ const TIER_AI_LIMITS: Record<string, number> = {
 };
 
 const MODELS: Record<string, string> = {
-  free:    'claude-3-haiku-20240307',
-  plus:    'claude-3-haiku-20240307',
-  pro:     'claude-3-5-sonnet-20241022',
-  student: 'claude-3-haiku-20240307',
+  free:    'gemini-1.5-flash',
+  plus:    'gemini-1.5-flash',
+  pro_standard: 'gemini-1.5-flash',
+  pro_advanced: 'gemini-1.5-pro',
+  student: 'gemini-1.5-flash',
 };
 
 // Prompt injection prevention: strip suspicious patterns
@@ -147,39 +148,57 @@ Assets: ${JSON.stringify(portfolio.assets, null, 2)}`;
       }
     }
 
-    // Call Anthropic API
-    const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY');
-    if (!anthropicKey) throw new Error('AI service unavailable');
+    // AI Preferences (Restricted to Plus/Pro)
+    const allowedAIPreferences = ['plus', 'pro'].includes(user.tier);
+    const aiPrefs = allowedAIPreferences ? context.aiPrefs : null;
+    
+    if (aiPrefs) {
+      contextBlock += `\n\nAI_COGNITIVE_OVERRIDES:
+- Risk Aversion: ${aiPrefs.riskAversion || 'standard'}
+- Detail Level: ${aiPrefs.detailLevel || 'concise'}
+- Focus Areas: ${JSON.stringify(aiPrefs.focusAreas || [])}`;
+    }
 
-    const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+    // Call Gemini API
+    const geminiKey = Deno.env.get('GEMINI_API_KEY');
+    if (!geminiKey) throw new Error('AI service unavailable');
+
+    // Model Selection based on tier and workflow
+    let model = MODELS[user.tier] || MODELS.free;
+    if (user.tier === 'pro') {
+      model = workflow === 'portfolio_doctor' ? MODELS.pro_advanced : MODELS.pro_standard;
+    }
+
+    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`, {
       method: 'POST',
       headers: {
-        'x-api-key': anthropicKey,
-        'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: MODELS[user.tier] || MODELS.free,
-        max_tokens: 1500,
-        system: SYSTEM_PROMPT + contextBlock,
-        messages: [{ role: 'user', content: message }],
+        contents: [{
+          parts: [{ text: SYSTEM_PROMPT + contextBlock + "\n\nUSER_MESSAGE: " + message }]
+        }],
+        generationConfig: {
+          maxOutputTokens: 1500,
+          temperature: 0.7,
+        }
       }),
     });
 
-    if (!anthropicResponse.ok) {
-      const err = await anthropicResponse.json();
-      console.error('[ai-chat] Anthropic error:', err);
+    if (!geminiResponse.ok) {
+      const err = await geminiResponse.json();
+      console.error('[ai-chat] Gemini error:', err);
       throw new Error('AI service temporarily unavailable');
     }
 
-    const anthropicData = await anthropicResponse.json();
-    const responseText = anthropicData.content?.[0]?.text || 'I could not generate a response. Please try again.';
+    const geminiData = await geminiResponse.json();
+    const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || 'I could not generate a response. Please try again.';
 
     return new Response(JSON.stringify({
       message: responseText,
-      model: MODELS[user.tier] || MODELS.free,
+      model,
       workflow,
-      tokens_used: anthropicData.usage?.output_tokens,
+      tokens_used: geminiData.usageMetadata?.totalTokenCount,
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
