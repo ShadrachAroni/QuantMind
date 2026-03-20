@@ -1,3 +1,0 @@
-slogan  = "Where Probability Meets Investing."
-
-Mission  = "To empower investors with accessible quantitative tools that transform uncertainty into insight, enabling smarter, more informed investment decisions."
