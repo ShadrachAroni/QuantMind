@@ -196,27 +196,56 @@ serve(async (req: Request) => {
       .update({ processed: true, processed_at: new Date().toISOString() })
       .eq('event_id', eventId);
 
-    // Send Confirmation Email for purchases/renewals
-    if (['INITIAL_PURCHASE', 'RENEWAL', 'REACTIVATION'].includes(eventType)) {
+    // Send Confirmation Email for purchases/renewals/activations
+    if (['INITIAL_PURCHASE', 'RENEWAL', 'REACTIVATION', 'UNCANCELLATION'].includes(eventType)) {
       try {
         const { data: userData } = await supabase.auth.admin.getUserById(appUserId);
         if (userData?.user?.email) {
-          const { sendEmail, getFX1Template } = await import('../_shared/email.ts');
-          const emailHtml = getFX1Template(
-            `
-            <div class="status-bubble">${eventType.replace('_', ' ')}</div>
-            <h1>Institutional access activated</h1>
-            <p>Your <strong>${newTier.toUpperCase()}</strong> terminal access is now live for account <strong>${appUserId.substring(0, 8)}</strong>.</p>
-            <p>We've successfully synchronized your credentials with the global FX1 network. You now have full access to high-frequency simulations and institutional-grade intelligence.</p>
-            <a href="https://quantmind.app/terminal" class="btn">Launch Terminal</a>
-            `,
-            'Node Activation'
-          );
-          await sendEmail({
-            to: userData.user.email,
-            subject: 'QuantMind Premium Activated',
-            html: emailHtml
+          // Call the CENTRALIZED send-email service
+          const sendEmailUrl = `${Deno.env.get('SUPABASE_URL')}/functions/v1/send-email`;
+          const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+          let type = 'subscription_update';
+          let details: any = { tier: newTier, userId: appUserId };
+
+          if (eventType === 'INITIAL_PURCHASE') {
+            type = 'welcome';
+          } else {
+            const amount = event.price_in_purchased_currency 
+              ? `${event.currency} ${event.price_in_purchased_currency.toFixed(2)}` 
+              : (newTier === 'pro' ? 'USD 49.99' : 'USD 19.99');
+              
+            const nextBilling = expirationAt 
+              ? new Date(expirationAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+              : 'N/A';
+
+            details = {
+              tier: newTier,
+              status: 'PROVISIONED',
+              amount: amount,
+              nextBilling: nextBilling,
+              userId: appUserId
+            };
+          }
+
+          const emailRes = await fetch(sendEmailUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${serviceRoleKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              to: userData.user.email,
+              type,
+              tier: newTier,
+              userId: appUserId,
+              details
+            })
           });
+
+          if (!emailRes.ok) {
+            console.error('[webhook-revenuecat] Mailer service error:', await emailRes.text());
+          }
         }
       } catch (emailErr) {
         console.error('[webhook-revenuecat] Email notification failed:', emailErr);
