@@ -37,6 +37,16 @@ function hexToBytes(hex: string): Uint8Array {
 }
 
 serve(async (req: Request) => {
+  if (req.method === 'GET') {
+    return new Response(JSON.stringify({ 
+      status: 'active', 
+      message: 'QuantMind RevenueCat Webhook is listening' 
+    }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   const origin = req.headers.get('Origin');
 
   if (req.method !== 'POST') {

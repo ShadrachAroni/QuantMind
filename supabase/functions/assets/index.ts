@@ -14,7 +14,7 @@ interface AssetSearchResult {
   currency?: string;
 }
 
-async function searchYahoo(query: string): Promise<AssetSearchResult[]> {
+export async function searchYahoo(query: string): Promise<AssetSearchResult[]> {
   const url = `https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(query)}&quotesCount=10&newsCount=0&enableFuzzyQuery=false&quotesQueryId=tss_match_phrase_query`;
   
   const response = await fetch(url, {
@@ -39,7 +39,7 @@ async function searchYahoo(query: string): Promise<AssetSearchResult[]> {
     }));
 }
 
-function classifyAsset(quoteType: string): string {
+export function classifyAsset(quoteType: string): string {
   const map: Record<string, string> = {
     EQUITY: 'stocks',
     ETF: 'stocks',
@@ -55,58 +55,60 @@ function classifyAsset(quoteType: string): string {
   return map[quoteType?.toUpperCase()] || 'other';
 }
 
-serve(async (req: Request) => {
-  const origin = req.headers.get('Origin');
-  const corsRes = handleCors(req);
-  if (corsRes) return corsRes;
+if (import.meta.main) {
+  serve(async (req: Request) => {
+    const origin = req.headers.get('Origin');
+    const corsRes = handleCors(req);
+    if (corsRes) return corsRes;
 
-  try {
-    const user = await requireAuth(req);
+    try {
+      const user = await requireAuth(req);
 
-    // Rate limit: 30 req/min per user
-    const limit = await rateLimit(`assets:${user.id}`, 30, 60);
-    if (!limit.allowed) return rateLimitResponse(limit);
+      // Rate limit: 30 req/min per user
+      const limit = await rateLimit(`assets:${user.id}`, 30, 60);
+      if (!limit.allowed) return rateLimitResponse(limit);
 
-    const url = new URL(req.url);
-    const query = url.searchParams.get('q');
-    if (!query || query.trim().length < 1) {
-      return new Response(JSON.stringify({ error: 'Query parameter q is required' }), {
-        status: 400,
+      const url = new URL(req.url);
+      const query = url.searchParams.get('q');
+      if (!query || query.trim().length < 1) {
+        return new Response(JSON.stringify({ error: 'Query parameter q is required' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
+        });
+      }
+
+      if (query.length > 50) {
+        return new Response(JSON.stringify({ error: 'Query too long' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
+        });
+      }
+
+      const results = await searchYahoo(query.trim());
+
+      return new Response(JSON.stringify({ data: results }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, max-age=3600',
+          ...corsHeaders(origin),
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      
+      if (message.includes('Unauthorized') || message.includes('Missing')) {
+        return new Response(JSON.stringify({ error: 'Your session has expired. Please sign in again.' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
+        });
+      }
+
+      console.error('[assets] Error:', message);
+      return new Response(JSON.stringify({ error: 'Something went wrong. Please try again.' }), {
+        status: 500,
         headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
       });
     }
-
-    if (query.length > 50) {
-      return new Response(JSON.stringify({ error: 'Query too long' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
-      });
-    }
-
-    const results = await searchYahoo(query.trim());
-
-    return new Response(JSON.stringify({ data: results }), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'public, max-age=3600',
-        ...corsHeaders(origin),
-      },
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    
-    if (message.includes('Unauthorized') || message.includes('Missing')) {
-      return new Response(JSON.stringify({ error: 'Your session has expired. Please sign in again.' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
-      });
-    }
-
-    console.error('[assets] Error:', message);
-    return new Response(JSON.stringify({ error: 'Something went wrong. Please try again.' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
-    });
-  }
-});
+  });
+}

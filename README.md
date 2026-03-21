@@ -13,8 +13,9 @@ We maintain comprehensive documentation for all aspects of the platform inside t
 - **[Architecture & Modules](./docs/architecture.md)**: Deep dive into the monorepo structure, data flow, and technologies.
 - **[API Integration Guide](./docs/api-usage.md)**: How we effectively use Anthropic, Alpha Vantage, Twelve Data, and more.
 - **[Asterix API Integration Strategy](./docs/asterix-api.md)**: Details on our proprietary AI-Data orchestration layer.
-- **[Environment Setup & Credentials](./docs/env-setup.md)**: Detailed instructions on generating keys and configuring `.env` files.
-- **[Monorepo & Shared Packages](./docs/monorepo-packages.md)**: How we use NPM Workspaces to link shared logic.
+- [x] **[Environment Setup & Credentials](./docs/env-setup.md)**: Detailed instructions on generating keys and configuring `.env` files.
+- [x] **[Deployment Guide](./docs/deployment.md)**: Steps to push your project from staging to production.
+- [x] **[Monorepo & Shared Packages](./docs/monorepo-packages.md)**: How we use NPM Workspaces to link shared logic.
 - **[App Operational Rules](./Docs/Quantmind%20App%20Rules.md)**: The strict guidelines governing app behavior and data privacy.
 
 ---

@@ -28,7 +28,7 @@ interface HistoricalResponse {
   source: string;
 }
 
-function normalizeAlphaVantage(raw: any, symbol: string): NormalizedPrice[] {
+export function normalizeAlphaVantage(raw: any, symbol: string): NormalizedPrice[] {
   const series = raw['Time Series (Daily)'];
   if (!series) return [];
   
@@ -47,7 +47,7 @@ function normalizeAlphaVantage(raw: any, symbol: string): NormalizedPrice[] {
     .filter(p => !isNaN(p.price) && p.price > 0);
 }
 
-function computeGBMParams(prices: NormalizedPrice[]): { mu: number; sigma: number } {
+export function computeGBMParams(prices: NormalizedPrice[]): { mu: number; sigma: number } {
   if (prices.length < 2) return { mu: 0.07, sigma: 0.15 };
 
   // Sort chronologically
@@ -80,7 +80,7 @@ function computeGBMParams(prices: NormalizedPrice[]): { mu: number; sigma: numbe
   };
 }
 
-async function fetchAlphaVantage(symbol: string, apiKey: string): Promise<NormalizedPrice[]> {
+export async function fetchAlphaVantage(symbol: string, apiKey: string): Promise<NormalizedPrice[]> {
   const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${symbol}&outputsize=full&apikey=${apiKey}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error('Alpha Vantage request failed');
@@ -89,7 +89,7 @@ async function fetchAlphaVantage(symbol: string, apiKey: string): Promise<Normal
   return normalizeAlphaVantage(data, symbol);
 }
 
-async function fetchYahooFallback(symbol: string): Promise<NormalizedPrice[]> {
+export async function fetchYahooFallback(symbol: string): Promise<NormalizedPrice[]> {
   const end = Math.floor(Date.now() / 1000);
   const start = end - 2 * 365 * 24 * 3600;
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&period1=${start}&period2=${end}`;
@@ -124,89 +124,91 @@ async function fetchYahooFallback(symbol: string): Promise<NormalizedPrice[]> {
     .filter(p => p.price && !isNaN(p.price) && p.price > 0);
 }
 
-serve(async (req: Request) => {
-  const origin = req.headers.get('Origin');
-  const corsRes = handleCors(req);
-  if (corsRes) return corsRes;
-
-  try {
-    const user = await requireAuth(req);
-
-    const limit = await rateLimit(`assets-history:${user.id}`, 20, 60);
-    if (!limit.allowed) return rateLimitResponse(limit);
-
-    const url = new URL(req.url);
-    const symbol = url.searchParams.get('symbol')?.toUpperCase();
-    
-    if (!symbol || !/^[A-Z0-9.\-]{1,10}$/.test(symbol)) {
-      return new Response(JSON.stringify({ error: 'Valid symbol parameter required' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
-      });
-    }
-
-    const alphaVantageKey = Deno.env.get('ALPHA_VANTAGE_API_KEY');
-    let prices: NormalizedPrice[] = [];
-    let source = 'yahoo';
+if (import.meta.main) {
+  serve(async (req: Request) => {
+    const origin = req.headers.get('Origin');
+    const corsRes = handleCors(req);
+    if (corsRes) return corsRes;
 
     try {
-      if (alphaVantageKey) {
-        prices = await fetchAlphaVantage(symbol, alphaVantageKey);
-        source = 'alpha_vantage';
+      const user = await requireAuth(req);
+
+      const limit = await rateLimit(`assets-history:${user.id}`, 20, 60);
+      if (!limit.allowed) return rateLimitResponse(limit);
+
+      const url = new URL(req.url);
+      const symbol = url.searchParams.get('symbol')?.toUpperCase();
+      
+      if (!symbol || !/^[A-Z0-9.\-]{1,10}$/.test(symbol)) {
+        return new Response(JSON.stringify({ error: 'Valid symbol parameter required' }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
+        });
       }
-    } catch {
-      // Fall through to Yahoo
-    }
 
-    if (prices.length === 0) {
-      prices = await fetchYahooFallback(symbol);
-      source = 'yahoo';
-    }
+      const alphaVantageKey = Deno.env.get('ALPHA_VANTAGE_API_KEY');
+      let prices: NormalizedPrice[] = [];
+      let source = 'yahoo';
 
-    if (prices.length < 10) {
-      return new Response(JSON.stringify({ error: `No sufficient historical data found for ${symbol}` }), {
-        status: 404,
+      try {
+        if (alphaVantageKey) {
+          prices = await fetchAlphaVantage(symbol, alphaVantageKey);
+          source = 'alpha_vantage';
+        }
+      } catch {
+        // Fall through to Yahoo
+      }
+
+      if (prices.length === 0) {
+        prices = await fetchYahooFallback(symbol);
+        source = 'yahoo';
+      }
+
+      if (prices.length < 10) {
+        return new Response(JSON.stringify({ error: `No sufficient historical data found for ${symbol}` }), {
+          status: 404,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
+        });
+      }
+
+      const { mu, sigma } = computeGBMParams(prices);
+      const sorted = prices.sort((a, b) => 
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
+
+      const response: HistoricalResponse = {
+        symbol,
+        prices: sorted,
+        expected_return: mu,
+        volatility: sigma,
+        period_start: sorted[0].timestamp,
+        period_end: sorted[sorted.length - 1].timestamp,
+        source,
+      };
+
+      return new Response(JSON.stringify(response), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'public, max-age=3600',
+          'X-Data-Source': source,
+          'X-Data-Timestamp': new Date().toISOString(),
+          ...corsHeaders(origin),
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      if (message.includes('Unauthorized') || message.includes('Missing')) {
+        return new Response(JSON.stringify({ error: 'Your session has expired. Please sign in again.' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
+        });
+      }
+      console.error('[assets-history] Error:', message);
+      return new Response(JSON.stringify({ error: 'Something went wrong. Please try again.' }), {
+        status: 500,
         headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
       });
     }
-
-    const { mu, sigma } = computeGBMParams(prices);
-    const sorted = prices.sort((a, b) => 
-      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    );
-
-    const response: HistoricalResponse = {
-      symbol,
-      prices: sorted,
-      expected_return: mu,
-      volatility: sigma,
-      period_start: sorted[0].timestamp,
-      period_end: sorted[sorted.length - 1].timestamp,
-      source,
-    };
-
-    return new Response(JSON.stringify(response), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'public, max-age=3600',
-        'X-Data-Source': source,
-        'X-Data-Timestamp': new Date().toISOString(),
-        ...corsHeaders(origin),
-      },
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    if (message.includes('Unauthorized') || message.includes('Missing')) {
-      return new Response(JSON.stringify({ error: 'Your session has expired. Please sign in again.' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
-      });
-    }
-    console.error('[assets-history] Error:', message);
-    return new Response(JSON.stringify({ error: 'Something went wrong. Please try again.' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
-    });
-  }
-});
+  });
+}
