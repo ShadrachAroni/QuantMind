@@ -203,8 +203,14 @@ serve(async (req: Request) => {
         if (userData?.user?.email) {
           const { sendEmail, getFX1Template } = await import('../_shared/email.ts');
           const emailHtml = getFX1Template(
-            `<p>Your ${newTier.toUpperCase()} subscription is now active.</p><p>Thank you for choosing QuantMind for your institutional intelligence.</p>`,
-            'Subscription Activated'
+            `
+            <div class="status-bubble">${eventType.replace('_', ' ')}</div>
+            <h1>Institutional access activated</h1>
+            <p>Your <strong>${newTier.toUpperCase()}</strong> terminal access is now live for account <strong>${appUserId.substring(0, 8)}</strong>.</p>
+            <p>We've successfully synchronized your credentials with the global FX1 network. You now have full access to high-frequency simulations and institutional-grade intelligence.</p>
+            <a href="https://quantmind.app/terminal" class="btn">Launch Terminal</a>
+            `,
+            'Node Activation'
           );
           await sendEmail({
             to: userData.user.email,
