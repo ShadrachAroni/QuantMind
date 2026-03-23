@@ -4,7 +4,7 @@ import { sharedTheme } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 
 interface TypographyProps extends TextProps {
-  variant?: 'h0' | 'h1' | 'h2' | 'h3' | 'body' | 'caption' | 'button' | 'mono' | 'monoBold';
+  variant?: 'h0' | 'h1' | 'h2' | 'h3' | 'h4' | 'body' | 'caption' | 'button' | 'mono' | 'monoBold' | 'label';
   color?: 'primary' | 'secondary' | 'error' | 'success' | 'white' | 'textPrimary' | 'textSecondary' | 'textTertiary';
 }
 
@@ -52,6 +52,12 @@ export function Typography({ variant = 'body', color, style, children, ...props 
       lineHeight: 28,
       color: theme.textPrimary,
     },
+    h4: {
+      fontFamily: sharedTheme.typography.fonts.medium,
+      fontSize: sharedTheme.typography.sizes.md,
+      lineHeight: 24,
+      color: theme.textPrimary,
+    },
     body: {
       fontFamily: sharedTheme.typography.fonts.regular,
       fontSize: sharedTheme.typography.sizes.md,
@@ -82,6 +88,13 @@ export function Typography({ variant = 'body', color, style, children, ...props 
       fontSize: sharedTheme.typography.sizes.md,
       lineHeight: 22,
       color: theme.primary,
+    },
+    label: {
+      fontFamily: sharedTheme.typography.fonts.mono,
+      fontSize: 10,
+      letterSpacing: 1.5,
+      color: theme.textTertiary,
+      textTransform: 'uppercase',
     },
   });
 

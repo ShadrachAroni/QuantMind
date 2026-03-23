@@ -197,7 +197,9 @@ export function AIChatScreen({ route, navigation }: any) {
     {
       id: '1',
       role: 'assistant',
-      content: 'QUANTMIND_ORACLE_V2.4 // SESSION_INITIALIZED\n\nI am ready to convolve your risk parameters. What modeling objectives should we prioritize for this session?'
+      content: workflow === 'portfolio_doctor' 
+        ? 'PORTFOLIO_DOCTOR_V1.0 // DIAGNOSTIC_MODE_ACTIVE\n\nI have accessed your simulation parameters and risk metrics. Analyzing for structural vulnerabilities...'
+        : 'QUANTMIND_ORACLE_V2.4 // SESSION_INITIALIZED\n\nI am ready to convolve your risk parameters. What modeling objectives should we prioritize for this session?'
     }
   ]);
   const [input, setInput] = useState('');
@@ -213,8 +215,11 @@ export function AIChatScreen({ route, navigation }: any) {
   useEffect(() => {
     if (initialMessage && messages.length === 1) {
       handleSend(initialMessage);
+    } else if (workflow === 'portfolio_doctor' && messages.length === 1 && simulationResultId) {
+      // Auto-initiate diagnostic
+      handleSend("Perform a full diagnostic analysis on my latest simulation results.");
     }
-  }, [initialMessage]);
+  }, [initialMessage, workflow, simulationResultId]);
 
   const dynamicStyles = getStyles(theme, isDark);
 
@@ -324,15 +329,24 @@ export function AIChatScreen({ route, navigation }: any) {
           <TouchableOpacity onPress={() => navigation?.goBack()} style={[dynamicStyles.backBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)', borderColor: theme.border }]}>
              <BackIcon size={20} color={theme.textSecondary} />
           </TouchableOpacity>
-          <View style={[dynamicStyles.statusGroup, { backgroundColor: theme.primary + '10', borderColor: theme.primary + '33' }]}>
-             <GlowEffect color={theme.primary} size={6} glowRadius={6} />
-             <Typography variant="mono" style={[dynamicStyles.statusText, { color: theme.primary }]}>KERNEL_SYNCED</Typography>
+          <View style={[dynamicStyles.statusGroup, { 
+            backgroundColor: (workflow === 'portfolio_doctor' ? theme.secondary : theme.primary) + '10', 
+            borderColor: (workflow === 'portfolio_doctor' ? theme.secondary : theme.primary) + '33' 
+          }]}>
+             <GlowEffect color={workflow === 'portfolio_doctor' ? theme.secondary : theme.primary} size={6} glowRadius={6} />
+             <Typography variant="mono" style={[dynamicStyles.statusText, { color: workflow === 'portfolio_doctor' ? theme.secondary : theme.primary }]}>
+               {workflow === 'portfolio_doctor' ? 'DIAGNOSTIC_SYNCED' : 'KERNEL_SYNCED'}
+             </Typography>
           </View>
         </View>
         <View style={dynamicStyles.headerTitleRow}>
            <View>
-             <Typography variant="mono" style={[dynamicStyles.subHeader, { color: theme.textTertiary }]}>INSTITUTIONAL_AI</Typography>
-             <Typography variant="h2" style={[dynamicStyles.title, { color: theme.textPrimary }]}>ORACLE</Typography>
+             <Typography variant="mono" style={[dynamicStyles.subHeader, { color: theme.textTertiary }]}>
+               {workflow === 'portfolio_doctor' ? 'RISK_DIAGNOSTICS' : 'INSTITUTIONAL_AI'}
+             </Typography>
+             <Typography variant="h2" style={[dynamicStyles.title, { color: theme.textPrimary }]}>
+               {workflow === 'portfolio_doctor' ? 'DOCTOR' : 'ORACLE'}
+             </Typography>
            </View>
            <View style={[dynamicStyles.computeStats, { backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)', borderColor: theme.border }]}>
              <View style={dynamicStyles.statBox}>

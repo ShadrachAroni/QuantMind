@@ -8,21 +8,48 @@ import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { sharedTheme } from '../../constants/theme';
 import { ChevronLeft, UserPlus, Check } from 'lucide-react-native';
-import { GlowEffect } from '../../components/ui/GlowEffect';
 
 import { OTPVerificationModal } from '../../components/auth/OTPVerificationModal';
 
 const { width } = Dimensions.get('window');
 
-// A simple zxcvbn shim since we don't have the npm package installed in this task
-function estimateStrength(password: string) {
-  let score = 0;
-  if (password.length > 8) score += 1;
-  if (password.length > 12) score += 1;
-  if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score += 1;
-  if (/[0-9]/.test(password)) score += 1;
-  if (/[^a-zA-Z0-9]/.test(password)) score += 1;
-  return Math.min(4, score);
+import { zxcvbn, zxcvbnOptions } from '@zxcvbn-ts/core';
+import * as zxcvbnEnPackage from '@zxcvbn-ts/language-en';
+import { adjacencyGraphs } from '@zxcvbn-ts/language-common';
+
+const options = {
+  translations: zxcvbnEnPackage.translations,
+  graphs: adjacencyGraphs,
+  dictionary: {
+    commonWords: zxcvbnEnPackage.dictionary.commonWords,
+    firstnames: zxcvbnEnPackage.dictionary.firstnames,
+    lastnames: zxcvbnEnPackage.dictionary.lastnames,
+    userInput: [],
+  },
+};
+zxcvbnOptions.setOptions(options);
+
+function getPasswordSecurityReport(password: string) {
+  const result = zxcvbn(password);
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const hasSpecial = /[^A-Za-z0-9]/.test(password);
+  const isLongEnough = password.length >= 12;
+
+  const errors = [];
+  if (!isLongEnough) errors.push('MIN_LENGTH_12_REQUIRED');
+  if (!hasUpperCase || !hasLowerCase) errors.push('MIXED_CASE_REQUIRED');
+  if (!hasNumber) errors.push('NUMERIC_DIGIT_REQUIRED');
+  if (!hasSpecial) errors.push('SPECIAL_CHARACTER_REQUIRED');
+  if (result.score < 3 && password.length > 0) errors.push('ENTROPY_TOO_LOW');
+
+  return {
+    score: result.score,
+    isValid: errors.length === 0,
+    errors,
+    feedback: result.feedback
+  };
 }
 
 export function SignUpScreen({ navigation }: any) {
@@ -36,7 +63,7 @@ export function SignUpScreen({ navigation }: any) {
   const { theme, isDark } = useTheme();
   const { showToast } = useToast();
   
-  const score = password ? estimateStrength(password) : 0;
+  const report = password ? getPasswordSecurityReport(password) : { score: 0, isValid: false, errors: [] };
   const BackIcon = ChevronLeft as any;
   const UserPlusIcon = UserPlus as any;
   const CheckIcon = Check as any;
@@ -65,8 +92,9 @@ export function SignUpScreen({ navigation }: any) {
       return;
     }
 
-    if (score < 2) {
-      showToast('Entropy too low. Increase passphrase complexity.', 'error');
+    if (!report.isValid) {
+      const firstError = report.errors[0].replace(/_/g, ' ');
+      showToast(`COMPLIANCE_FAILURE: ${firstError}`, 'error');
       return;
     }
 
@@ -149,7 +177,16 @@ export function SignUpScreen({ navigation }: any) {
                 secureTextEntry
               />
             </View>
-            {password.length > 0 && <PasswordStrengthMeter score={score} />}
+            {password.length > 0 && (
+              <View style={dynamicStyles.passwordFeedback}>
+                <PasswordStrengthMeter score={report.score} />
+                {report.errors.map((err) => (
+                  <Typography key={err} variant="caption" style={{ color: theme.error, fontSize: 8, marginTop: 4 }}>
+                    • {err}
+                  </Typography>
+                ))}
+              </View>
+            )}
           </View>
 
           <View style={dynamicStyles.inputGroup}>
@@ -297,6 +334,10 @@ const getStyles = (theme: any, isDark: boolean) => StyleSheet.create({
   input: {
     padding: 16,
     fontSize: 13,
+  },
+  passwordFeedback: {
+    marginTop: 8,
+    gap: 4,
   },
   helperText: {
     marginTop: 4,

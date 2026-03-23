@@ -3,8 +3,10 @@ import { Users, Shield, Activity, FileText, Settings, LogOut, ChevronRight, Zap,
 import { AdminLayout } from '../components/ui/AdminLayout';
 import { GlassCard } from '../components/ui/GlassCard';
 import { GlowEffect } from '../components/ui/GlowEffect';
+import { useAuth } from '../components/auth/AuthProvider';
 
 export default function AdminDashboard() {
+  const { user, isAdmin } = useAuth();
   const stats = [
     { label: 'TOTAL_USERS', value: '1,284', icon: Users, color: '#00D9FF' },
     { label: 'ACTIVE_SIMULATIONS', value: '45,021', icon: Activity, color: '#7C3AED' },
@@ -24,10 +26,10 @@ export default function AdminDashboard() {
         </div>
         <div className="user-profile">
           <div className="user-meta">
-            <span className="admin-name">Super Admin</span>
-            <span className="admin-status">AUTHORIZED_SESSION</span>
+            <span className="admin-name">{user?.email?.split('@')[0].toUpperCase()}</span>
+            <span className="admin-status">AUTHORIZED_SESSION // MFA_ACTIVE</span>
           </div>
-          <div className="avatar">SA</div>
+          <div className="avatar">{user?.email?.[0].toUpperCase()}</div>
         </div>
       </header>
 

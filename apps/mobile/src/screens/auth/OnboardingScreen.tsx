@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Typography } from '../../components/ui/Typography';
 import { useAuthStore } from '../../store/authStore';
-import { Activity, ShieldCheck, Zap, ArrowRight, Cpu, BarChart3, Globe } from 'lucide-react-native';
+import { Activity, ShieldCheck, Zap, ArrowRight, Cpu, BarChart3, Globe, FileText } from 'lucide-react-native';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { GlowEffect } from '../../components/ui/GlowEffect';
 import { useTheme } from '../../context/ThemeContext';
@@ -40,6 +40,13 @@ const SLIDES = [
     description: 'Communicate with a proprietary LLM trained on institutional risk frameworks and sovereign market history.',
     icon: Cpu,
     color: '#FFD60A', // Industrial gold
+  },
+  {
+    id: '4',
+    title: 'TRANSPARENCY_INIT',
+    description: 'QuantMind models (GBM, JUMP_DIFF) are fully documented. Access the methodology whitepaper anytime in settings.',
+    icon: FileText,
+    color: '#00D4FF',
   },
 ];
 

@@ -209,7 +209,7 @@ export function FanChart({ data, width = 300, height = 200, initialValue }: FanC
 const styles = StyleSheet.create({
   container: {
     backgroundColor: theme.colors.surface,
-    borderRadius: theme.roundness.md,
+    borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: theme.colors.border,
     overflow: 'hidden',

@@ -12,9 +12,10 @@ interface AssetCardProps {
   amountValue?: number;
   onRemove?: () => void;
   onPress?: () => void;
+  delta?: number; // +/- difference in weight
 }
 
-export function AssetCard({ ticker, name, weight, amountValue, onRemove, onPress }: AssetCardProps) {
+export function AssetCard({ ticker, name, weight, amountValue, onRemove, onPress, delta }: AssetCardProps) {
   const CardContainer: any = onPress ? TouchableOpacity : View;
   const TrashIcon = Trash2 as any;
   const ArrowIcon = ArrowRight as any;
@@ -44,6 +45,11 @@ export function AssetCard({ ticker, name, weight, amountValue, onRemove, onPress
             <View style={styles.barTrack}>
               <View style={[styles.barFill, { width: `${weight * 100}%` }]} />
             </View>
+            {delta !== undefined && delta !== 0 && (
+              <Typography variant="mono" style={[styles.deltaText, { color: delta > 0 ? '#10B981' : '#F43F5E' }]}>
+                {delta > 0 ? '+' : ''}{(delta * 100).toFixed(1)}%
+              </Typography>
+            )}
           </View>
           
           {onRemove ? (
@@ -129,6 +135,11 @@ const styles = StyleSheet.create({
   barFill: {
     height: '100%',
     backgroundColor: theme.colors.primary,
+  },
+  deltaText: {
+    fontSize: 8,
+    marginTop: 4,
+    fontWeight: '700',
   },
   removeBtn: {
     marginLeft: 12,

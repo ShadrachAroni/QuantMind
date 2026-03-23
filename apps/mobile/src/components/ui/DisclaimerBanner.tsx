@@ -29,7 +29,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(245, 158, 11, 0.1)',
     padding: theme.spacing.md,
-    borderRadius: theme.roundness.md,
+    borderRadius: theme.radius.md,
     borderWidth: 1,
     borderColor: 'rgba(245, 158, 11, 0.2)',
   },

@@ -26,6 +26,14 @@ import { TermsOfServiceScreen } from '../screens/settings/TermsOfServiceScreen';
 import { SupportScreen } from '../screens/settings/SupportScreen';
 import { AIPreferencesScreen } from '../screens/settings/AIPreferencesScreen';
 import { SubscriptionScreen } from '../screens/settings/SubscriptionScreen';
+import { MFAScreen } from '../screens/settings/MFAScreen';
+import { ActiveSessionsScreen } from '../screens/settings/ActiveSessionsScreen';
+import { ChangePasswordScreen } from '../screens/settings/ChangePasswordScreen';
+import { DataManagementScreen } from '../screens/settings/DataManagementScreen';
+import { ModelMethodologyScreen } from '../screens/settings/ModelMethodologyScreen';
+import { CustomAIIntegrationsScreen } from '../screens/settings/CustomAIIntegrationsScreen';
+import { ChangelogScreen } from '../screens/settings/ChangelogScreen';
+import { PasswordExpiredScreen } from '../screens/auth/PasswordExpiredScreen';
 import { SessionWarningModal } from '../components/auth/SessionWarningModal';
 
 // UI
@@ -107,6 +115,15 @@ function SettingsNavigator() {
         {(props) => <TierRestrictedScreen {...props} component={AIPreferencesScreen} requirement="allow_ai_tuning" />}
       </SettingsStack.Screen>
       <SettingsStack.Screen name="Subscription" component={SubscriptionScreen} />
+      <SettingsStack.Screen name="MFA" component={MFAScreen} />
+      <SettingsStack.Screen name="ActiveSessions" component={ActiveSessionsScreen} />
+      <SettingsStack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+      <SettingsStack.Screen name="DataManagement" component={DataManagementScreen} />
+      <SettingsStack.Screen name="ModelMethodology" component={ModelMethodologyScreen} />
+      <SettingsStack.Screen name="CustomAIIntegrations">
+        {(props) => <TierRestrictedScreen {...props} component={CustomAIIntegrationsScreen} requirement="allow_ai_tuning" />}
+      </SettingsStack.Screen>
+      <SettingsStack.Screen name="Changelog" component={ChangelogScreen} />
     </SettingsStack.Navigator>
   );
 }
@@ -152,7 +169,7 @@ function MainTabNavigator() {
             <View style={styles.iconContainer}>
               {focused && (
                 <View style={styles.activeGlow}>
-                   <GlowEffect color={color} size={32} glowRadius={15} />
+                  <GlowEffect color={color} size={32} glowRadius={15} />
                 </View>
               )}
               <IconComp size={20} color={color} strokeWidth={focused ? 2.5 : 2} />
@@ -170,8 +187,46 @@ function MainTabNavigator() {
   );
 }
 
+const linking = {
+  prefixes: ['quantmind://', 'https://quantmind.app'],
+  config: {
+    screens: {
+      Onboarding: 'onboarding',
+      Login: 'login',
+      MainTab: {
+        path: '',
+        screens: {
+          Home: 'home',
+          Portfolios: {
+            path: 'terminal',
+            screens: {
+              PortfolioList: '',
+              PortfolioDetail: 'portfolio/:id',
+            },
+          },
+          Sims: {
+            path: 'sims',
+            screens: {
+              SimulationSetup: '',
+              SimulationResults: 'risk/:simulationId',
+            },
+          },
+          Oracle: 'oracle',
+          Operator: {
+            path: 'operator',
+            screens: {
+              SettingsMain: 'settings',
+              Subscription: 'billing',
+            },
+          },
+        },
+      },
+    },
+  },
+};
+
 export default function AppNavigator() {
-  const { user, lastActivityAt, recordActivity, checkSessionExpiry } = useAuthStore();
+  const { user, lastActivityAt, recordActivity, checkSessionExpiry, isPasswordExpired } = useAuthStore();
   const { theme, isDark } = useTheme();
   const [showWarning, setShowWarning] = useState(false);
   const [timeUntilExpiry, setTimeUntilExpiry] = useState(0);
@@ -204,7 +259,7 @@ export default function AppNavigator() {
       if (user && lastActivityAt) {
         const now = Date.now();
         const inactiveTime = now - lastActivityAt;
-        
+
         if (inactiveTime > SESSION_TIMEOUT) {
           checkSessionExpiry();
         } else if (inactiveTime > WARNING_THRESHOLD) {
@@ -229,14 +284,21 @@ export default function AppNavigator() {
 
   return (
     <View style={{ flex: 1 }} {...panResponder.panHandlers}>
-      <NavigationContainer theme={{ dark: isDark, colors: { ...theme, text: theme.textPrimary } as any }}>
+      <NavigationContainer
+        linking={linking}
+        theme={{ dark: isDark, colors: { ...theme, text: theme.textPrimary } as any }}
+      >
         {user ? (
-          // Simplified onboarding check for robustness
-          user.metadata?.onboarding_completed ? (
+          isPasswordExpired ? (
+            <AuthStack.Navigator screenOptions={{ headerShown: false }}>
+              <AuthStack.Screen name="PasswordExpired" component={PasswordExpiredScreen} />
+              <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+            </AuthStack.Navigator>
+          ) : user.metadata?.onboarding_completed ? (
             <MainTabNavigator />
           ) : (
             <AuthStack.Navigator screenOptions={{ headerShown: false }}>
-               <AuthStack.Screen name="Onboarding" component={OnboardingScreen} />
+              <AuthStack.Screen name="Onboarding" component={OnboardingScreen} />
             </AuthStack.Navigator>
           )
         ) : (
@@ -248,7 +310,7 @@ export default function AppNavigator() {
         )}
       </NavigationContainer>
 
-      <SessionWarningModal 
+      <SessionWarningModal
         visible={showWarning}
         onExtend={handleExtend}
         expiryTime={timeUntilExpiry}

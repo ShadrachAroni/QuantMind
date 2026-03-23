@@ -206,10 +206,27 @@ export function SettingsScreen() {
             icon={Shield} 
             title="Multi-Factor Auth" 
             subtitle={!entitlements.allow_advanced_models && tier === 'free' ? 'ACCESS_DENIED (PLUS_ONLY)' : 'TOTP_CONFIGURATION'} 
-            onPress={() => !entitlements.allow_advanced_models && tier === 'free' ? showToast('ACCESS_RESTRICTED: Upgrade required for MFA.', 'error') : null}
+            onPress={() => !entitlements.allow_advanced_models && tier === 'free' ? showToast('ACCESS_RESTRICTED: Upgrade required for MFA.', 'error') : navigation.navigate('MFA')}
             color={!entitlements.allow_advanced_models && tier === 'free' ? theme.textTertiary : theme.primary}
           />
-          <SettingRow icon={Key} title="Active Keys" subtitle="View and rotate session keys" />
+          <SettingRow 
+            icon={Key} 
+            title="Active Keys" 
+            subtitle="View and rotate session keys" 
+            onPress={() => navigation.navigate('ActiveSessions')}
+          />
+          <SettingRow 
+            icon={Lock} 
+            title="Rotate Passphrase" 
+            subtitle="Update security credentials" 
+            onPress={() => navigation.navigate('ChangePassword')}
+          />
+          <SettingRow 
+            icon={FileText} 
+            title="Methodology" 
+            subtitle="Risk model whitepaper" 
+            onPress={() => navigation.navigate('ModelMethodology')}
+          />
           <SettingRow icon={Bell} title="Alert Hub" subtitle="Real-time notification routing" />
         </GlassCard>
 
@@ -222,11 +239,23 @@ export function SettingsScreen() {
             onPress={() => !entitlements.allow_ai_tuning ? showToast('ACCESS_RESTRICTED: Upgrade required for AI tuning.', 'error') : navigation.navigate('AIPreferences')}
             color={!entitlements.allow_ai_tuning ? theme.textTertiary : theme.secondary}
           />
+          <SettingRow
+            icon={!entitlements.allow_ai_tuning ? Lock : Shield}
+            title="Custom AI Models"
+            subtitle={!entitlements.allow_ai_tuning ? 'ACCESS_DENIED (PLUS_ONLY)' : 'Connect your own API keys'}
+            onPress={() => !entitlements.allow_ai_tuning ? showToast('ACCESS_RESTRICTED: Upgrade required for custom AI.', 'error') : navigation.navigate('CustomAIIntegrations')}
+            color={!entitlements.allow_ai_tuning ? theme.textTertiary : theme.primary}
+          />
         </GlassCard>
 
         <Typography variant="mono" style={[dynamicStyles.sectionHeader, { color: theme.textSecondary }]}>// DATA_STORAGE_&_RULES</Typography>
         <GlassCard style={dynamicStyles.section}>
-          <SettingRow icon={Database} title="Data Extraction" subtitle="Portfolio export (JSON/CSV)" />
+          <SettingRow 
+            icon={Database} 
+            title="Data Extraction" 
+            subtitle="Portfolio export (JSON/CSV)" 
+            onPress={() => navigation.navigate('DataManagement')}
+          />
           <SettingRow 
             icon={FileText} 
             title="Policy Docs" 
@@ -243,6 +272,13 @@ export function SettingsScreen() {
             subtitle="Open channel to QuantMind HQ" 
             onPress={() => navigation.navigate('Support')}
             color="#10B981"
+          />
+          <SettingRow 
+            icon={History} 
+            title="What's New" 
+            subtitle="View system update logs" 
+            onPress={() => navigation.navigate('Changelog')}
+            color={theme.primary}
           />
         </GlassCard>
 

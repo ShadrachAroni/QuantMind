@@ -86,6 +86,57 @@ def run_regime_switching(mu: float, sigma: float, initial_value: float, time_hor
         paths[:, t] = current_prices
     return paths
 
+STRESS_SCENARIOS = {
+    "lehman_2008": {
+        "mu_shock": -0.40,      # 40% annualized decline during peak crisis
+        "sigma_spike": 2.5,     # 2.5x volatility spike
+        "jump_lambda": 0.5      # Frequent jumps
+    },
+    "covid_2020": {
+        "mu_shock": -0.30,
+        "sigma_spike": 3.0,
+        "jump_lambda": 0.8
+    },
+    "dot_com_2000": {
+        "mu_shock": -0.25,
+        "sigma_spike": 1.8,
+        "jump_lambda": 0.2
+    },
+    "inflation_1970s": {
+        "mu_shock": -0.05,
+        "sigma_spike": 1.2,
+        "jump_lambda": 0.1
+    }
+}
+
+def run_stress_test(
+    scenario_key: str,
+    mu: float,
+    sigma: float,
+    initial_value: float,
+    time_horizon_years: float,
+    num_paths: int,
+    seed: Optional[int]
+) -> np.ndarray:
+    scenario = STRESS_SCENARIOS.get(scenario_key, STRESS_SCENARIOS["lehman_2008"])
+    
+    # Apply shocks to base parameters
+    shocked_mu = mu + scenario["mu_shock"]
+    shocked_sigma = sigma * scenario["sigma_spike"]
+    
+    # Use Jump Diffusion for stress tests as it's more realistic for crashes
+    return run_jump_diffusion(
+        mu=shocked_mu,
+        sigma=shocked_sigma,
+        initial_value=initial_value,
+        time_horizon_years=time_horizon_years,
+        num_paths=num_paths,
+        seed=seed,
+        lambda_j=scenario["jump_lambda"],
+        mu_j=-0.15,  # Significant downward jumps
+        sigma_j=0.2  # High jump uncertainty
+    )
+
 def compute_risk_metrics(paths: np.ndarray, initial_value: float, time_horizon_years: float, risk_free_rate: float) -> RiskMetrics:
     final_values = paths[:, -1]
     returns = (final_values - initial_value) / initial_value
@@ -105,25 +156,32 @@ def compute_risk_metrics(paths: np.ndarray, initial_value: float, time_horizon_y
     downside_vol = float(np.std(downside_returns)) if len(downside_returns) > 0 else vol
     sharpe = float(excess_return / vol) if vol > 0 else 0
     sortino = float(excess_return / downside_vol) if downside_vol > 0 else 0
-    drawdowns = np.zeros(len(paths))
-    durations = np.zeros(len(paths), dtype=int)
-    for i, path in enumerate(paths):
-        peak = path[0]
-        max_dd = 0.0
-        duration = 0
-        temp_duration = 0
-        for j in range(1, len(path)):
-            if path[j] > peak:
-                peak = path[j]
-                temp_duration = 0
-            else:
-                temp_duration += 1
-                dd = (peak - path[j]) / peak
-                if dd > max_dd:
-                    max_dd = dd
-                    duration = temp_duration
-        drawdowns[i] = max_dd
-        durations[i] = duration
+    # Vectorized Drawdown Calculation
+    peaks = np.maximum.accumulate(paths, axis=1)
+    dd_matrix = (peaks - paths) / peaks
+    drawdowns = np.max(dd_matrix, axis=1)
+    
+    # Vectorized Duration Calculation (Time since last peak)
+    # Find indices where new peaks occur
+    is_new_peak = (paths == peaks)
+    # For each path, find the index of the last true value in is_new_peak up to each point
+    # This is slightly more complex to vectorize fully, but we can get the max duration
+    # by looking at the stretch of non-peaks.
+    
+    # Improved Duration: find the max contiguous stretch of (paths < peaks)
+    durations = []
+    for dd_path in dd_matrix:
+        # Check for non-zero drawdown stretches
+        is_dd = dd_path > 0
+        if not np.any(is_dd):
+            durations.append(0)
+            continue
+        # Use run-length encoding logic to find max duration
+        # Or simpler for now:
+        abs_diff = np.diff(np.where(np.concatenate(([is_dd[0]], is_dd[:-1] != is_dd[1:], [is_dd[-1]])))[0])
+        max_dur = np.max(abs_diff[::2]) if is_dd[0] else np.max(abs_diff[1::2]) if len(abs_diff) > 1 else (len(dd_path) if is_dd[0] else 0)
+        durations.append(int(max_dur))
+
     max_drawdown = float(np.median(drawdowns))
     max_drawdown_duration = int(np.median(durations))
     probability_of_loss = float(np.mean(returns < 0))
@@ -202,6 +260,8 @@ async def process_simulation(job: SimulationJob):
             paths = run_jump_diffusion(mu=mu, sigma=sigma, initial_value=params.initial_value, time_horizon_years=params.time_horizon_years, num_paths=params.num_paths, seed=params.seed)
         elif params.model_type == "regime_switching":
             paths = run_regime_switching(mu=mu, sigma=sigma, initial_value=params.initial_value, time_horizon_years=params.time_horizon_years, num_paths=params.num_paths, seed=params.seed)
+        elif params.model_type == "stress_test":
+            paths = run_stress_test(scenario_key=params.stress_scenario or "lehman_2008", mu=mu, sigma=sigma, initial_value=params.initial_value, time_horizon_years=params.time_horizon_years, num_paths=params.num_paths, seed=params.seed)
         else:
             paths = run_gbm(mu=mu, sigma=sigma, initial_value=params.initial_value, time_horizon_years=params.time_horizon_years, num_paths=params.num_paths, risk_free_rate=params.risk_free_rate or 0.05, seed=params.seed)
         metrics = compute_risk_metrics(paths=paths, initial_value=params.initial_value, time_horizon_years=params.time_horizon_years, risk_free_rate=params.risk_free_rate or 0.05)
@@ -209,7 +269,7 @@ async def process_simulation(job: SimulationJob):
         duration = int((datetime.now() - start_time).total_seconds() * 1000)
         result = {
             "id": job.simulation_id, "user_id": job.user_id, "portfolio_id": job.portfolio_id,
-            "params": {"portfolio_id": job.portfolio_id, "num_paths": params.num_paths, "time_horizon_years": params.time_horizon_years, "initial_value": params.initial_value, "risk_free_rate": params.risk_free_rate, "model_type": params.model_type},
+            "params": {"portfolio_id": job.portfolio_id, "num_paths": params.num_paths, "time_horizon_years": params.time_horizon_years, "initial_value": params.initial_value, "risk_free_rate": params.risk_free_rate, "model_type": params.model_type, "stress_scenario": params.stress_scenario},
             "metrics": metrics.dict(), "percentile_paths": percentile_paths,
             "terminal_values": paths[:, -1].tolist() if len(paths) <= 1000 else np.random.choice(paths[:, -1], 1000).tolist(),
             "model_info": {"portfolio_mu": mu, "portfolio_sigma": sigma, "model": params.model_type, "model_version": "1.0.0"},

@@ -40,6 +40,15 @@ function sanitizeInput(text: string): string {
   return sanitized.slice(0, 2000); // cap length
 }
 
+const DOCTOR_PROMPT = `
+SPECIAL_WORKFLOW: PORTFOLIO_DOCTOR
+You are performing a deep diagnostic on the user's portfolio and simulation results.
+1. Identify the top 3 risk factors (e.g., high concentration, high max drawdown, poor Sortino ratio).
+2. Suggest general structural adjustments (e.g., "Increasing exposure to non-correlated assets like Bonds or Gold could dampen the Max Drawdown").
+3. Analyze how the portfolio might behave in the specific stress scenario if provided.
+4. Keep the tone clinical, institutional, and objective.
+`;
+
 const SYSTEM_PROMPT = `You are QuantMind AI, an educational financial risk analysis assistant.
 
 CORE RULES:
@@ -159,46 +168,115 @@ Assets: ${JSON.stringify(portfolio.assets, null, 2)}`;
 - Focus Areas: ${JSON.stringify(aiPrefs.focusAreas || [])}`;
     }
 
-    // Call Gemini API
-    const geminiKey = Deno.env.get('GEMINI_API_KEY');
-    if (!geminiKey) throw new Error('AI service unavailable');
+    // ─── Custom AI Configuration (Pro/Plus Only) ───────────────────────────
+    let apiServiceKey = Deno.env.get('GEMINI_API_KEY');
+    let aiModel = MODELS[user.tier] || MODELS.free;
+    let aiProvider = 'google';
 
-    // Model Selection based on tier and workflow
-    let model = MODELS[user.tier] || MODELS.free;
-    if (user.tier === 'pro') {
-      model = workflow === 'portfolio_doctor' ? MODELS.pro_advanced : MODELS.pro_standard;
-    }
+    const isPremium = ['plus', 'pro'].includes(user.tier);
+    
+    if (isPremium) {
+      const { data: customConfig } = await supabase
+        .from('user_ai_configs')
+        .select('provider, model_id, encrypted_api_key')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .maybeSingle();
 
-    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: SYSTEM_PROMPT + contextBlock + "\n\nUSER_MESSAGE: " + message }]
-        }],
-        generationConfig: {
-          maxOutputTokens: 1500,
-          temperature: 0.7,
+      if (customConfig) {
+        aiProvider = customConfig.provider;
+        aiModel = customConfig.model_id;
+        
+        const { data: decryptedData, error: decryptError } = await supabase
+          .rpc('decrypt_api_key', { 
+            encrypted_text: customConfig.encrypted_api_key
+          });
+
+        if (!decryptError && decryptedData) {
+          apiServiceKey = decryptedData;
+        } else {
+          console.warn('[ai-chat] API Key decryption failed, falling back to system defaults.', decryptError);
         }
-      }),
-    });
+      }
 
-    if (!geminiResponse.ok) {
-      const err = await geminiResponse.json();
-      console.error('[ai-chat] Gemini error:', err);
-      throw new Error('AI service temporarily unavailable');
+      // Pro handling for internal models if no custom config
+      if (!customConfig && user.tier === 'pro') {
+        aiModel = workflow === 'portfolio_doctor' ? MODELS.pro_advanced : MODELS.pro_standard;
+      }
     }
 
-    const geminiData = await geminiResponse.json();
-    const responseText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || 'I could not generate a response. Please try again.';
+    if (!apiServiceKey) throw new Error('AI service unavailable');
+
+    // ─── Call AI Provider ──────────────────────────────────────────────────
+    let responseText = '';
+    let totalTokens = 0;
+
+    const fullPrompt = (workflow === 'portfolio_doctor' ? DOCTOR_PROMPT : '') + SYSTEM_PROMPT + contextBlock + "\n\nUSER_MESSAGE: " + message;
+
+    if (aiProvider === 'google') {
+      const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aiModel}:generateContent?key=${apiServiceKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: fullPrompt }] }],
+          generationConfig: { maxOutputTokens: 1500, temperature: 0.7 }
+        }),
+      });
+
+      if (!geminiResponse.ok) throw new Error(`Gemini API error: ${geminiResponse.statusText}`);
+      const data = await geminiResponse.json();
+      responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || 'No response generated.';
+      totalTokens = data.usageMetadata?.totalTokenCount || 0;
+
+    } else if (aiProvider === 'openai') {
+      const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiServiceKey}`
+        },
+        body: JSON.stringify({
+          model: aiModel,
+          messages: [{ role: 'system', content: (workflow === 'portfolio_doctor' ? DOCTOR_PROMPT : '') + SYSTEM_PROMPT + contextBlock }, { role: 'user', content: message }],
+          max_tokens: 1500,
+          temperature: 0.7
+        }),
+      });
+
+      if (!openaiResponse.ok) throw new Error(`OpenAI API error: ${openaiResponse.statusText}`);
+      const data = await openaiResponse.json();
+      responseText = data.choices?.[0]?.message?.content || 'No response generated.';
+      totalTokens = data.usage?.total_tokens || 0;
+
+    } else if (aiProvider === 'anthropic') {
+      const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiServiceKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: aiModel,
+          system: (workflow === 'portfolio_doctor' ? DOCTOR_PROMPT : '') + SYSTEM_PROMPT + contextBlock,
+          messages: [{ role: 'user', content: message }],
+          max_tokens: 1500,
+          temperature: 0.7
+        }),
+      });
+
+      if (!anthropicResponse.ok) throw new Error(`Anthropic API error: ${anthropicResponse.statusText}`);
+      const data = await anthropicResponse.json();
+      responseText = data.content?.[0]?.text || 'No response generated.';
+      totalTokens = data.usage?.output_tokens + data.usage?.input_tokens || 0;
+    }
 
     return new Response(JSON.stringify({
       message: responseText,
-      model,
+      model: aiModel,
+      provider: aiProvider,
       workflow,
-      tokens_used: geminiData.usageMetadata?.totalTokenCount,
+      tokens_used: totalTokens,
     }), {
       status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },

@@ -15,6 +15,7 @@ class SimParams(BaseModel):
     initial_value: float
     risk_free_rate: Optional[float] = 0.05
     model_type: Optional[str] = "gbm"
+    stress_scenario: Optional[str] = None
     seed: Optional[int] = None
 
 class SimulationJob(BaseModel):

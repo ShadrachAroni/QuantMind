@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: '45%',
     backgroundColor: theme.colors.surfaceLight,
-    borderRadius: theme.roundness.md,
+    borderRadius: theme.radius.md,
     padding: theme.spacing.md,
     borderWidth: 1,
     borderColor: theme.colors.border,

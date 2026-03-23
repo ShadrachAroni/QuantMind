@@ -49,7 +49,7 @@ export const ProbabilityHistogram: React.FC<ProbabilityHistogramProps> = ({
             <Path
               key={i}
               path={`M ${bin.x} ${height} L ${bin.x} ${bin.y} L ${bin.x + bin.w} ${bin.y} L ${bin.x + bin.w} ${height} Z`}
-              color={theme.colors.chart.cyan}
+              color={theme.colors.primary}
               opacity={0.7}
             />
           ))}
@@ -73,9 +73,9 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.borderSubtle,
   },
   title: {
-    color: theme.colors.text.secondary,
+    color: theme.colors.textSecondary,
     fontSize: 12,
-    fontFamily: theme.typography.families.mono,
+    fontFamily: theme.typography.fonts.mono,
     marginBottom: theme.spacing.sm,
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -86,8 +86,8 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.xs,
   },
   label: {
-    color: theme.colors.text.muted,
+    color: theme.colors.textTertiary,
     fontSize: 10,
-    fontFamily: theme.typography.families.mono,
+    fontFamily: theme.typography.fonts.mono,
   },
 });

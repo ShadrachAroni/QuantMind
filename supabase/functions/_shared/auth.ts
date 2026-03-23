@@ -5,6 +5,7 @@ export interface AuthenticatedUser {
   id: string;
   email: string;
   tier: string;
+  is_admin: boolean;
   role?: string;
 }
 
@@ -25,7 +26,7 @@ export async function requireAuth(req: Request): Promise<AuthenticatedUser> {
     throw new Error('Unauthorized: Invalid or expired token');
   }
 
-  // Get subscription tier from user_profiles
+  // Get profile details from user_profiles
   const supabaseAdmin = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -33,7 +34,7 @@ export async function requireAuth(req: Request): Promise<AuthenticatedUser> {
 
   const { data: profile } = await supabaseAdmin
     .from('user_profiles')
-    .select('tier')
+    .select('tier, is_admin')
     .eq('id', user.id)
     .single();
 
@@ -41,6 +42,7 @@ export async function requireAuth(req: Request): Promise<AuthenticatedUser> {
     id: user.id,
     email: user.email!,
     tier: profile?.tier || 'free',
+    is_admin: !!profile?.is_admin,
     role: user.app_metadata?.role,
   };
 }

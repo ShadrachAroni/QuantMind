@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: theme.colors.surfaceLight,
     padding: theme.spacing.xl,
-    borderRadius: theme.roundness.lg,
+    borderRadius: theme.radius.lg,
     borderWidth: 1,
     borderColor: theme.colors.border,
     minWidth: 200,

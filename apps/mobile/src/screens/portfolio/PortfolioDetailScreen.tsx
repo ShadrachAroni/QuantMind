@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { Typography } from '../../components/ui/Typography';
 import { usePortfolioStore } from '../../store/portfolioStore';
+import { Asset } from '@quantmind/shared-types';
 import { AssetCard } from '../../components/ui/AssetCard';
 import { PieChart } from 'react-native-svg-charts';
 import { Text as SvgText } from 'react-native-svg';
@@ -26,6 +27,8 @@ export function PortfolioDetailScreen({ route, navigation }: any) {
   const RiskIcon = ShieldAlert as any;
   const TargetIcon = Target as any;
   const ActivityIcon = Activity as any;
+  const [isRebalanceMode, setIsRebalanceMode] = React.useState(false);
+  const [proposedAssets, setProposedAssets] = React.useState<Asset[]>([]);
 
   const dynamicStyles = getStyles(theme, isDark);
 
@@ -41,14 +44,15 @@ export function PortfolioDetailScreen({ route, navigation }: any) {
   }
 
   const pieData = useMemo(() => {
+    const assetsToUse = isRebalanceMode ? proposedAssets : (portfolio.assets || []);
     const colors = [theme.primary, theme.secondary, '#10B981', '#F59E0B', '#F43F5E', '#8B5CF6'];
-    return (portfolio.assets || []).map((asset, index) => ({
+    return assetsToUse.map((asset, index) => ({
       value: asset.weight * 100,
       svg: { fill: colors[index % colors.length] },
       key: `pie-${index}`,
       ticker: asset.ticker,
     }));
-  }, [portfolio.assets, theme]);
+  }, [portfolio.assets, proposedAssets, isRebalanceMode, theme]);
 
   const Labels = ({ slices }: any) => {
     return slices.map((slice: any, index: number) => {
@@ -100,16 +104,46 @@ export function PortfolioDetailScreen({ route, navigation }: any) {
 
           <View style={dynamicStyles.actionGrid}>
             <TouchableOpacity 
+              style={[dynamicStyles.actionBtn, { backgroundColor: isRebalanceMode ? theme.primary : theme.primary + '15', borderColor: theme.primary + '33' }]}
+              onPress={() => {
+                if (!isRebalanceMode) {
+                  setProposedAssets([...(portfolio.assets || [])]);
+                  setIsRebalanceMode(true);
+                } else {
+                  setIsRebalanceMode(false);
+                }
+              }}
+            >
+              <ActivityIcon size={14} color={isRebalanceMode ? theme.background : theme.primary} />
+              <Typography variant="monoBold" style={[dynamicStyles.actionText, { color: isRebalanceMode ? theme.background : theme.primary }]}>
+                {isRebalanceMode ? 'EXIT_REBALANCE' : 'REBALANCE'}
+              </Typography>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
               style={[dynamicStyles.actionBtn, { backgroundColor: theme.primary + '15', borderColor: theme.primary + '33' }]}
-              onPress={() => navigation.navigate('Simulations', { screen: 'SimulationSetup', params: { portfolioId: portfolio.id } })}
+              onPress={() => navigation.navigate('Simulations', { 
+                screen: 'SimulationSetup', 
+                params: { 
+                  portfolioId: portfolio.id, 
+                  isComparison: isRebalanceMode,
+                  proposedAssets: isRebalanceMode ? proposedAssets : null
+                } 
+              })}
             >
               <RunIcon size={14} color={theme.primary} />
-              <Typography variant="monoBold" style={[dynamicStyles.actionText, { color: theme.primary }]}>{STRINGS.MODEL}</Typography>
+              <Typography variant="monoBold" style={[dynamicStyles.actionText, { color: theme.primary }]}>
+                {isRebalanceMode ? 'SIM_PROPOSAL' : STRINGS.MODEL}
+              </Typography>
             </TouchableOpacity>
             
             <TouchableOpacity 
               style={[dynamicStyles.actionBtn, { backgroundColor: theme.secondary + '15', borderColor: theme.secondary + '33' }]}
-              onPress={() => navigation.navigate('AI', { screen: 'AIChat', params: { portfolioId: portfolio.id, workflow: 'portfolio_doctor' } })}
+              onPress={() => navigation.navigate('AI', { screen: 'AIChat', params: { 
+                portfolioId: portfolio.id, 
+                workflow: 'portfolio_doctor',
+                proposedAssets: isRebalanceMode ? proposedAssets : null
+              } })}
             >
               <ClinicIcon size={14} color={theme.secondary} />
               <Typography variant="monoBold" style={[dynamicStyles.actionText, { color: theme.secondary }]}>{STRINGS.ORACLE}</Typography>
@@ -155,18 +189,34 @@ export function PortfolioDetailScreen({ route, navigation }: any) {
           </GlassCard>
         </View>
 
-        <Typography variant="h3" style={[dynamicStyles.sectionTitle, { marginTop: 32, color: theme.textTertiary }]}>CONSTITUENTS_VIEW</Typography>
+        <Typography variant="h3" style={[dynamicStyles.sectionTitle, { marginTop: 32, color: theme.textTertiary }]}>
+          {isRebalanceMode ? 'REBALANCE_PARAMETERS' : 'CONSTITUENTS_VIEW'}
+        </Typography>
         <View style={dynamicStyles.assetList}>
-          {portfolio.assets?.map((asset) => (
-            <AssetCard 
-              key={asset.ticker}
-              ticker={asset.ticker}
-              name={asset.name}
-              weight={asset.weight}
-              amountValue={(portfolio.total_value || 0) * asset.weight}
-              onPress={() => {}}
-            />
-          ))}
+          {(isRebalanceMode ? proposedAssets : (portfolio.assets || [])).map((asset, index) => {
+            const originalAsset = portfolio.assets?.find(a => a.ticker === asset.ticker);
+            const delta = originalAsset ? (asset.weight - originalAsset.weight) : 0;
+            
+            return (
+              <AssetCard 
+                key={asset.ticker}
+                ticker={asset.ticker}
+                name={asset.name}
+                weight={asset.weight}
+                amountValue={(portfolio.total_value || 0) * asset.weight}
+                delta={isRebalanceMode ? delta : undefined}
+                onPress={() => {
+                  if (isRebalanceMode) {
+                    // Open a weight adjustment slider (simplified for now as a mock)
+                    const newWeights = [...proposedAssets];
+                    // Example: Toggle between 10% steps
+                    newWeights[index].weight = (newWeights[index].weight + 0.1) % 0.5;
+                    setProposedAssets(newWeights);
+                  }
+                }}
+              />
+            );
+          })}
         </View>
 
         <View style={{ height: 60 }} />

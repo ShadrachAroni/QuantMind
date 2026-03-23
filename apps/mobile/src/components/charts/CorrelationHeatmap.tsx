@@ -73,17 +73,17 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.borderSubtle,
   },
   title: {
-    color: theme.colors.text.secondary,
+    color: theme.colors.textSecondary,
     fontSize: 12,
-    fontFamily: theme.typography.families.mono,
+    fontFamily: theme.typography.fonts.mono,
     marginBottom: theme.spacing.sm,
     textTransform: 'uppercase',
     letterSpacing: 1,
     textAlign: 'center',
   },
   axisLabel: {
-    color: theme.colors.text.muted,
+    color: theme.colors.textTertiary,
     fontSize: 9,
-    fontFamily: theme.typography.families.mono,
+    fontFamily: theme.typography.fonts.mono,
   },
 });

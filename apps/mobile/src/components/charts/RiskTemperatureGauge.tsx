@@ -67,7 +67,7 @@ export const RiskTemperatureGauge: React.FC<RiskTemperatureGaugeProps> = ({
             <LinearGradient
               start={vec(0, 0)}
               end={vec(size, size)}
-              colors={[theme.colors.chart.cyan, theme.colors.chart.purple]}
+              colors={[theme.colors.primary, theme.colors.secondary]}
             />
           </Path>
         </Group>
@@ -90,14 +90,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   valueText: {
-    color: theme.colors.text.primary,
+    color: theme.colors.textPrimary,
     fontSize: 32,
-    fontFamily: theme.typography.families.heading,
+    fontFamily: theme.typography.fonts.bold,
   },
   label: {
-    color: theme.colors.text.muted,
+    color: theme.colors.textTertiary,
     fontSize: 10,
-    fontFamily: theme.typography.families.mono,
+    fontFamily: theme.typography.fonts.mono,
     marginTop: -4,
   },
 });

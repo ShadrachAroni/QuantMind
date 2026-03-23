@@ -54,6 +54,20 @@ export default function UsersPage() {
     }
   }
 
+  async function revokeSessions(userId: string) {
+    if (!confirm('REVOKE_ALL_SESSIONS: Force immediate re-authentication for this user?')) return;
+    
+    const { data, error } = await supabase.functions.invoke('admin-session-manager', {
+      body: { action: 'revoke_sessions', targetUserId: userId }
+    });
+
+    if (error) {
+      alert(`REVOCATION_FAILED: ${error.message}`);
+    } else {
+      alert('SESSIONS_REVOKED_SUCCESSFULLY');
+    }
+  }
+
   return (
     <AdminLayout>
       <GlowEffect color="#7C3AED" size={500} style={{ bottom: -100, right: -200, opacity: 0.1 }} />
@@ -132,7 +146,13 @@ export default function UsersPage() {
                     </td>
                     <td className="timestamp mono">{new Date(u.created_at).toLocaleDateString().toUpperCase()}</td>
                     <td className="actions">
-                      <button className="action-icon"><MoreHorizontal size={18} /></button>
+                      <button 
+                        className="action-icon session-revoke" 
+                        onClick={() => revokeSessions(u.id)}
+                        title="REVOKE_ALL_SESSIONS"
+                      >
+                        <Shield size={18} />
+                      </button>
                     </td>
                   </tr>
                 ))
@@ -304,14 +324,14 @@ export default function UsersPage() {
            text-align: right;
         }
 
-        .action-icon {
-          color: var(--text-muted);
-          opacity: 0.6;
-          transition: opacity 0.2s;
-        }
-
         .action-icon:hover {
           opacity: 1;
+        }
+
+        .action-icon.session-revoke:hover {
+          color: var(--error);
+          background: rgba(255, 69, 58, 0.1);
+          border-radius: 6px;
         }
 
         .loading-row {

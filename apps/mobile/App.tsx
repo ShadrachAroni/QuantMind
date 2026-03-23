@@ -10,6 +10,7 @@ import { theme } from './src/constants/theme';
 import { LoadingOverlay } from './src/components/ui/LoadingOverlay';
 import { ThemeProvider } from './src/context/ThemeContext';
 import { ToastProvider } from './src/context/ToastContext';
+import { useNotifications } from './src/hooks/useNotifications';
 
 // Create QueryClient instance
 const queryClient = new QueryClient({
@@ -23,6 +24,7 @@ const queryClient = new QueryClient({
 
 function AppContent() {
   const { initialize, isLoading, initialized } = useAuthStore();
+  useNotifications();
 
   useEffect(() => {
     initialize();

@@ -3,7 +3,8 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Users, Shield, Activity, FileText, Settings, LogOut } from 'lucide-react';
+import { Users, Shield, Activity, FileText, Settings, LogOut, ChevronRight } from 'lucide-react';
+import { useAuth } from '../../components/auth/AuthProvider';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -11,6 +12,7 @@ interface AdminLayoutProps {
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname();
+  const { signOut } = useAuth();
 
   const navItems = [
     { href: '/', label: 'Dashboard', icon: Activity },
@@ -40,7 +42,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           })}
         </nav>
         <div className="sidebar-footer">
-          <button className="logout-btn">
+          <button className="logout-btn" onClick={signOut}>
             <LogOut size={20} /> Sign Out
           </button>
         </div>

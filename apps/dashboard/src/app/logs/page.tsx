@@ -15,17 +15,37 @@ export default function LogsPage() {
 
   useEffect(() => {
     fetchLogs();
-  }, [page]);
+    
+    // Set up Realtime subscription
+    const channel = supabase
+      .channel('admin_audit_log_changes')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'admin_audit_log' },
+        (payload) => {
+          setLogs((currentLogs) => [payload.new, ...currentLogs].slice(0, 50));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   async function fetchLogs() {
     setLoading(true);
-    const { data } = await supabase
-      .from('admin_audit_logs')
+    const { data, error } = await supabase
+      .from('admin_audit_log')
       .select('*')
       .order('created_at', { ascending: false })
       .range((page - 1) * pageSize, page * pageSize - 1);
 
-    if (data) setLogs(data);
+    if (error) {
+      console.error('LOG_FETCH_ERROR:', error);
+    } else if (data) {
+      setLogs(data);
+    }
     setLoading(false);
   }
 
@@ -35,7 +55,7 @@ export default function LogsPage() {
       
       <header className="top-bar">
         <div className="header-title">
-          <span className="breadcrumb">SECURITY // GOVERNANCE</span>
+          <span className="breadcrumb">SECURITY // GOVERNANCE // <span className="live-pill mono">LIVE_STREAM</span></span>
           <h1>AUDIT_TRAIL</h1>
         </div>
         <div className="header-actions">
@@ -57,22 +77,27 @@ export default function LogsPage() {
            </div>
          ) : (
            <div className="log-stream">
-             {logs.map((log, i) => (
+             {logs.map((log) => (
                <GlassCard key={log.id} intensity="low" className="log-entry">
                   <div className="log-meta">
                     <div className="meta-left">
                        <Terminal size={12} color="var(--accent-cyan)" />
                        <span className="log-timestamp mono">{new Date(log.created_at).toLocaleString().toUpperCase()}</span>
                     </div>
-                    <span className={`log-action mono ${log.action.toLowerCase()}`}>{log.action}</span>
+                    <span className={`log-action mono ${log.action_type?.toLowerCase() || 'default'}`}>{log.action_type || 'SYSTEM'}</span>
                   </div>
                   <div className="log-body">
-                     <span className="log-admin mono">ADMIN_ID::{log.admin_id.substring(0,8).toUpperCase()}</span>
-                     <p className="log-desc">{log.description}</p>
+                     <span className="log-admin mono">ADMIN_ID::{log.admin_user_id?.substring(0,8).toUpperCase() || 'UNKNOWN'}</span>
+                     <p className="log-desc">{log.target_resource}</p>
                   </div>
-                  {log.metadata && (
+                  {(log.old_value || log.new_value) && (
                     <div className="log-details">
-                       <pre className="log-json mono">{JSON.stringify(log.metadata, null, 2)}</pre>
+                       <pre className="log-json mono">
+                         {JSON.stringify({
+                           from: log.old_value,
+                           to: log.new_value
+                         }, null, 2)}
+                       </pre>
                     </div>
                   )}
                </GlassCard>

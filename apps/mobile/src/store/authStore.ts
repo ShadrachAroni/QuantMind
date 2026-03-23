@@ -17,6 +17,27 @@ export interface AIPrefs {
   ai_risk_alerts: boolean;
 }
 
+export interface AIConfig {
+  id: string;
+  provider: 'anthropic' | 'openai' | 'google' | 'custom';
+  model_id: string;
+  is_active: boolean;
+  updated_at: string;
+}
+
+export interface ChangelogEntry {
+  id: string;
+  version: string;
+  platform: string;
+  category: 'feature' | 'fix' | 'performance' | 'security' | 'maintenance';
+  title: string;
+  description: string;
+  impact_level: 'low' | 'medium' | 'high' | 'critical';
+  user_groups: string[];
+  is_breaking: boolean;
+  created_at: string;
+}
+
 export type SubscriptionTier = 'free' | 'plus' | 'basic' | 'pro' | 'institution' | 'student';
 
 export interface TierEntitlements {
@@ -35,6 +56,8 @@ interface AuthState {
   tier: string;
   isStudentVerified: boolean;
   aiPrefs: AIPrefs | null;
+  aiConfigs: AIConfig[];
+  changelog: ChangelogEntry[];
   initialized: boolean;
   isLoading: boolean;
   isBiometricSupported: boolean;
@@ -47,7 +70,7 @@ interface AuthState {
   powerShifts: number;
   lastPowerShiftReset: string | null;
   tierConfigs: TierConfig;
-  pesapalPlans: any[];
+  subscriptionPlans: any[];
   systemEvents: any[];
   lastConfigsFetch: number | null;
   lastPlansFetch: number | null;
@@ -66,11 +89,19 @@ interface AuthState {
   checkSessionExpiry: () => Promise<boolean>;
   usePowerShift: () => boolean;
   fetchTierConfigs: () => Promise<void>;
-  fetchPesapalPlans: () => Promise<void>;
+  fetchSubscriptionPlans: () => Promise<void>;
   fetchSystemEvents: () => Promise<void>;
   grantTrialReward: () => Promise<void>;
   hasUsedTrial: boolean;
   trialEndsAt: string | null;
+  isPasswordExpired: boolean;
+  passwordLastChangedAt: string | null;
+  refreshPasswordExpiry: () => void;
+  fetchAIConfigs: () => Promise<void>;
+  saveAIConfig: (provider: string, modelId: string, apiKey: string) => Promise<void>;
+  toggleAIConfig: (configId: string, active: boolean) => Promise<void>;
+  deleteAIConfig: (configId: string) => Promise<void>;
+  fetchChangelog: () => Promise<void>;
 }
 
 const DEFAULT_AI_PREFS: AIPrefs = {
@@ -84,7 +115,7 @@ const DEFAULT_AI_PREFS: AIPrefs = {
 async function fetchProfile(userId: string) {
   const { data } = await supabase
     .from('user_profiles')
-    .select('tier, is_student_verified, accepted_tos_version, ai_model, ai_expertise, ai_portfolio_doctor, ai_voice_synthesis, ai_risk_alerts, has_used_trial, trial_ends_at')
+    .select('tier, is_student_verified, accepted_tos_version, ai_model, ai_expertise, ai_portfolio_doctor, ai_voice_synthesis, ai_risk_alerts, has_used_trial, trial_ends_at, password_last_changed_at')
     .eq('id', userId)
     .single();
   return data;
@@ -107,6 +138,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   tier: 'free',
   isStudentVerified: false,
   aiPrefs: null,
+  aiConfigs: [],
+  changelog: [],
   initialized: false,
   isLoading: true,
   isBiometricSupported: false,
@@ -119,12 +152,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   powerShifts: 0,
   lastPowerShiftReset: null,
   tierConfigs: CONFIG.DEFAULT_TIER_CONFIG as TierConfig,
-  pesapalPlans: [],
+  subscriptionPlans: [],
   systemEvents: [],
   lastConfigsFetch: null,
   lastPlansFetch: null,
   hasUsedTrial: false,
   trialEndsAt: null,
+  isPasswordExpired: false,
+  passwordLastChangedAt: null,
+
+  refreshPasswordExpiry: () => {
+    const now = new Date().toISOString();
+    set({ passwordLastChangedAt: now, isPasswordExpired: false });
+  },
 
   setUser: (user: User | null) => set({ user }),
   setTier: (tier: string) => set({ tier }),
@@ -141,7 +181,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // Fetch remote config and events
       await get().fetchTierConfigs();
-      await get().fetchPesapalPlans();
+      await get().fetchSubscriptionPlans();
       await get().fetchSystemEvents();
 
       // Fetch latest active ToS version
@@ -173,7 +213,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             },
             hasUsedTrial: !!data.has_used_trial,
             trialEndsAt: data.trial_ends_at ?? null,
+            passwordLastChangedAt: data.password_last_changed_at ?? null,
           });
+
+          // Password Expiration Check (60 Days)
+          if (data.password_last_changed_at) {
+            const EXPR_PERIOD = 60 * 24 * 60 * 60 * 1000;
+            const lastChanged = new Date(data.password_last_changed_at).getTime();
+            if (Date.now() - lastChanged > EXPR_PERIOD) {
+              set({ isPasswordExpired: true });
+            } else {
+              set({ isPasswordExpired: false });
+            }
+          }
 
           // Handle Power Shifts Reset
           const today = new Date().toISOString().split('T')[0];
@@ -235,10 +287,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             },
             hasUsedTrial: !!data.has_used_trial,
             trialEndsAt: data.trial_ends_at ?? null,
+            passwordLastChangedAt: data.password_last_changed_at ?? null,
           });
+
+          // Password Expiration Check (60 Days)
+          if (data.password_last_changed_at) {
+            const EXPR_PERIOD = 60 * 24 * 60 * 60 * 1000;
+            const lastChanged = new Date(data.password_last_changed_at).getTime();
+            if (Date.now() - lastChanged > EXPR_PERIOD) {
+              set({ isPasswordExpired: true });
+            } else {
+              set({ isPasswordExpired: false });
+            }
+          }
         }
       } else {
-        set({ tier: 'free', aiPrefs: null, needsTosConsent: false, hasUsedTrial: false, trialEndsAt: null });
+        set({ tier: 'free', aiPrefs: null, needsTosConsent: false, hasUsedTrial: false, trialEndsAt: null, isPasswordExpired: false, passwordLastChangedAt: null });
       }
       
       if (session?.user) {
@@ -251,7 +315,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true });
     await supabase.auth.signOut();
     await SecureStore.deleteItemAsync(ACTIVITY_KEY);
-    set({ user: null, tier: 'free', aiPrefs: null, isLoading: false, lastActivityAt: null });
+    set({ user: null, tier: 'free', aiPrefs: null, isLoading: false, lastActivityAt: null, isPasswordExpired: false, passwordLastChangedAt: null });
   },
 
   completeOnboarding: async () => {
@@ -445,7 +509,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       },
 
-      fetchPesapalPlans: async () => {
+      fetchSubscriptionPlans: async () => {
         const { lastPlansFetch } = get();
         const now = Date.now();
 
@@ -457,15 +521,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           const { data, error } = await supabase
             .from('app_config')
             .select('value')
-            .eq('key', 'pesapal_plans')
+            .eq('key', 'subscription_plans')
             .single();
           
           if (error) throw error;
           if (data?.value) {
-            set({ pesapalPlans: data.value as any[], lastPlansFetch: now });
+            set({ subscriptionPlans: data.value as any[], lastPlansFetch: now });
           }
         } catch (error) {
-          console.error('Error fetching pesapal plans:', error);
+          console.error('Error fetching subscription plans:', error);
         }
       },
 
@@ -504,5 +568,69 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         } finally {
           set({ isLoading: false });
         }
+      },
+
+      fetchAIConfigs: async () => {
+        const { user } = get();
+        if (!user) return;
+        const { data, error } = await supabase
+          .from('user_ai_configs')
+          .select('id, provider, model_id, is_active, updated_at')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false });
+        
+        if (error) throw error;
+        set({ aiConfigs: data || [] });
+      },
+
+      saveAIConfig: async (provider: string, modelId: string, apiKey: string) => {
+        const { error } = await supabase.rpc('save_user_ai_config', {
+          p_provider: provider,
+          p_model_id: modelId,
+          p_api_key: apiKey
+        });
+        if (error) throw error;
+        await get().fetchAIConfigs();
+      },
+
+      toggleAIConfig: async (configId: string, active: boolean) => {
+        const { user } = get();
+        if (!user) return;
+
+        // If activating, deactivate all others first (enforce single active custom config)
+        if (active) {
+          await supabase
+            .from('user_ai_configs')
+            .update({ is_active: false })
+            .eq('user_id', user.id);
+        }
+
+        const { error } = await supabase
+          .from('user_ai_configs')
+          .update({ is_active: active })
+          .eq('id', configId);
+        
+        if (error) throw error;
+        await get().fetchAIConfigs();
+      },
+
+      deleteAIConfig: async (configId: string) => {
+        const { error } = await supabase
+          .from('user_ai_configs')
+          .delete()
+          .eq('id', configId);
+        if (error) throw error;
+        await get().fetchAIConfigs();
+      },
+
+      fetchChangelog: async () => {
+        const { data, error } = await supabase
+          .from('app_changelog')
+          .select('*')
+          .eq('environment', 'production')
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        set({ changelog: data || [] });
       },
 }));

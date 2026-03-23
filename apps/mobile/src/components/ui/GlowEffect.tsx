@@ -16,6 +16,7 @@ interface GlowEffectProps {
   size?: number;
   duration?: number;
   glowRadius?: number;
+  opacity?: number;
   type?: 'pulse' | 'steady';
   style?: StyleProp<ViewStyle>;
 }
@@ -27,11 +28,12 @@ export function GlowEffect({
   duration = 2000, 
   glowRadius = 15,
   type = 'pulse',
-  style
+  style,
+  opacity: initialOpacity = 0.4
 }: GlowEffectProps) {
   const { theme } = useTheme();
   const activeColor = color || theme.primary;
-  const opacity = useSharedValue(0.4);
+  const opacity = useSharedValue(initialOpacity);
   const scale = useSharedValue(1);
 
   useEffect(() => {
