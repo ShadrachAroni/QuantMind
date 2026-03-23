@@ -171,7 +171,14 @@ export default function BillingSettings() {
             </div>
 
             <button 
-              onClick={() => handleCheckout(process.env.NEXT_PUBLIC_PAYSTACK_PLAN_PLUS!)}
+              onClick={() => {
+                const planId = process.env.NEXT_PUBLIC_PAYSTACK_PLAN_PLUS;
+                if (!planId) {
+                  setError('PLAN_ID_NOT_CONFIGURED');
+                  return;
+                }
+                handleCheckout(planId);
+              }}
               disabled={loading}
               className="w-full py-3 bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white border border-blue-500/30 rounded-xl font-mono text-sm uppercase tracking-wider transition-all duration-300 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] active:scale-95"
             >
@@ -219,7 +226,14 @@ export default function BillingSettings() {
               <div className="relative group/btn">
                 <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl blur opacity-30 group-hover/btn:opacity-75 transition duration-500"></div>
                 <button 
-                  onClick={() => handleCheckout(process.env.NEXT_PUBLIC_PAYSTACK_PLAN_PRO!)}
+                  onClick={() => {
+                    const planId = process.env.NEXT_PUBLIC_PAYSTACK_PLAN_PRO;
+                    if (!planId) {
+                      setError('PLAN_ID_NOT_CONFIGURED');
+                      return;
+                    }
+                    handleCheckout(planId);
+                  }}
                   disabled={loading}
                   className="relative w-full py-4 bg-gradient-to-r from-purple-500 to-purple-700 text-white font-mono font-bold text-base rounded-xl transition-all duration-300 shadow-xl overflow-hidden active:scale-[0.98]"
                 >
