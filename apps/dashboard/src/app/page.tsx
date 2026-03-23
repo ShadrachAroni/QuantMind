@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import { Users, Shield, Activity, FileText, Settings, LogOut, ChevronRight, Zap, Target } from 'lucide-react';
 import { AdminLayout } from '../components/ui/AdminLayout';
