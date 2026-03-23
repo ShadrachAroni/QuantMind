@@ -45,7 +45,7 @@ serve(async (req: Request) => {
         plan: planCode,
         channels: ['card', 'mobile_money', 'apple_pay', 'bank_transfer'],
         // Assuming dashboard routes locally to 3000
-        callback_url: `${req.headers.get('origin') || 'http://localhost:3000'}/settings/billing?success=true`,
+        callback_url: `${req.headers.get('origin') || Deno.env.get('SITE_URL') || 'http://localhost:3000'}/settings/billing?success=true`,
         metadata: {
            supabase_user_id: user.id
         }

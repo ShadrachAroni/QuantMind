@@ -24,12 +24,21 @@ export function GlassCard({ children, style, className = '', intensity = 'medium
       <style jsx>{`
         .glass-card {
           background: rgba(255, 255, 255, ${bgOpacity});
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
+          backdrop-filter: blur(24px) saturate(180%);
+          -webkit-backdrop-filter: blur(24px) saturate(180%);
           border: 1px solid rgba(255, 255, 255, 0.08);
-          border-radius: 16px;
+          border-radius: 32px;
           overflow: hidden;
           position: relative;
+          transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        
+        .glass-card:hover {
+          background: rgba(255, 255, 255, calc(${bgOpacity} + 0.02));
+          border-color: rgba(124, 58, 237, 0.3);
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 
+                      0 0 20px rgba(124, 58, 237, 0.1);
+          transform: translateY(-4px);
         }
       `}</style>
     </div>

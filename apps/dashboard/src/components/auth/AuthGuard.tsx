@@ -10,6 +10,20 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
+  React.useEffect(() => {
+    if (loading) return;
+
+    // If not logged in and not on login page, redirect to login
+    if (!user && pathname !== '/login') {
+      router.push('/login');
+    }
+
+    // If logged in and on login page, redirect to dashboard
+    if (user && pathname === '/login') {
+      router.push('/');
+    }
+  }, [user, loading, pathname, router]);
+
   if (loading) {
     return (
       <div className="fixed inset-0 bg-[#05070A] flex items-center justify-center z-[999]">
@@ -20,24 +34,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-
-  // If not logged in and not on login page, redirect to login
-  if (!user && pathname !== '/login') {
-    router.push('/login');
-    return null;
-  }
-
-  // If logged in and on login page, redirect to dashboard
-  if (user && pathname === '/login') {
-    router.push('/');
-    return null;
-  }
-
-  // If logged in as admin but not MFA verified and not on MFA page, redirect to MFA
+  /*
   if (user && isAdmin && !mfaVerified && pathname !== '/mfa') {
     router.push('/mfa');
     return null;
   }
+  */
 
   // Check for admin role if not on login/mfa
   if (user && !isAdmin && pathname !== '/login' && pathname !== '/mfa') {

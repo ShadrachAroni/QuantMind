@@ -5,9 +5,12 @@ import { Mail, Plus, Send, BarChart3, Clock, Users, ChevronRight, CheckCircle2, 
 import { AdminLayout } from '../../components/ui/AdminLayout';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { supabase } from '../../lib/supabase';
+import { HoloLoader } from '../../components/ui/HoloLoader';
+import { logSystemEvent } from '../../lib/notifications';
 
 export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [globalStats, setGlobalStats] = useState({ totalSent: 0, avgOpenRate: 0, avgCtr: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -17,10 +20,29 @@ export default function CampaignsPage() {
   async function fetchCampaigns() {
     const { data, error } = await supabase
       .from('email_campaigns')
-      .select('*, public.email_templates(name)')
+      .select('*, email_templates(name), campaign_recipients(status)')
       .order('created_at', { ascending: false });
 
-    if (!error) setCampaigns(data);
+    if (!error && data) {
+      setCampaigns(data);
+      
+      let totalSent = 0;
+      let totalOpened = 0;
+      let totalClicked = 0;
+
+      data.forEach(campaign => {
+        const recs = campaign.campaign_recipients || [];
+        totalSent += recs.length;
+        totalOpened += recs.filter((r: any) => r.status === 'opened' || r.status === 'clicked').length;
+        totalClicked += recs.filter((r: any) => r.status === 'clicked').length;
+      });
+
+      setGlobalStats({
+        totalSent,
+        avgOpenRate: totalSent > 0 ? (totalOpened / totalSent) * 100 : 0,
+        avgCtr: totalSent > 0 ? (totalClicked / totalSent) * 100 : 0
+      });
+    }
     setLoading(false);
   }
 
@@ -34,6 +56,39 @@ export default function CampaignsPage() {
     }
   };
 
+  const handleLaunch = async (id: string, name: string) => {
+    try {
+      setLoading(true);
+      
+      // 1. Update status to scheduled
+      const { error: updateError } = await supabase
+        .from('email_campaigns')
+        .update({ 
+          status: 'scheduled',
+          scheduled_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (updateError) throw updateError;
+
+      // 2. Trigger Edge Function immediate processing
+      const { error: invokeError } = await supabase.functions.invoke('campaign-executor');
+      if (invokeError) throw invokeError;
+
+      // 3. Log event
+      await logSystemEvent(`Manual initialization triggered for campaign: ${name}.`, 'upgrade');
+      
+      // 4. Refresh
+      await fetchCampaigns();
+      alert(`CAMPAIGN_${name.toUpperCase()}_INITIALIZED_SUCCESSFULLY`);
+    } catch (err) {
+      console.error('Launch failed:', err);
+      alert('LAUNCH_PROTOCOL_FAILURE: Check system logs.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <AdminLayout>
       <header className="top-bar">
@@ -41,7 +96,7 @@ export default function CampaignsPage() {
           <span className="breadcrumb">TERMINAL // CAMPAIGNS</span>
           <h1>CAMPAIGN_CONSOLE</h1>
         </div>
-        <button className="create-btn">
+        <button className="create-btn" onClick={() => window.location.href = '/campaigns/create'}>
           <Plus size={16} /> INITIALIZE_NEW_CAMPAIGN
         </button>
       </header>
@@ -55,15 +110,15 @@ export default function CampaignsPage() {
           <div className="metrics-grid">
             <div className="metric">
               <span className="label">TOTAL_SENT</span>
-              <span className="value">42.8K</span>
+              <span className="value">{globalStats.totalSent >= 1000 ? (globalStats.totalSent / 1000).toFixed(1) + 'K' : globalStats.totalSent}</span>
             </div>
             <div className="metric">
               <span className="label">AVG_OPEN_RATE</span>
-              <span className="value">24.6%</span>
+              <span className="value">{globalStats.avgOpenRate.toFixed(1)}%</span>
             </div>
             <div className="metric">
               <span className="label">AVG_CTR</span>
-              <span className="value">8.2%</span>
+              <span className="value">{globalStats.avgCtr.toFixed(1)}%</span>
             </div>
           </div>
         </GlassCard>
@@ -71,48 +126,65 @@ export default function CampaignsPage() {
 
       <div className="campaigns-list">
         {loading ? (
-          <div className="loading mono">SCANNING_CAMPAIGN_VECTORS...</div>
+          <div className="py-24 relative min-h-[400px]">
+            <HoloLoader 
+              progress={Math.floor(Math.random() * 80) + 10} 
+              phase="SCANNING_CAMPAIGN_VECTORS..." 
+              isMuted={true} 
+              onToggleMute={() => {}} 
+              fullScreen={false} 
+            />
+          </div>
         ) : (
-          campaigns.map((campaign) => (
-            <GlassCard key={campaign.id} className="campaign-item">
-              <div className="campaign-header">
-                <div className="campaign-title">
-                  <div className="status-indicator" style={{ background: getStatusColor(campaign.status) }} />
-                  <h3>{campaign.name}</h3>
-                  <span className="template-tag mono">{campaign.public.email_templates.name}</span>
+          campaigns.map((campaign) => {
+            const recs = campaign.campaign_recipients || [];
+            const recipientCount = recs.length;
+            const openedCount = recs.filter((r: any) => r.status === 'opened' || r.status === 'clicked').length;
+            const openRate = recipientCount > 0 ? ((openedCount / recipientCount) * 100).toFixed(1) : '0.0';
+
+            return (
+              <GlassCard key={campaign.id} className="campaign-item">
+                <div className="campaign-header">
+                  <div className="campaign-title">
+                    <div className="status-indicator" style={{ background: getStatusColor(campaign.status) }} />
+                    <h3>{campaign.name}</h3>
+                    <span className="template-tag mono">{campaign.email_templates?.name}</span>
+                  </div>
+                  <div className="campaign-meta mono">
+                    {campaign.status === 'scheduled' ? (
+                      <><Clock size={12} /> {new Date(campaign.scheduled_at).toLocaleDateString()}</>
+                    ) : (
+                      <><CheckCircle2 size={12} /> {campaign.status.toUpperCase()}</>
+                    )}
+                  </div>
                 </div>
-                <div className="campaign-meta mono">
-                  {campaign.status === 'scheduled' ? (
-                    <><Clock size={12} /> {new Date(campaign.scheduled_at).toLocaleDateString()}</>
-                  ) : (
-                    <><CheckCircle2 size={12} /> {campaign.status.toUpperCase()}</>
+
+                <div className="campaign-stats">
+                  <div className="mini-stat">
+                    <Users size={12} />
+                    <span>RECIPIENTS: <b className="mono">{recipientCount}</b></span>
+                  </div>
+                  <div className="mini-stat">
+                    <Send size={12} />
+                    <span>SENT: <b className="mono">100%</b></span>
+                  </div>
+                  <div className="mini-stat">
+                    <BarChart3 size={12} />
+                    <span>OPEN_RATE: <b className="mono" style={{ color: Number(openRate) > 20 ? 'var(--success)' : 'var(--accent-cyan)' }}>{openRate}%</b></span>
+                  </div>
+                </div>
+
+                <div className="campaign-actions">
+                  <button className="action-btn" onClick={() => window.location.href = `/campaigns/${campaign.id}`}>
+                    VIEW_DETAILED_ANALYTICS <ChevronRight size={14} />
+                  </button>
+                  {campaign.status === 'pending_approval' && (
+                    <button className="approve-btn" onClick={() => handleLaunch(campaign.id, campaign.name)}>EXECUTE_APPROVAL</button>
                   )}
                 </div>
-              </div>
-
-              <div className="campaign-stats">
-                <div className="mini-stat">
-                  <Users size={12} />
-                  <span>RECIPIENTS: <b className="mono">8.4K</b></span>
-                </div>
-                <div className="mini-stat">
-                  <Send size={12} />
-                  <span>SENT: <b className="mono">100%</b></span>
-                </div>
-                <div className="mini-stat">
-                  <BarChart3 size={12} />
-                  <span>OPEN_RATE: <b className="mono" style={{ color: 'var(--success)' }}>28.4%</b></span>
-                </div>
-              </div>
-
-              <div className="campaign-actions">
-                <button className="action-btn">VIEW_DETAILED_ANALYTICS <ChevronRight size={14} /></button>
-                {campaign.status === 'pending_approval' && (
-                  <button className="approve-btn">EXECUTE_APPROVAL</button>
-                )}
-              </div>
-            </GlassCard>
-          ))
+              </GlassCard>
+            );
+          })
         )}
       </div>
 

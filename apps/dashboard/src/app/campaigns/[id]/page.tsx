@@ -21,7 +21,7 @@ export default function CampaignAnalyticsPage() {
   async function fetchCampaignDetails() {
     const { data: campaignData } = await supabase
       .from('email_campaigns')
-      .select('*, public.email_templates(*)')
+      .select('*, email_templates(*)')
       .eq('id', id)
       .single();
 

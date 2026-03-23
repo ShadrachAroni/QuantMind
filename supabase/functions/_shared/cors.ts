@@ -2,6 +2,8 @@
 // Only allows approved origins; mobile app JWT-validated separately
 
 const ALLOWED_ORIGINS = new Set([
+  'http://localhost:3000',
+  'https://quantmind-dashboard.vercel.app',
   'https://quantmind.app',
   'https://admin.quantmind.app',
   'https://dashboard.quantmind.app',

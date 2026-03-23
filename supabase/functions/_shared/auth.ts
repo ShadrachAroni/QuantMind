@@ -1,5 +1,6 @@
 // Auth validation shared utilities for Edge Functions
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { corsHeaders } from './cors.ts';
 
 export interface AuthenticatedUser {
   id: string;
@@ -47,22 +48,30 @@ export async function requireAuth(req: Request): Promise<AuthenticatedUser> {
   };
 }
 
-export function unauthorizedResponse(message = 'Unauthorized'): Response {
+export function unauthorizedResponse(message = 'Unauthorized', origin: string | null = null): Response {
   return new Response(JSON.stringify({ error: message }), {
     status: 401,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      ...corsHeaders(origin)
+    },
   });
 }
 
-export function forbiddenResponse(message = 'Forbidden'): Response {
+export function forbiddenResponse(message = 'Forbidden', origin: string | null = null): Response {
   return new Response(JSON.stringify({ error: message }), {
     status: 403,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+      'Content-Type': 'application/json',
+      ...corsHeaders(origin)
+    },
   });
 }
 
 // Validate redirect URLs against allow-list
 const ALLOWED_REDIRECTS = new Set([
+  'http://localhost:3000/auth/callback',
+  'https://quantmind-dashboard.vercel.app/auth/callback',
   'https://quantmind.app/auth/callback',
   'https://admin.quantmind.app/auth/callback',
   'https://dashboard.quantmind.app/auth/callback',

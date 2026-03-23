@@ -1,380 +1,330 @@
 'use client';
 
+import React, { useState, useEffect } from 'react';
+import { 
+  Users, Activity, FileText, Shield, ArrowUpRight, ArrowDownRight, 
+  Plus, MoreHorizontal, Search, LayoutDashboard, DollarSign, Clock,
+  CheckCircle2, AlertCircle
+} from 'lucide-react';
 import Link from 'next/link';
-import { Users, Shield, Activity, FileText, Settings, LogOut, ChevronRight, Zap, Target } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 import { AdminLayout } from '../components/ui/AdminLayout';
-import { GlassCard } from '../components/ui/GlassCard';
-import { GlowEffect } from '../components/ui/GlowEffect';
 import { useAuth } from '../components/auth/AuthProvider';
 
 export default function AdminDashboard() {
-  const { user, isAdmin } = useAuth();
-  const stats = [
-    { label: 'TOTAL_USERS', value: '1,284', icon: Users, color: '#00D9FF' },
-    { label: 'ACTIVE_SIMULATIONS', value: '45,021', icon: Activity, color: '#7C3AED' },
-    { label: 'OPEN_TICKETS', value: '12', icon: FileText, color: '#F59E0B' },
-    { label: 'SYSTEM_HEALTH', value: '99.9%', icon: Shield, color: '#10B981' },
-  ];
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    users: 0,
+    proUsers: 0,
+    simulations: 0,
+    tickets: 0,
+    revenue: 0, 
+    expenses: 0,
+    activeCampaigns: 0,
+  });
+  const [recentLogs, setRecentLogs] = useState<any[]>([]);
+  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
+
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    try {
+      const [
+        { count: userCount },
+        { count: proCount },
+        { count: activeSimsCount },
+        { count: openTicketsCount },
+        { data: auditLogData },
+        { data: transactionData },
+        { data: allRevenueData }
+      ] = await Promise.all([
+        supabase.from('user_profiles').select('*', { count: 'exact', head: true }),
+        supabase.from('user_profiles').select('*', { count: 'exact', head: true }).eq('tier', 'pro'),
+        supabase.from('simulations').select('*', { count: 'exact', head: true }).eq('status', 'running'),
+        supabase.from('support_tickets').select('*', { count: 'exact', head: true }).eq('status', 'open'),
+        supabase.from('admin_audit_log').select('*').order('created_at', { ascending: false }).limit(6),
+        supabase.from('paystack_transactions').select('*').order('created_at', { ascending: false }).limit(5),
+        supabase.from('paystack_transactions').select('amount').eq('status', 'success')
+      ]);
+
+      const totalRevenue = allRevenueData?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0;
+
+      setStats({
+        users: userCount || 0,
+        proUsers: proCount || 0,
+        simulations: activeSimsCount || 0,
+        tickets: openTicketsCount || 0,
+        revenue: totalRevenue,
+        expenses: totalRevenue * 0.12, // More realistic operational burn
+        activeCampaigns: 4, // Placeholder for now
+      });
+
+      if (auditLogData) setRecentLogs(auditLogData);
+      if (transactionData) setRecentTransactions(transactionData);
+    } catch (err) {
+      console.error('DASHBOARD_FETCH_ERROR:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+    const interval = setInterval(fetchDashboardData, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <AdminLayout>
-      <GlowEffect color="#7C3AED" size={600} style={{ top: -200, right: -200, opacity: 0.15 }} />
-      <GlowEffect color="#00D9FF" size={500} style={{ bottom: -200, left: -200, opacity: 0.1 }} />
+      <div className="dashboard-root animate-fade-in">
+        <header className="welcome-header">
+           <h1 className="text-4xl font-black text-white tracking-tighter">
+             SYSTEM_OVERVIEW <span className="text-purple-500">/</span> <span className="capitalize text-gray-400 font-medium tracking-normal text-2xl">{user?.email?.split('@')[0] || 'Admin'}</span>
+           </h1>
+        </header>
 
-      <header className="top-bar">
-        <div className="header-title">
-          <span className="breadcrumb">TERMINAL // OVERVIEW</span>
-          <h1>DASHBOARD_CONSOLE</h1>
+        {/* Core Metrics Grid */}
+        <div className="summary-grid">
+           <div className="summary-card glass-card group">
+              <div className="card-top">
+                 <span className="label mono italic text-purple-400">Aggregated Revenue (KES)</span>
+                 <div className="trend purple animate-pulse">LIVE_STREAMing</div>
+              </div>
+              <div className="amount font-black tabular-nums tracking-tighter neon-text-purple">
+                {loading ? '---,---' : stats.revenue.toLocaleString()}
+              </div>
+              <div className="card-stats-row border-white/5">
+                 <div className="mini-icon-box purple shadow-[0_0_20px_rgba(168,85,247,0.4)]"><ArrowUpRight size={14} /></div>
+                 <div className="mini-info">
+                    <strong className="mono italic text-[10px] text-purple-300">SYSTEM_REVENUE_AGGREGATE</strong>
+                    <p className="text-[10px] text-gray-500 leading-tight">Total lifetime volume processed via Paystack gateway.</p>
+                 </div>
+              </div>
+              {/* Decorative Glow */}
+              <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-purple-600/10 blur-[60px] rounded-full pointer-events-none" />
+           </div>
+
+           <div className="summary-card glass-card group">
+              <div className="card-top">
+                 <span className="label mono italic text-cyan-400">Pro Tier Density</span>
+                 <div className="trend cyan">+24.5% MOh</div>
+              </div>
+              <div className="amount font-black tabular-nums tracking-tighter neon-text-cyan flex items-baseline gap-2">
+                {loading ? '0' : stats.proUsers}
+                <span className="text-xl text-gray-500 font-medium font-sans">/ {stats.users}</span>
+              </div>
+              <div className="card-stats-row border-white/5">
+                 <div className="mini-icon-box cyan shadow-[0_0_20px_rgba(34,211,238,0.4)]"><ArrowUpRight size={14} /></div>
+                 <div className="mini-info">
+                    <strong className="mono italic text-[10px] text-cyan-300">PREMIUM_USER_DATA</strong>
+                    <p className="text-[10px] text-gray-500 leading-tight">Live count of users on the PRO subscription tier.</p>
+                 </div>
+              </div>
+              <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-cyan-600/10 blur-[60px] rounded-full pointer-events-none" />
+           </div>
+
+           <div className="summary-card glass-card group">
+              <div className="card-top">
+                 <span className="label mono italic text-pink-400">Operational Burn (KES)</span>
+                 <div className="trend pink">PROJected</div>
+              </div>
+              <div className="amount font-black tabular-nums tracking-tighter text-pink-500/90">
+                {loading ? '---,---' : stats.expenses.toLocaleString()}
+              </div>
+              <div className="card-stats-row border-white/5">
+                 <div className="mini-icon-box pink bg-pink-500 shadow-[0_0_20px_rgba(236,72,153,0.4)]"><ArrowDownRight size={14} /></div>
+                 <div className="mini-info">
+                    <strong className="mono italic text-[10px] text-pink-300">ESTIMATED_OVERHEAD</strong>
+                    <p className="text-[10px] text-gray-500 leading-tight">Calculated variable expenses (12% margin).</p>
+                 </div>
+              </div>
+              <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-pink-600/10 blur-[60px] rounded-full pointer-events-none" />
+           </div>
         </div>
-        <div className="user-profile">
-          <div className="user-meta">
-            <span className="admin-name">{user?.email?.split('@')[0].toUpperCase()}</span>
-            <span className="admin-status">AUTHORIZED_SESSION // MFA_ACTIVE</span>
-          </div>
-          <div className="avatar">{user?.email?.[0].toUpperCase()}</div>
+
+        {/* Main Operational View */}
+        <div className="main-stats-grid">
+           <div className="audit-area">
+              <div className="glass-card p-8 h-full bg-[#0f1016]/40">
+                <div className="flex justify-between items-center mb-10">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-purple-500/10 rounded-2xl">
+                      <Activity className="text-purple-500" size={20} />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-black text-white italic mono tracking-tighter">ADMIN_AUDIT_LOG</h2>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] text-gray-500 mono uppercase tracking-widest">Real-time system event stream</span>
+                        <Link href="/logs" className="text-[9px] text-purple-400 hover:text-purple-300 mono uppercase font-bold tracking-widest underline decoration-purple-500/30">View_All_Logs</Link>
+                      </div>
+                    </div>
+                  </div>
+                  <button onClick={fetchDashboardData} className="p-2.5 bg-white/5 rounded-xl hover:bg-white/10 transition-all active:scale-95">
+                    <Clock size={16} className="text-gray-400" />
+                  </button>
+                </div>
+                
+                <div className="space-y-3">
+                  {recentLogs.length === 0 ? (
+                    <div className="py-24 text-center text-gray-700 mono text-xs uppercase tracking-widest">NO_AUDIT_DATA_STREAMING</div>
+                  ) : (
+                    recentLogs.map((log) => (
+                      <div key={log.id} className="flex items-start gap-5 p-5 rounded-2xl bg-white/[0.01] border border-white/5 hover:border-purple-500/30 hover:bg-white/[0.03] transition-all group">
+                        <div className="p-2.5 bg-purple-500/10 text-purple-400 rounded-xl group-hover:scale-110 transition-transform">
+                          <Shield size={16} />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start mb-1.5">
+                            <span className="text-[9px] font-black text-purple-400 mono uppercase tracking-wider">{log.action_type || 'SYSTEM'}</span>
+                            <span className="text-[9px] text-gray-600 font-bold mono">{new Date(log.created_at).toLocaleTimeString()}</span>
+                          </div>
+                          <p className="text-xs text-gray-300 leading-relaxed font-medium">{log.description}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+           </div>
+
+           <div className="transactions-area">
+              <div className="glass-card p-8 h-full flex flex-col bg-[#0f1016]/40">
+                 <div className="flex justify-between items-center mb-10">
+                    <div className="flex items-center gap-4">
+                      <div className="p-3 bg-cyan-400/10 rounded-2xl">
+                        <DollarSign className="text-cyan-400" size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-black text-white italic mono tracking-tighter">TRANSACTION_FLOW</h3>
+                        <p className="text-[9px] text-gray-500 mono uppercase tracking-widest">Live financial ingress</p>
+                      </div>
+                    </div>
+                    <Link href="/payments" className="p-2.5 bg-white/5 rounded-xl hover:bg-white/10 transition-all">
+                      <MoreHorizontal size={18} className="text-gray-500" />
+                    </Link>
+                 </div>
+                 
+                 <div className="trans-list flex-1 space-y-3">
+                    {recentTransactions.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-64 text-gray-700 mono text-xs uppercase tracking-widest gap-4">
+                         <div className="w-12 h-12 rounded-full border-2 border-dashed border-gray-800 animate-spin" />
+                         FLOW_NOT_INITIALIZED
+                      </div>
+                    ) : (
+                      recentTransactions.map((transaction, index) => (
+                        <div key={index} className="flex items-center gap-5 p-5 rounded-2xl bg-white/[0.01] border border-transparent hover:border-cyan-500/20 hover:bg-white/[0.03] transition-all">
+                           <div className="p-2.5 bg-cyan-400/10 text-cyan-400 rounded-xl"><DollarSign size={18} /></div>
+                           <div className="flex-1 min-w-0">
+                              <strong className="block text-white mono text-[11px] truncate">{transaction.reference}</strong>
+                              <span className="text-[9px] font-black text-gray-600 mono uppercase">{new Date(transaction.created_at).toLocaleDateString()}</span>
+                           </div>
+                           <div className="text-sm font-black text-cyan-400 tabular-nums">
+                              +KES {Number(transaction.amount).toLocaleString()}
+                           </div>
+                        </div>
+                      ))
+                    )}
+                 </div>
+              </div>
+           </div>
         </div>
-      </header>
-
-      <section className="stats-grid">
-        {stats.map((stat, idx) => (
-          <GlassCard key={stat.label} intensity="low" className="stat-card">
-            <div className="stat-content">
-              <div className="stat-info">
-                <span className="stat-label mono">{stat.label}</span>
-                <span className="stat-value mono">{stat.value}</span>
-              </div>
-              <div className="stat-icon-wrapper" style={{ boxShadow: `0 0 20px ${stat.color}20` }}>
-                <stat.icon size={20} color={stat.color} />
-              </div>
-            </div>
-            <div className="stat-edge" style={{ background: stat.color }} />
-          </GlassCard>
-        ))}
-      </section>
-
-      <div className="dashboard-grid">
-        <GlassCard className="recent-activity">
-          <div className="section-header">
-            <div className="title-row">
-              <FileText size={16} color="var(--accent-cyan)" />
-              <h2>AUDIT_STREAM</h2>
-            </div>
-            <Link href="/logs" className="view-all">ACCESS_FULL_TRAIL <ChevronRight size={14} /></Link>
-          </div>
-          <div className="activity-list">
-            {[
-              { time: '2m', type: 'ADMIN_ACTION', desc: 'Updated user "john@example.com" to "PRO" tier.' },
-              { time: '15m', type: 'SYS_OTA', desc: 'Deployed OTA update "v1.2.4" to 5% cohort.' },
-              { time: '1h', type: 'SECURITY_BLK', desc: 'Blocked IP 192.168.1.1 after 5 failed attempts.' },
-              { time: '3h', type: 'KERNEL_LOG', desc: 'Simulations convolved: 14,200 paths processed.' },
-            ].map((item, i) => (
-              <div key={i} className="activity-item">
-                <div className="activity-meta">
-                  <span className="activity-time mono">{item.time}_AGO</span>
-                  <span className="activity-type mono">{item.type}</span>
-                </div>
-                <p className="activity-desc">{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </GlassCard>
-
-        <GlassCard className="system-status">
-          <div className="section-header">
-            <div className="title-row">
-              <Activity size={16} color="var(--accent-purple)" />
-              <h2>SYSTEM_HEALTH</h2>
-            </div>
-          </div>
-          <div className="status-grid">
-            {[
-              { name: 'SIMULATION_ENGINE', status: 'ONLINE', value: '99.9%', color: 'var(--success)' },
-              { name: 'AI_ORACLE_API', status: 'OPERATIONAL', value: 'OK', color: 'var(--success)' },
-              { name: 'TRANSCODER_NODES', status: 'SCALING', value: 'X4', color: 'var(--accent-cyan)' },
-              { name: 'SECURITY_KERNEL', status: 'LOCKED', value: 'SHIELD_ON', color: 'var(--success)' },
-            ].map((sys) => (
-              <div key={sys.name} className="status-item">
-                <div className="sys-info">
-                  <span className="sys-name mono">{sys.name}</span>
-                  <span className="sys-status" style={{ color: sys.color }}>{sys.status}</span>
-                </div>
-                <span className="sys-value mono">{sys.value}</span>
-              </div>
-            ))}
-          </div>
-          
-          <div className="health-metrics">
-             <div className="metrics-chip">
-                <Zap size={10} color="var(--accent-cyan)" />
-                <span className="mono">CPU: 12.4%</span>
-             </div>
-             <div className="metrics-chip">
-                <Target size={10} color="var(--accent-purple)" />
-                <span className="mono">LATENCY: 42ms</span>
-             </div>
-          </div>
-        </GlassCard>
       </div>
 
       <style jsx>{`
-        .top-bar {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 3.5rem;
-        }
-
-        .breadcrumb {
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 0.7rem;
-          color: var(--text-muted);
-          letter-spacing: 2px;
-          margin-bottom: 0.5rem;
-          display: block;
-        }
-
-        .header-title h1 {
-          font-size: 2.2rem;
-          font-weight: 800;
-          letter-spacing: -0.5px;
-          color: #fff;
-        }
-
-        .user-profile {
-          display: flex;
-          align-items: center;
-          gap: 1.25rem;
-          background: rgba(255, 255, 255, 0.03);
-          padding: 0.5rem 0.5rem 0.5rem 1.25rem;
-          border-radius: 12px;
-          border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .user-meta {
+        .dashboard-root {
           display: flex;
           flex-direction: column;
-          align-items: flex-end;
+          gap: 3rem;
+          max-width: 1600px;
+          margin: 0 auto;
         }
 
-        .admin-name {
-          font-weight: 700;
-          font-size: 0.9rem;
-        }
-
-        .admin-status {
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 0.6rem;
-          color: var(--success);
-          letter-spacing: 0.5px;
-        }
-
-        .avatar {
-          width: 42px;
-          height: 42px;
-          background: linear-gradient(135deg, var(--accent-purple), var(--accent-cyan));
-          border-radius: 10px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: 800;
-          font-size: 0.85rem;
-          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-        }
-
-        .stats-grid {
+        .summary-grid {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 1.5rem;
-          margin-bottom: 3rem;
-        }
-
-        .stat-content {
-          padding: 1.75rem;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .stat-info {
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-        }
-
-        .stat-label {
-          font-size: 0.65rem;
-          color: var(--text-muted);
-          letter-spacing: 1.5px;
-        }
-
-        .stat-value {
-          font-size: 1.8rem;
-          font-weight: 700;
-          color: #fff;
-        }
-
-        .stat-icon-wrapper {
-          width: 44px;
-          height: 44px;
-          border-radius: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
-        .stat-edge {
-          position: absolute;
-          left: 0;
-          top: 0;
-          bottom: 0;
-          width: 3px;
-          opacity: 0.5;
-        }
-
-        .dashboard-grid {
-          display: grid;
-          grid-template-columns: 1.6fr 1fr;
+          grid-template-columns: repeat(3, 1fr);
           gap: 2rem;
         }
 
-        .section-header {
+        .summary-card {
+          padding: 2.5rem;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .card-top {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          margin-bottom: 2rem;
-          padding: 2rem 2rem 0;
+          margin-bottom: 1.5rem;
         }
 
-        .title-row {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-        }
-
-        .section-header h2 {
-          font-size: 1rem;
-          font-weight: 700;
-          letter-spacing: 1px;
-        }
-
-        .view-all {
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 0.65rem;
-          color: var(--accent-cyan);
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          opacity: 0.8;
-          transition: opacity 0.2s;
-        }
-
-        .view-all:hover {
-          opacity: 1;
-        }
-
-        .activity-list {
-          padding: 0 2rem 2rem;
-          display: flex;
-          flex-direction: column;
-          gap: 1.25rem;
-        }
-
-        .activity-item {
-          padding: 1.25rem;
-          background: rgba(255, 255, 255, 0.02);
-          border-radius: 12px;
-          border: 1px solid rgba(255, 255, 255, 0.03);
-          display: flex;
-          flex-direction: column;
-          gap: 0.5rem;
-          transition: transform 0.2s, border-color 0.2s;
-        }
-
-        .activity-item:hover {
-          transform: translateX(4px);
-          border-color: rgba(255, 255, 255, 0.1);
-        }
-
-        .activity-meta {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-
-        .activity-time {
-          font-size: 0.6rem;
-          color: var(--text-muted);
-        }
-
-        .activity-type {
-          font-size: 0.6rem;
-          padding: 2px 6px;
-          background: rgba(124, 58, 237, 0.1);
-          color: var(--accent-purple);
-          border-radius: 4px;
-        }
-
-        .activity-desc {
-          font-size: 0.85rem;
-          color: rgba(255, 255, 255, 0.85);
-          line-height: 1.4;
-        }
-
-        .status-grid {
-          padding: 0 2rem 1.5rem;
-          display: flex;
-          flex-direction: column;
-          gap: 1.25rem;
-        }
-
-        .status-item {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 1rem;
-          background: rgba(255, 255, 255, 0.02);
-          border-radius: 10px;
-        }
-
-        .sys-info {
-           display: flex;
-           flex-direction: column;
-           gap: 0.25rem;
-        }
-
-        .sys-name {
-          font-size: 0.7rem;
-          color: var(--text-muted);
-        }
-
-        .sys-status {
-          font-size: 0.65rem;
-          font-weight: 800;
+        .trend {
+          font-size: 10px;
+          font-weight: 900;
+          padding: 6px 14px;
+          border-radius: 20px;
           letter-spacing: 0.5px;
         }
 
-        .sys-value {
-          font-size: 0.9rem;
-          font-weight: 700;
+        .trend.purple { background: rgba(168, 85, 247, 0.1); color: #a855f7; }
+        .trend.cyan { background: rgba(34, 211, 238, 0.1); color: #22d3ee; }
+
+        .amount {
+          font-size: 3.5rem;
+          color: #fff;
+          margin-bottom: 2.5rem;
+          letter-spacing: -2px;
         }
 
-        .health-metrics {
-           padding: 0 2rem 2rem;
-           display: flex;
-           gap: 1rem;
-        }
-
-        .metrics-chip {
+        .card-stats-row {
            display: flex;
            align-items: center;
-           gap: 0.5rem;
-           background: rgba(255, 255, 255, 0.05);
-           padding: 6px 12px;
-           border-radius: 8px;
-           font-size: 0.65rem;
-           color: var(--text-muted);
+           gap: 1.25rem;
+           padding-top: 2rem;
+           border-top: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .mini-icon-box {
+           width: 44px;
+           height: 44px;
+           border-radius: 14px;
+           display: flex;
+           align-items: center;
+           justify-content: center;
+        }
+
+        .mini-icon-box.purple { background: #a855f7; color: #fff; }
+        .mini-icon-box.cyan { background: #22d3ee; color: #000; }
+
+        .mini-info { flex: 1; }
+
+        .main-stats-grid {
+           display: grid;
+           grid-template-columns: 1.4fr 1fr;
+           gap: 2.5rem;
+        }
+
+        .card-bg {
+           border-radius: 32px;
+           border: 1px solid rgba(255,255,255,0.03);
+        }
+
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        :global(.animate-fade-in) {
+          animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @media (max-width: 1400px) {
+           .main-stats-grid { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 768px) {
+           .summary-grid { grid-template-columns: 1fr; }
+           .amount { font-size: 2.5rem; }
         }
       `}</style>
     </AdminLayout>

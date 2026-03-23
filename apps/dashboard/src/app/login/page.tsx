@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase';
 import { useRouter } from 'next/navigation';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { GlowEffect } from '../../components/ui/GlowEffect';
+import { useToast } from '../../components/ui/ToastProvider';
 import { Lock, Mail, Loader2, ChevronRight } from 'lucide-react';
 
 export default function LoginPage() {
@@ -13,6 +14,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const { error: toastError, success: toastSuccess } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,14 +36,24 @@ export default function LoginPage() {
         .eq('id', data.user.id)
         .single();
 
-      if (!profile?.is_admin) {
+      const is_admin = !!profile?.is_admin;
+      
+      if (!is_admin) {
         await supabase.auth.signOut();
         throw new Error('ACCESS_DENIED: ADMINISTRATIVE_CLEARANCE_REQUIRED');
       }
 
-      router.push('/');
+      toastSuccess('HANDSHAKE_COMPLETE', 'Session authorized. Welcome back, Commander.');
+      
+      if (is_admin) {
+        router.push('/admin/mfa');
+      } else {
+        router.push('/');
+      }
     } catch (err: any) {
-      setError(err.message.toUpperCase());
+      const message = err.message.toUpperCase();
+      setError(message);
+      toastError('AUTH_FAILURE', message);
     } finally {
       setLoading(false);
     }

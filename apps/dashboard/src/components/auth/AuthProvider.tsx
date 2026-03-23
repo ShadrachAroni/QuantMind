@@ -1,15 +1,17 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { supabase } from '../../lib/supabase';
 import { User } from '@supabase/supabase-js';
+import { useToast } from '../ui/ToastProvider';
 
 interface AuthContextType {
   user: User | null;
   isAdmin: boolean;
   loading: boolean;
   mfaVerified: boolean;
+  adminMfaVerified: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -20,8 +22,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [mfaVerified, setMfaVerified] = useState(false);
+  const [adminMfaVerified, setAdminMfaVerified] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  const { info: toastInfo, error: toastError } = useToast();
+
+  const lastAuthSignalRef = useRef<number>(0);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -42,18 +48,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq('id', session.user.id)
         .single();
       
-      const is_admin = profile?.is_admin || session.user.email === 'shadracking7@gmail.com';
+      const is_admin = !!profile?.is_admin;
       setIsAdmin(is_admin);
 
-      // Check MFA Status (AAL)
-      // aal1 = single factor, aal2 = multi-factor
-      const { data: mfaData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      const verified = mfaData?.currentLevel === 'aal2';
-      setMfaVerified(verified);
+      // Enforce Admin MFA (Email OTP)
+      let admin_mfa_verified = false;
 
-      // Enforce MFA for admins
-      if (is_admin && !verified && pathname !== '/mfa') {
-        router.push('/mfa');
+      if (is_admin) {
+        const { data: profileWithMfa } = await supabase
+          .from('user_profiles')
+          .select('last_mfa_at')
+          .eq('id', session.user.id)
+          .single();
+
+        const lastMfa = profileWithMfa?.last_mfa_at;
+        const mfaThreshold = 24 * 60 * 60 * 1000; // 24 hours for stable administrative sessions
+        admin_mfa_verified = !!(lastMfa && (new Date().getTime() - new Date(lastMfa).getTime() < mfaThreshold));
+        setAdminMfaVerified(admin_mfa_verified);
+
+        // Redirect to MFA if not verified (except on MFA page itself)
+        const isMfaPage = pathname === '/admin/mfa';
+        const isLoginPage = pathname === '/login';
+        
+        if (!admin_mfa_verified && !isMfaPage && !isLoginPage) {
+          router.push('/admin/mfa');
+        }
+      } else {
+        setAdminMfaVerified(true);
       }
 
       setLoading(false);
@@ -61,13 +82,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     checkAuth();
 
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN') {
+        const now = Date.now();
+        // Only show once every 10 seconds to avoid multi-trigger popups
+        if (now - lastAuthSignalRef.current > 10000) {
+          toastInfo('AUTH_SIGNAL_DETECTED', 'Handshake successful. Synchronizing terminal state...', 2000);
+          lastAuthSignalRef.current = now;
+        }
         checkAuth();
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
         setIsAdmin(false);
         setMfaVerified(false);
+        setAdminMfaVerified(false);
+        toastInfo('SESSION_TERMINATED', 'Operator signed out. Terminal transmission secured.');
         router.push('/login');
       }
     });
@@ -80,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAdmin, loading, mfaVerified, signOut }}>
+    <AuthContext.Provider value={{ user, isAdmin, loading, mfaVerified, adminMfaVerified, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -266,6 +266,47 @@ function getFX1SubscriptionCancellationTemplate(details: any) {
 </html>`;
 }
 
+function getFX1AdminOTPTemplate(code: string) {
+  const accent = "#00f5ff";
+  const bg = "#020617";
+  const card = "#0f172a";
+  const slate100 = "#f1f5f9";
+  
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark only">
+</head>
+<body style="margin:0; padding:0; background-color:${bg} !important;">
+  <div style="background-color:${bg} !important; color:${slate100} !important; font-family: -apple-system, sans-serif; padding: 40px 20px;">
+    <div style="max-width: 500px; margin: 0 auto; background-color: ${card} !important; border: 1px solid rgba(0,245,255,0.4); border-radius: 24px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
+      <div style="padding: 40px; text-align: center; background-color: #0f172a !important;">
+        <div style="background: rgba(0,245,255,0.1); color: ${accent} !important; padding: 6px 16px; border-radius: 999px; font-size: 10px; font-weight: 900; margin-bottom: 24px; display: inline-block; border: 1px solid rgba(0,245,255,0.2); letter-spacing: 0.1em;">GOVERNANCE_AUTHENTICATION</div>
+        <h1 style="color: ${accent} !important; margin: 0; font-size: 26px; letter-spacing: -0.01em;">ADMIN ACCESS KEY</h1>
+        <div style="font-family: ui-monospace, monospace; font-size: 11px; color: #94a3b8 !important; margin-top: 12px; opacity: 0.8;">SESSION_CHALLENGE_v1.0</div>
+      </div>
+      <div style="padding: 40px; text-align: center;">
+        <p style="font-size: 15px; color: #cbd5e1 !important; margin-bottom: 32px;">
+          An administrative login attempt was detected. Enter the following zero-trust authorization code to synchronize your terminal:
+        </p>
+        <div style="background: rgba(0,245,255,0.05); border: 1px solid rgba(0,245,255,0.2); padding: 32px; border-radius: 20px; margin-bottom: 32px;">
+          <div style="font-size: 48px; font-weight: 900; color: ${accent} !important; letter-spacing: 0.2em; font-family: ui-monospace, monospace;">${code}</div>
+        </div>
+        <p style="font-size: 12px; color: #64748b !important;">
+          This code expires in 10 minutes. If you did not initiate this request, immediately trigger the <span style="color:white;">LOCKDOWN_PROTOCOL</span>.
+        </p>
+      </div>
+      <div style="padding: 32px; border-top: 1px solid rgba(255,255,255,0.05); text-align: center; color: #475569 !important; font-size: 10px; font-family: ui-monospace, monospace;">
+        QUANTMIND_SYSTEMS // SECURE_COMM_LAYER_E2EE
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
 serve(async (req: Request) => {
   try {
     const payload = await req.json();
@@ -294,6 +335,9 @@ serve(async (req: Request) => {
     } else if (type === 'subscription_cancellation') {
       html = getFX1SubscriptionCancellationTemplate(details);
       finalSubject = subject || `[CONFIRMATION] Subscription Closure Initialized`;
+    } else if (type === 'admin_2fa_otp') {
+      html = getFX1AdminOTPTemplate(details.code);
+      finalSubject = subject || `[SECURITY] Admin Authorization Key: ${details.code}`;
     } else {
       // Fallback/Generic
       html = '<div style="background:#050505;color:#fff;padding:40px;"><h1>' + finalSubject + '</h1><p>Institutional notification received.</p></div>';
