@@ -1,5 +1,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getQuantMindTemplate } from '../_shared/email.ts';
+
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
@@ -63,7 +65,8 @@ serve(async (req: Request) => {
            return html.replace(/href="([^"]+)"/g, `href="${SUPABASE_URL}/functions/v1/email-tracker/click?c=${campaign.id}&u=${recipient.id}&url=$1"`);
         };
 
-        const finalHtml = wrapLinks(htmlBody) + trackingPixel;
+        const finalHtml = getQuantMindTemplate(wrapLinks(htmlBody) + trackingPixel, campaign.name || "Special Offer");
+
 
         try {
           const res = await fetch('https://api.resend.com/emails', {
