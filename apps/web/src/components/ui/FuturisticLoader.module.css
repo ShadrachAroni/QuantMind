@@ -1,0 +1,221 @@
+.overlay {
+  --loader-primary: #00d9ff;
+  --loader-secondary: #ff00ea;
+  --loader-accent: #00ff95;
+  --loader-bg: rgba(5, 7, 10, 0.9);
+  --loader-text: #ffffff;
+  --loader-glow: 0 0 20px rgba(0, 217, 255, 0.5);
+  --loader-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--loader-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  font-family: var(--loader-font-mono);
+  transition: opacity 0.4s ease, visibility 0.4s ease;
+  overflow: hidden;
+}
+
+/* Light Theme Overrides */
+.overlay[data-theme='light'] {
+  --loader-primary: #007bff;
+  --loader-secondary: #d400ff;
+  --loader-accent: #00a163;
+  --loader-bg: rgba(255, 255, 255, 0.9);
+  --loader-text: #05070a;
+  --loader-glow: 0 0 15px rgba(0, 123, 255, 0.3);
+}
+
+/* Auto Theme Detection */
+@media (prefers-color-scheme: light) {
+  .overlay:not([data-theme='dark']) {
+    --loader-primary: #007bff;
+    --loader-secondary: #d400ff;
+    --loader-accent: #00a163;
+    --loader-bg: rgba(255, 255, 255, 0.9);
+    --loader-text: #05070a;
+    --loader-glow: 0 0 15px rgba(0, 123, 255, 0.3);
+  }
+}
+
+.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* --- Base Container --- */
+.container {
+  position: relative;
+  width: 240px;
+  height: 240px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.content {
+  margin-top: 2rem;
+  text-align: center;
+}
+
+.label {
+  color: var(--loader-primary);
+  font-size: 0.75rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+  text-shadow: var(--loader-glow);
+  animation: pulseOpacity 2s ease-in-out infinite;
+}
+
+.status {
+  color: var(--loader-text);
+  font-size: 0.65rem;
+  opacity: 0.7;
+  letter-spacing: 0.1em;
+}
+
+/* --- Variant: Orbital --- */
+.orbital {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.orbit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border: 1px solid rgba(0, 217, 255, 0.2);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.orbit1 { width: 60px; height: 60px; animation: rotate 4s linear infinite; }
+.orbit2 { width: 120px; height: 120px; animation: rotate 8s linear infinite reverse; }
+.orbit3 { width: 180px; height: 180px; animation: rotate 12s linear infinite; }
+
+.satellite {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: var(--loader-primary);
+  border-radius: 50%;
+  box-shadow: var(--loader-glow);
+}
+
+.sat1 { top: -3px; left: 50%; margin-left: -3px; }
+.sat2 { bottom: -3px; left: 50%; margin-left: -3px; background: var(--loader-secondary); }
+.sat3 { left: -3px; top: 50%; margin-top: -3px; background: var(--loader-accent); }
+
+/* --- Variant: Core (Quantum Nucleus) --- */
+.core {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  perspective: 800px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.nucleus {
+  position: relative;
+  width: 50px;
+  height: 50px;
+  transform-style: preserve-3d;
+  animation: rotate3D 6s linear infinite;
+}
+
+.cubeSide {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--loader-primary);
+  background: rgba(0, 217, 255, 0.1);
+  box-shadow: inset 0 0 10px rgba(0, 217, 255, 0.5);
+  backdrop-filter: blur(2px);
+}
+
+.scanner {
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 217, 255, 0.1);
+  box-shadow: 0 0 20px rgba(0, 217, 255, 0.1);
+}
+
+.scanner::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: var(--loader-primary);
+  animation: rotate 2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  box-shadow: 0 0 10px var(--loader-primary);
+}
+
+.dataDots {
+  position: absolute;
+  inset: -20px;
+  animation: rotate 20s linear infinite;
+}
+
+.dot {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: var(--loader-accent);
+  border-radius: 50%;
+  animation: flicker 1s ease-in-out infinite;
+}
+
+/* --- Animations --- */
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes rotate3D {
+  0% { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+  100% { transform: rotateX(360deg) rotateY(360deg) rotateZ(360deg); }
+}
+
+@keyframes flicker {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.5); box-shadow: 0 0 5px var(--loader-accent); }
+}
+
+@keyframes waveHeight {
+  0%, 100% { height: 20px; opacity: 0.5; }
+  50% { height: 60px; opacity: 1; filter: brightness(1.5); }
+}
+
+@keyframes ringExpand {
+  0% { transform: scale(0.1); opacity: 0; border-width: 4px; }
+  20% { opacity: 1; }
+  100% { transform: scale(1.5); opacity: 0; border-width: 1px; }
+}
+
+@keyframes pulseOpacity {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* --- Motion Preference --- */
+@media (prefers-reduced-motion: reduce) {
+  .orbit1, .orbit2, .orbit3, .coreShape, .coreInner, .energyRings, .bar, .ring, .label {
+    animation-duration: 10s !important;
+    animation-iteration-count: 2 !important;
+  }
+}

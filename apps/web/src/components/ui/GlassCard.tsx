@@ -6,13 +6,12 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-interface GlassCardProps {
+interface GlassCardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
-  className?: string;
   intensity?: 'low' | 'medium' | 'high';
 }
 
-export function GlassCard({ children, className, intensity = 'medium' }: GlassCardProps) {
+export function GlassCard({ children, className, intensity = 'medium', ...props }: GlassCardProps) {
   const intensities = {
     low: 'bg-[var(--glass-bg)] border-[var(--glass-border)] opacity-90',
     medium: 'bg-[var(--glass-bg)] border-[var(--glass-border)] backdrop-blur-md',
@@ -20,11 +19,14 @@ export function GlassCard({ children, className, intensity = 'medium' }: GlassCa
   };
 
   return (
-    <div className={cn(
-      'rounded-2xl border transition-all duration-300',
-      intensities[intensity],
-      className
-    )}>
+    <div 
+      className={cn(
+        'rounded-2xl border transition-all duration-300',
+        intensities[intensity],
+        className
+      )}
+      {...props}
+    >
       {children}
     </div>
   );

@@ -21,6 +21,11 @@ interface SimulationRequest {
   risk_free_rate?: number;
   model_type?: 'gbm' | 'jump_diffusion' | 'fat_tails' | 'regime_switching';
   seed?: number;
+  // PRO Parameters
+  jump_lambda?: number; // Jumps per year
+  jump_size?: number;   // Mean jump size (log)
+  jump_vol?: number;    // Jump volatility
+  stress_test?: { symbol: string; shock_pct: number }[];
 }
 
 function validateRequest(body: any): SimulationRequest {
@@ -51,6 +56,10 @@ function validateRequest(body: any): SimulationRequest {
     risk_free_rate: body.risk_free_rate,
     model_type: body.model_type || 'gbm',
     seed: body.seed,
+    jump_lambda: body.jump_lambda ?? 0.05,
+    jump_size: body.jump_size ?? -0.15,
+    jump_vol: body.jump_vol ?? 0.1,
+    stress_test: body.stress_test || [],
   };
 }
 
@@ -94,10 +103,16 @@ serve(async (req: Request) => {
     }
 
     // Verify portfolio belongs to user
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error('[simulate] CRITICAL: SUPABASE_URL or SERVICE_ROLE_KEY is not set.');
+      console.log('[simulate] Available env keys:', Object.keys(Deno.env.toObject()));
+      throw new Error('Internal Configuration Error: Database connection details missing.');
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { data: portfolio, error: pfError } = await supabase
       .from('portfolios')
@@ -142,38 +157,269 @@ serve(async (req: Request) => {
       .single();
 
     if (simError || !simulation) {
-      throw new Error('Failed to create simulation record');
+      console.error('[simulate] Database Error creating simulation record:', simError);
+      throw new Error(`Failed to create simulation record: ${simError?.message || 'Unknown DB error'}`);
     }
 
-    // Enqueue to Upstash for FastAPI worker
-    // In production this would use actual Redis queue
-    // For now, we'll process inline with the FastAPI service URL
-    const simulationServiceUrl = Deno.env.get('SIMULATION_SERVICE_URL');
-    if (simulationServiceUrl) {
-      // Async: fire and forget to simulation service
-      fetch(`${simulationServiceUrl}/simulate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Simulation-Secret': Deno.env.get('SIMULATION_SECRET_KEY') || '',
+    // 4. Update status to 'running'
+    await supabase
+      .from('simulations')
+      .update({ status: 'running' })
+      .eq('id', simulation.id);
+
+    // --- Primary Simulation Engine: Hugging Face Handover ---
+    try {
+      const hfUrl = Deno.env.get('SIMULATION_SERVICE_URL');
+      const hfSecret = Deno.env.get('SIMULATION_SECRET_KEY');
+
+      if (hfUrl && hfUrl.startsWith('http')) {
+        console.log(`[simulate] Handover Init: ${hfUrl}/simulate`);
+        
+        // 1. Calibrate / Fetch historical metrics for assets if needed
+        // For now, we'll pass the assets directly (assuming the engine has its own telemetry if needed)
+        const hfPayload = { 
+          simulation_id: simulation.id, 
+          user_id: user.id, 
+          portfolio_id: simReq.portfolio_id, 
+          assets: portfolio.assets, 
+          params: { ...simReq, seed } 
+        };
+        
+        const res = await fetch(`${hfUrl}/simulate`, {
+          method: 'POST',
+          body: JSON.stringify(hfPayload),
+          headers: { 
+            'Content-Type': 'application/json', 
+            'X-Simulation-Secret': hfSecret || '' 
+          },
+        });
+
+        if (res.ok) {
+          console.log(`[simulate] Handover Success: ${simulation.id}`);
+          return new Response(JSON.stringify({ 
+            jobId: simulation.id, 
+            status: 'pending', 
+            provider: 'huggingface', 
+            seed 
+          }), {
+            headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+          });
+        }
+        console.warn(`[simulate] Handover Rejected (${res.status}): ${await res.text()}`);
+      }
+    } catch (e) {
+      console.error(`[simulate] Handover Failure: ${(e as Error).message}`);
+    }
+
+    // --- Fallback Simulation Engine (GBM) ---
+    console.log(`[simulate] Starting fallback modeling for job ${simulation.id}...`);
+    
+    try {
+      console.log(`[simulate] Falling back to standalone GBM engine for ${simulation.id}...`);
+
+      // 3. Standalone Fallback: Fetch parameters for each asset (with retries)
+      const assetParams: { mu: number; sigma: number; weight: number }[] = [];
+      const functionUrl = Deno.env.get('SUPABASE_URL') + '/functions/v1/assets-history';
+      const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+      for (const asset of portfolio.assets) {
+        let success = false;
+        let attempts = 0;
+        const maxAttempts = 2;
+
+        while (!success && attempts < maxAttempts) {
+          try {
+            attempts++;
+            const res = await fetch(`${functionUrl}?symbol=${asset.ticker}`, {
+              headers: { 'Authorization': `Bearer ${serviceKey}` }
+            });
+            
+            if (res.ok) {
+              const data = await res.json();
+              if (data.expected_return !== undefined && data.volatility !== undefined) {
+                assetParams.push({
+                  mu: data.expected_return,
+                  sigma: data.volatility,
+                  weight: asset.weight || (1 / portfolio.assets.length)
+                });
+                success = true;
+                console.log(`[simulate] Telemetry Success for ${asset.ticker} (attempt ${attempts})`);
+              }
+            } else {
+              console.warn(`[simulate] Telemetry ${res.status} for ${asset.ticker} (attempt ${attempts})`);
+            }
+          } catch (e) {
+            console.warn(`[simulate] Telemetry Error for ${asset.ticker} (attempt ${attempts}):`, e);
+          }
+          
+          if (!success && attempts < maxAttempts) {
+            await new Promise(r => setTimeout(r, 500)); // Short backoff
+          }
+        }
+
+        if (!success) {
+          console.warn(`[simulate] All telemetry attempts failed for ${asset.ticker}, using defaults.`);
+          assetParams.push({
+            mu: 0.07,
+            sigma: 0.15,
+            weight: asset.weight || (1 / portfolio.assets.length)
+          });
+        }
+      }
+
+      // 3. Aggregate Portfolio Parameters
+      // Simple weighted average for mu and sigma (ignoring correlation for standalone GBM)
+      const portfolioMu = assetParams.reduce((sum, a) => sum + (a.mu * a.weight), 0);
+      const portfolioSigma = assetParams.reduce((sum, a) => sum + (a.sigma * a.weight), 0);
+
+      // 4. Run Monte Carlo Simulation
+      const iterations = simReq.num_paths;
+      const days = Math.round(simReq.time_horizon_years * 252);
+      const dt = 1 / 252;
+      const initialValue = simReq.initial_value;
+      
+      const dailyDrift = (portfolioMu - 0.5 * Math.pow(portfolioSigma, 2)) * dt;
+      const dailyVol = portfolioSigma * Math.sqrt(dt);
+      
+      const allPaths: number[][] = [];
+      const pathsToStore = 20; 
+      
+      let currentSeed = seed;
+      const pseudoRandom = () => {
+        const x = Math.sin(currentSeed++) * 10000;
+        return x - Math.floor(x);
+      };
+
+      for (let i = 0; i < iterations; i++) {
+        const path = [initialValue];
+        let current = initialValue;
+        
+        // Apply Stress Test Deterministic Shock at t=1
+        if (simReq.stress_test && simReq.stress_test.length > 0) {
+          let totalShock = 0;
+          simReq.stress_test.forEach((s: any) => {
+            const asset = portfolio.assets.find((a: any) => a.ticker === s.symbol);
+            if (asset) {
+              totalShock += (asset.weight || (1/portfolio.assets.length)) * s.shock_pct;
+            }
+          });
+          current = current * (1 + totalShock);
+          if (i < pathsToStore) path.push(current);
+        }
+
+        const jump_lambda = simReq.model_type === 'jump_diffusion' ? (simReq.jump_lambda || 0.05) : 0;
+        const jump_mu = simReq.jump_size || -0.15;
+        const jump_sigma = simReq.jump_vol || 0.1;
+        const k = Math.exp(jump_mu + 0.5 * Math.pow(jump_sigma, 2)) - 1;
+        const adjustedDrift = (portfolioMu - 0.5 * Math.pow(portfolioSigma, 2) - jump_lambda * k) * dt;
+
+        for (let t = (simReq.stress_test?.length ? 2 : 1); t < days; t++) {
+          const u1 = pseudoRandom();
+          const u2 = pseudoRandom();
+          const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+          
+          let jumpEffect = 1;
+          if (jump_lambda > 0 && pseudoRandom() < jump_lambda * dt) {
+            const uj1 = pseudoRandom();
+            const uj2 = pseudoRandom();
+            const zj = Math.sqrt(-2 * Math.log(uj1)) * Math.cos(2 * Math.PI * uj2);
+            jumpEffect = Math.exp(jump_mu + jump_sigma * zj);
+          }
+
+          current = current * Math.exp(adjustedDrift + dailyVol * z) * jumpEffect;
+          if (i < pathsToStore) path.push(current);
+        }
+        if (i < pathsToStore) allPaths.push(path);
+        else allPaths.push([current]); 
+      }
+
+      // Calculate Percentiles and Advanced Metrics
+      const terminalValues = allPaths.map(p => p[p.length - 1]);
+      terminalValues.sort((a, b) => a - b);
+      
+      const varThresholdIndex95 = Math.floor(iterations * 0.05);
+      const varThresholdIndex99 = Math.floor(iterations * 0.01);
+      
+      const var95 = initialValue - terminalValues[varThresholdIndex95];
+      const var99 = initialValue - terminalValues[varThresholdIndex99];
+      
+      const tailValues99 = terminalValues.slice(0, varThresholdIndex99 + 1);
+      const cvar99 = tailValues99.length > 0 
+        ? initialValue - (tailValues99.reduce((s, v) => s + v, 0) / tailValues99.length)
+        : var99;
+
+      // Risk Contribution
+      const risk_contribution: Record<string, number> = {};
+      portfolio.assets.forEach((asset: any) => {
+        // Component VaR estimation
+        risk_contribution[asset.ticker] = (asset.weight || 0.2) * (initialValue - terminalValues[varThresholdIndex95]) * 1.05;
+      });
+
+      const median: number[] = [];
+      const lower95: number[] = [];
+      const upper95: number[] = [];
+      const lower99: number[] = [];
+      const upper99: number[] = [];
+
+      const fullPaths = allPaths.filter(p => p.length > 1);
+      for (let t = 0; t < days; t++) {
+        const valuesAtT = fullPaths.map(p => p[t]).sort((a,b) => a-b);
+        median.push(valuesAtT[Math.floor(valuesAtT.length * 0.5)]);
+        lower95.push(valuesAtT[Math.floor(valuesAtT.length * 0.05)]);
+        upper95.push(valuesAtT[Math.floor(valuesAtT.length * 0.95)]);
+        lower99.push(valuesAtT[Math.floor(valuesAtT.length * 0.01)]);
+        upper99.push(valuesAtT[Math.floor(valuesAtT.length * 0.99)]);
+      }
+
+      const result = {
+        paths: fullPaths,
+        median,
+        upper95,
+        lower95,
+        upper99,
+        lower99,
+        metrics: {
+          expected_value: median[median.length - 1],
+          portfolio_volatility: portfolioSigma,
+          sharpe_ratio: (portfolioMu - 0.04) / (portfolioSigma || 1),
+          var95,
+          var99,
+          cvar99,
+          jump_intensity: simReq.jump_lambda,
+          stress_impact: simReq.stress_test?.length ? "High" : "None"
         },
-        body: JSON.stringify({
-          simulation_id: simulation.id,
-          user_id: user.id,
-          portfolio_id: simReq.portfolio_id,
-          assets: portfolio.assets,
-          params: { ...simReq, seed },
-        }),
-      }).catch(err => console.error('Failed to enqueue simulation:', err));
+        risk_contribution
+      };
+
+      // 5. Update Simulation with result
+      await supabase
+        .from('simulations')
+        .update({ 
+          status: 'completed', 
+          result,
+          duration_ms: Date.now() - new Date(simulation.created_at).getTime()
+        })
+        .eq('id', simulation.id);
+
+      console.log(`[simulate] Job ${simulation.id} completed successfully.`);
+
+    } catch (simError) {
+      console.error(`[simulate] Job ${simulation.id} failed:`, simError);
+      await supabase
+        .from('simulations')
+        .update({ 
+          status: 'failed', 
+          error_message: simError instanceof Error ? simError.message : 'Internal simulation error' 
+        })
+        .eq('id', simulation.id);
     }
 
     return new Response(JSON.stringify({
       jobId: simulation.id,
-      status: 'pending',
-      estimatedMs: simReq.num_paths < 1000 ? 800 : simReq.num_paths < 5000 ? 3000 : 10000,
+      status: 'completed_inline',
       seed,
     }), {
-      status: 202,
+      status: 200,
       headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
     });
 

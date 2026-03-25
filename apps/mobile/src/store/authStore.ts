@@ -1,9 +1,11 @@
 import { create } from 'zustand';
 import { supabase } from '../services/supabase';
+import { RealtimeChannel } from '@supabase/supabase-js';
 import { User } from '@quantmind/shared-types';
 import { biometricService, BiometricType } from '../services/biometric';
 import * as SecureStore from 'expo-secure-store';
 import { CONFIG } from '../constants/config';
+import { usePortfolioStore } from './portfolioStore';
 
 const ACTIVITY_KEY = 'quantmind_last_activity';
 const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 Hours in ms
@@ -102,6 +104,7 @@ interface AuthState {
   toggleAIConfig: (configId: string, active: boolean) => Promise<void>;
   deleteAIConfig: (configId: string) => Promise<void>;
   fetchChangelog: () => Promise<void>;
+  profileSubscription: RealtimeChannel | null;
 }
 
 const DEFAULT_AI_PREFS: AIPrefs = {
@@ -160,6 +163,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   trialEndsAt: null,
   isPasswordExpired: false,
   passwordLastChangedAt: null,
+  profileSubscription: null,
 
   refreshPasswordExpiry: () => {
     const now = new Date().toISOString();
@@ -215,6 +219,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             trialEndsAt: data.trial_ends_at ?? null,
             passwordLastChangedAt: data.password_last_changed_at ?? null,
           });
+
+          // Initialize portfolio realtime sync
+          usePortfolioStore.getState().subscribeToChanges(session.user.id);
 
           // Password Expiration Check (60 Days)
           if (data.password_last_changed_at) {
@@ -290,6 +297,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             passwordLastChangedAt: data.password_last_changed_at ?? null,
           });
 
+          // Initialize portfolio realtime sync
+          usePortfolioStore.getState().subscribeToChanges(session.user.id);
+
           // Password Expiration Check (60 Days)
           if (data.password_last_changed_at) {
             const EXPR_PERIOD = 60 * 24 * 60 * 60 * 1000;
@@ -307,6 +317,52 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       
       if (session?.user) {
         await useAuthStore.getState().recordActivity();
+        
+        // Subscribe to profile changes
+        const { profileSubscription } = get();
+        if (profileSubscription) profileSubscription.unsubscribe();
+
+        const channel = supabase
+          .channel('profile-realtime')
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'user_profiles',
+              filter: `id=eq.${session.user.id}`,
+            },
+            async (payload) => {
+              const data = payload.new as any;
+              const { latestTosVersion } = get();
+              const needsConsent = latestTosVersion && data.accepted_tos_version !== latestTosVersion;
+              
+              set({
+                tier: data.tier ?? 'free',
+                isStudentVerified: !!data.is_student_verified,
+                needsTosConsent: !!needsConsent,
+                aiPrefs: {
+                  ai_model: data.ai_model ?? DEFAULT_AI_PREFS.ai_model,
+                  ai_expertise: data.ai_expertise ?? DEFAULT_AI_PREFS.ai_expertise,
+                  ai_portfolio_doctor: data.ai_portfolio_doctor ?? DEFAULT_AI_PREFS.ai_portfolio_doctor,
+                  ai_voice_synthesis: data.ai_voice_synthesis ?? DEFAULT_AI_PREFS.ai_voice_synthesis,
+                  ai_risk_alerts: data.ai_risk_alerts ?? DEFAULT_AI_PREFS.ai_risk_alerts,
+                },
+                hasUsedTrial: !!data.has_used_trial,
+                trialEndsAt: data.trial_ends_at ?? null,
+                passwordLastChangedAt: data.password_last_changed_at ?? null,
+              });
+            }
+          )
+          .subscribe();
+        
+        set({ profileSubscription: channel });
+      } else {
+        const { profileSubscription } = get();
+        if (profileSubscription) {
+          profileSubscription.unsubscribe();
+          set({ profileSubscription: null });
+        }
       }
     });
   },
@@ -315,7 +371,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ isLoading: true });
     await supabase.auth.signOut();
     await SecureStore.deleteItemAsync(ACTIVITY_KEY);
-    set({ user: null, tier: 'free', aiPrefs: null, isLoading: false, lastActivityAt: null, isPasswordExpired: false, passwordLastChangedAt: null });
+    usePortfolioStore.getState().unsubscribeFromChanges();
+    const { profileSubscription } = get();
+    if (profileSubscription) {
+      profileSubscription.unsubscribe();
+    }
+    set({ user: null, tier: 'free', aiPrefs: null, isLoading: false, lastActivityAt: null, isPasswordExpired: false, passwordLastChangedAt: null, profileSubscription: null });
   },
 
   completeOnboarding: async () => {

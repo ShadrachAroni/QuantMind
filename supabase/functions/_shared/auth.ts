@@ -17,10 +17,10 @@ export async function requireAuth(req: Request): Promise<AuthenticatedUser> {
   }
 
   const token = authHeader.replace('Bearer ', '');
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!
-  );
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('ANON_KEY')!;
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
   const { data: { user }, error } = await supabase.auth.getUser(token);
   if (error || !user) {
@@ -28,10 +28,8 @@ export async function requireAuth(req: Request): Promise<AuthenticatedUser> {
   }
 
   // Get profile details from user_profiles
-  const supabaseAdmin = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  );
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SERVICE_ROLE_KEY')!;
+  const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
   const { data: profile } = await supabaseAdmin
     .from('user_profiles')

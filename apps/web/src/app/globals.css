@@ -1,5 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   --background: #05070A;
   --foreground: #FFFFFF;
@@ -11,7 +15,7 @@
   --success: #32D74B;
   --warning: #FFD60A;
   --error: #FF453A;
-  
+
   /* FX1 Glassmorphism */
   --glass-bg: rgba(255, 255, 255, 0.03);
   --glass-border: rgba(255, 255, 255, 0.06);
@@ -55,12 +59,21 @@ button {
 
 /* Animations */
 @keyframes pulse-glow {
-  0%, 100% { opacity: 0.12; transform: scale(1); }
-  50% { opacity: 0.18; transform: scale(1.05); }
+
+  0%,
+  100% {
+    opacity: 0.12;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.25;
+    transform: scale(1.1);
+  }
 }
 
 .animate-pulse-glow {
-  animation: pulse-glow 8s ease-in-out infinite;
+  animation: pulse-glow 10s ease-in-out infinite;
 }
 
 /* Scrollbar Styling */
@@ -79,4 +92,22 @@ button {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+/* Dashboard Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 217, 255, 0.1);
 }

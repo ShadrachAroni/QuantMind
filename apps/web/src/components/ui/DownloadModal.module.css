@@ -1,0 +1,214 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10005;
+  background: rgba(8, 8, 16, 0.4);
+  backdrop-filter: blur(24px) saturate(180%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+              visibility 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.modal {
+  position: relative;
+  width: 100%;
+  max-width: 540px;
+  background: rgba(18, 18, 26, 0.7);
+  border: 1px solid rgba(0, 240, 255, 0.15);
+  border-radius: 2rem;
+  padding: 3rem;
+  transform: scale(0.9) translateY(20px);
+  transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  box-shadow: 0 40px 100px rgba(0, 0, 0, 0.6), 
+              0 0 40px rgba(0, 240, 255, 0.05);
+  overflow: hidden;
+}
+
+.visible .modal {
+  transform: scale(1) translateY(0);
+}
+
+.closeBtn {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+  color: #848D97;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  z-index: 10;
+}
+
+.closeBtn:hover {
+  background: rgba(255, 69, 58, 0.1);
+  border-color: rgba(255, 69, 58, 0.3);
+  color: #FF453A;
+  transform: rotate(90deg);
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.logoContainer {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 1.5rem;
+  background: rgba(0, 240, 255, 0.1);
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  border-radius: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 30px rgba(0, 240, 255, 0.1);
+}
+
+.logo {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+}
+
+.title {
+  font-family: var(--font-space);
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: white;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.5rem;
+}
+
+.subtitle {
+  font-size: 0.9375rem;
+  color: #848D97;
+  letter-spacing: 0.01em;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.storeBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.5rem;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.storeBtn:hover {
+  background: rgba(0, 240, 255, 0.05);
+  border-color: rgba(0, 240, 255, 0.3);
+  transform: translateY(-8px);
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3), 
+              0 0 20px rgba(0, 240, 255, 0.1);
+}
+
+.iconWrapper {
+  width: 56px;
+  height: 56px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.4s ease;
+}
+
+.storeBtn:hover .iconWrapper {
+  background: rgba(0, 240, 255, 0.2);
+  border-color: rgba(0, 240, 255, 0.4);
+  transform: scale(1.1);
+}
+
+.storeText {
+  text-align: center;
+}
+
+.label {
+  display: block;
+  font-size: 0.625rem;
+  font-weight: 800;
+  color: #848D97;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 0.25rem;
+}
+
+.name {
+  font-family: var(--font-space);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: white;
+  transition: color 0.3s ease;
+}
+
+.storeBtn:hover .name {
+  color: #00F0FF;
+}
+
+.footer {
+  margin-top: 2.5rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.statusDot {
+  width: 8px;
+  height: 8px;
+  background: #32D74B;
+  border-radius: 50%;
+  box-shadow: 0 0 12px #32D74B;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+
+.statusText {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: #848D97;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}

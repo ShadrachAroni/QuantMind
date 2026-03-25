@@ -49,14 +49,20 @@ export default function AdminDashboard() {
 
       const totalRevenue = allRevenueData?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0;
 
+      // Fetch active campaigns count
+      const { count: activeCampaignsCount } = await supabase
+        .from('email_campaigns')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'active');
+
       setStats({
         users: userCount || 0,
         proUsers: proCount || 0,
         simulations: activeSimsCount || 0,
         tickets: openTicketsCount || 0,
         revenue: totalRevenue,
-        expenses: totalRevenue * 0.12, // More realistic operational burn
-        activeCampaigns: 4, // Placeholder for now
+        expenses: totalRevenue * 0.12, 
+        activeCampaigns: activeCampaignsCount || 0,
       });
 
       if (auditLogData) setRecentLogs(auditLogData);
@@ -70,8 +76,19 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchDashboardData();
-    const interval = setInterval(fetchDashboardData, 30000);
-    return () => clearInterval(interval);
+
+    // Realtime subscriptions for dashboard metrics
+    const channels = [
+      supabase.channel('admin-metrics-profiles').on('postgres_changes', { event: '*', schema: 'public', table: 'user_profiles' }, fetchDashboardData).subscribe(),
+      supabase.channel('admin-metrics-sims').on('postgres_changes', { event: '*', schema: 'public', table: 'simulations' }, fetchDashboardData).subscribe(),
+      supabase.channel('admin-metrics-tickets').on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, fetchDashboardData).subscribe(),
+      supabase.channel('admin-metrics-logs').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'admin_audit_log' }, fetchDashboardData).subscribe(),
+      supabase.channel('admin-metrics-trans').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'paystack_transactions' }, fetchDashboardData).subscribe(),
+    ];
+
+    return () => {
+      channels.forEach(ch => supabase.removeChannel(ch));
+    };
   }, []);
 
   return (

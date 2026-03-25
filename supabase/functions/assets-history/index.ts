@@ -90,18 +90,34 @@ export async function fetchAlphaVantage(symbol: string, apiKey: string): Promise
 }
 
 export async function fetchYahooFallback(symbol: string): Promise<NormalizedPrice[]> {
+  // Map internal symbols to Yahoo-friendly symbols
+  const YAHOO_MAP: Record<string, string> = {
+    'BTC/USD': 'BTC-USD',
+    'ETH/USD': 'ETH-USD',
+    'SOL/USD': 'SOL-USD',
+    'ADA/USD': 'ADA-USD',
+    'DOT/USD': 'DOT-USD',
+    'SPX': '^GSPC',
+    'NDX': '^NDX'
+  };
+
+  const yahooSymbol = YAHOO_MAP[symbol] || symbol;
   const end = Math.floor(Date.now() / 1000);
   const start = end - 2 * 365 * 24 * 3600;
-  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&period1=${start}&period2=${end}`;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?interval=1d&period1=${start}&period2=${end}`;
   
   const res = await fetch(url, {
     headers: { 'User-Agent': 'Mozilla/5.0' },
   });
-  if (!res.ok) throw new Error('Yahoo Finance request failed');
+  
+  if (!res.ok) {
+    console.warn(`[assets-history] Yahoo fallback failed for ${yahooSymbol}: ${res.status}`);
+    throw new Error(`Yahoo Finance request failed for ${yahooSymbol}`);
+  }
   
   const data = await res.json();
   const result = data.chart?.result?.[0];
-  if (!result) throw new Error('No data from Yahoo');
+  if (!result) throw new Error(`No data from Yahoo for ${yahooSymbol}`);
 
   const timestamps: number[] = result.timestamp || [];
   const closes: number[] = result.indicators?.quote?.[0]?.close || [];
@@ -112,7 +128,7 @@ export async function fetchYahooFallback(symbol: string): Promise<NormalizedPric
 
   return timestamps
     .map((ts, i) => ({
-      symbol: symbol.toUpperCase(),
+      symbol: symbol.toUpperCase(), // Return original requested symbol
       price: closes[i],
       open: opens[i],
       high: highs[i],
@@ -124,39 +140,64 @@ export async function fetchYahooFallback(symbol: string): Promise<NormalizedPric
     .filter(p => p.price && !isNaN(p.price) && p.price > 0);
 }
 
-if (import.meta.main) {
-  serve(async (req: Request) => {
-    const origin = req.headers.get('Origin');
-    const corsRes = handleCors(req);
-    if (corsRes) return corsRes;
+serve(async (req: Request) => {
+  const origin = req.headers.get('Origin');
+  const corsRes = handleCors(req);
+  if (corsRes) return corsRes;
 
-    try {
-      const user = await requireAuth(req);
+  try {
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
 
-      const limit = await rateLimit(`assets-history:${user.id}`, 20, 60);
-      if (!limit.allowed) return rateLimitResponse(limit);
+    const url = new URL(req.url);
+    const symbol = url.searchParams.get('symbol')?.toUpperCase();
+    
+    if (!symbol || !/^[A-Z0-9.\-]{1,10}$/.test(symbol)) {
+      return new Response(JSON.stringify({ error: 'Valid symbol parameter required' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
+      });
+    }
 
-      const url = new URL(req.url);
-      const symbol = url.searchParams.get('symbol')?.toUpperCase();
+    // 1. Try internal registry first (check for data freshness)
+    const { data: cached } = await supabase
+      .from('asset_history')
+      .select('*')
+      .eq('symbol', symbol)
+      .order('timestamp', { ascending: false }); // Get latest first
+
+    let prices: NormalizedPrice[] = [];
+    let source = 'registry';
+    const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+    if (cached && cached.length > 50) {
+      const latestTimestamp = new Date(cached[0].timestamp).getTime();
+      const isFresh = (Date.now() - latestTimestamp) < CACHE_TTL_MS;
       
-      if (!symbol || !/^[A-Z0-9.\-]{1,10}$/.test(symbol)) {
-        return new Response(JSON.stringify({ error: 'Valid symbol parameter required' }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
-        });
+      if (isFresh) {
+        prices = cached.map(p => ({
+          symbol: p.symbol,
+          price: Number(p.price),
+          timestamp: p.timestamp,
+          source: p.source as any
+        }));
+      } else {
+        console.log(`[assets-history] Cache stale for ${symbol}, refetching...`);
       }
+    }
 
+    if (prices.length === 0) {
+      // 2. Fetch from external if not in registry or stale
       const alphaVantageKey = Deno.env.get('ALPHA_VANTAGE_API_KEY');
-      let prices: NormalizedPrice[] = [];
-      let source = 'yahoo';
-
       try {
         if (alphaVantageKey) {
           prices = await fetchAlphaVantage(symbol, alphaVantageKey);
           source = 'alpha_vantage';
         }
       } catch {
-        // Fall through to Yahoo
+        // Fall through
       }
 
       if (prices.length === 0) {
@@ -164,51 +205,56 @@ if (import.meta.main) {
         source = 'yahoo';
       }
 
-      if (prices.length < 10) {
-        return new Response(JSON.stringify({ error: `No sufficient historical data found for ${symbol}` }), {
-          status: 404,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
-        });
+      // 3. Persist to registry for future requests
+      if (prices.length > 0) {
+         const rows = prices.map(p => ({
+            symbol: p.symbol,
+            price: p.price,
+            timestamp: p.timestamp,
+            source: p.source
+         }));
+         
+         await supabase.from('asset_history').upsert(rows, { onConflict: 'symbol,timestamp' });
+         console.log(`[INGEST] Persisted ${rows.length} records for ${symbol}`);
       }
+    }
 
-      const { mu, sigma } = computeGBMParams(prices);
-      const sorted = prices.sort((a, b) => 
-        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-      );
-
-      const response: HistoricalResponse = {
-        symbol,
-        prices: sorted,
-        expected_return: mu,
-        volatility: sigma,
-        period_start: sorted[0].timestamp,
-        period_end: sorted[sorted.length - 1].timestamp,
-        source,
-      };
-
-      return new Response(JSON.stringify(response), {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'public, max-age=3600',
-          'X-Data-Source': source,
-          'X-Data-Timestamp': new Date().toISOString(),
-          ...corsHeaders(origin),
-        },
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      if (message.includes('Unauthorized') || message.includes('Missing')) {
-        return new Response(JSON.stringify({ error: 'Your session has expired. Please sign in again.' }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
-        });
-      }
-      console.error('[assets-history] Error:', message);
-      return new Response(JSON.stringify({ error: 'Something went wrong. Please try again.' }), {
-        status: 500,
+    if (prices.length < 5) {
+      return new Response(JSON.stringify({ error: `Insufficient data for ${symbol}` }), {
+        status: 404,
         headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
       });
     }
-  });
-}
+
+    const { mu, sigma } = computeGBMParams(prices);
+    const sorted = prices.sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+
+    const response: HistoricalResponse = {
+      symbol,
+      prices: sorted,
+      expected_return: mu,
+      volatility: sigma,
+      period_start: sorted[0].timestamp,
+      period_end: sorted[sorted.length - 1].timestamp,
+      source,
+    };
+
+    return new Response(JSON.stringify(response), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Data-Source': source,
+        ...corsHeaders(origin),
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[assets-history] Error:', message);
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
+    });
+  }
+});

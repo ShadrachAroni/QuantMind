@@ -107,7 +107,7 @@ export default function MFAPage() {
   return (
     <div className="min-h-screen bg-[#05070A] flex items-center justify-center p-6 relative overflow-hidden">
       <GlowEffect color="#00D4FF" size={800} style={{ top: -400, left: -400, opacity: 0.1 }} />
-      
+
       <div className="w-full max-w-lg z-10">
         <div className="text-center mb-10">
           <ShieldCheck className="w-12 h-12 text-cyan-400 mx-auto mb-4" />

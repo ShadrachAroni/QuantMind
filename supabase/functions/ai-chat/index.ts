@@ -49,7 +49,22 @@ You are performing a deep diagnostic on the user's portfolio and simulation resu
 4. Keep the tone clinical, institutional, and objective.
 `;
 
-const SYSTEM_PROMPT = `You are QuantMind AI, an educational financial risk analysis assistant.
+const PERSONA_PROMPTS: Record<string, string> = {
+  ANALYTICAL_COLD: "Your tone is clinical, institutional, and purely data-driven. Minimize emotive language. Focus on statistical significance and mathematical rigour.",
+  ADVISORY_SUPPORTIVE: "Your tone is professional yet encouraging. Act as a high-level research assistant. Explain complex concepts clearly and provide constructive feedback on risk structures.",
+  CRITICAL_ADVERSARIAL: "Your tone is skeptical and rigorous. Act as a 'Red Team' analyst. Challenge assumptions, highlight potential tail-risk failures, and look for what could go wrong.",
+  HEDGE_FUND_VIBE: "Your tone is fast-paced, decisive, and focused on alpha and edge. Use institutional jargon. Prioritize risk-adjusted returns and market efficiency.",
+  QUANTI_MAXIMALIST: "Your tone is obsessed with models and Greek parameters. Reference VaR, CVaR, and correlation matrices frequently. Everything is a stochastic process."
+};
+
+const SENSITIVITY_PROMPTS: Record<string, string> = {
+  CONSERVATIVE: "Prioritize capital preservation above all else. Highlight even minor tail-risks and maintain a highly defensive posture in your analysis.",
+  BALANCED: "Maintain a neutral stance between risk and reward. Focus on the 95% confidence interval and standard model outputs.",
+  AGGRESSIVE: "Acknowledge higher risk tolerances. Focus on growth potential and volatility as an opportunity, while still noting major drawdown risks.",
+  MAX_EXPOSURE: "Assume maximum risk appetite. Focus on extreme scenarios, leveraged outcomes, and potential for high-convexity performance."
+};
+
+const BASE_SYSTEM_PROMPT = `You are QuantMind AI, an educational financial risk analysis assistant.
 
 CORE RULES:
 - You are an EDUCATIONAL TOOL ONLY. Always clarify this.
@@ -82,9 +97,24 @@ serve(async (req: Request) => {
   try {
     const user = await requireAuth(req);
 
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    );
+
+    // Fetch full profile for persona and bandwidth tracking
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('ai_persona, ai_risk_sensitivity, ai_daily_usage_count, tier')
+      .eq('id', user.id)
+      .single();
+
+    const userTier = profile?.tier || user.tier || 'free';
+    const dailyLimit = TIER_AI_LIMITS[userTier] ?? 10;
+
     // Daily AI message limit
-    const dailyLimit = TIER_AI_LIMITS[user.tier] ?? 10;
-    if (dailyLimit !== -1) {
+    const currentUsage = profile?.ai_daily_usage_count || 0;
+    if (dailyLimit !== -1 && currentUsage >= dailyLimit) {
       const limit = await rateLimit(`ai-chat-daily:${user.id}`, dailyLimit, 86400);
       if (!limit.allowed) {
         return new Response(JSON.stringify({
@@ -112,11 +142,25 @@ serve(async (req: Request) => {
     // Sanitize input to prevent prompt injection
     const message = sanitizeInput(rawMessage);
 
+    // Fetch Market Sentiment (Pro Feature)
+    let sentimentBlock = '';
+    const { data: sentiment } = await supabase
+      .from('market_sentiment')
+      .select('sentiment_score, summary, top_signals')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (sentiment) {
+      sentimentBlock = `\n\nCURRENT MARKET SENTIMENT:
+- Score: ${sentiment.sentiment_score} (Scale: -1 to 1)
+- Summary: ${sentiment.summary}
+- Top Signals: ${JSON.stringify(sentiment.top_signals)}`;
+    } else {
+      sentimentBlock = `\n\nCURRENT MARKET SENTIMENT: NEUTRAL (No significant news or social shifts detected in the last baseline).`;
+    }
+
     // Gather portfolio/simulation context if provided
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    );
 
     let contextBlock = '';
     
@@ -211,7 +255,11 @@ Assets: ${JSON.stringify(portfolio.assets, null, 2)}`;
     let responseText = '';
     let totalTokens = 0;
 
-    const fullPrompt = (workflow === 'portfolio_doctor' ? DOCTOR_PROMPT : '') + SYSTEM_PROMPT + contextBlock + "\n\nUSER_MESSAGE: " + message;
+    const personaPrompt = PERSONA_PROMPTS[profile?.ai_persona as string] || PERSONA_PROMPTS.ANALYTICAL_COLD;
+    const sensitivityPrompt = SENSITIVITY_PROMPTS[profile?.ai_risk_sensitivity as string] || SENSITIVITY_PROMPTS.BALANCED;
+    const systemPrompt = `${BASE_SYSTEM_PROMPT}\n\nCOGNITIVE_OVERRIDE:\n${personaPrompt}\n${sensitivityPrompt}`;
+
+    const fullPrompt = (workflow === 'portfolio_doctor' ? DOCTOR_PROMPT : '') + systemPrompt + sentimentBlock + contextBlock + "\n\nUSER_MESSAGE: " + message;
 
     if (aiProvider === 'google') {
       const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aiModel}:generateContent?key=${apiServiceKey}`, {
@@ -237,7 +285,7 @@ Assets: ${JSON.stringify(portfolio.assets, null, 2)}`;
         },
         body: JSON.stringify({
           model: aiModel,
-          messages: [{ role: 'system', content: (workflow === 'portfolio_doctor' ? DOCTOR_PROMPT : '') + SYSTEM_PROMPT + contextBlock }, { role: 'user', content: message }],
+          messages: [{ role: 'system', content: (workflow === 'portfolio_doctor' ? DOCTOR_PROMPT : '') + systemPrompt + contextBlock }, { role: 'user', content: message }],
           max_tokens: 1500,
           temperature: 0.7
         }),
@@ -258,7 +306,7 @@ Assets: ${JSON.stringify(portfolio.assets, null, 2)}`;
         },
         body: JSON.stringify({
           model: aiModel,
-          system: (workflow === 'portfolio_doctor' ? DOCTOR_PROMPT : '') + SYSTEM_PROMPT + contextBlock,
+          system: (workflow === 'portfolio_doctor' ? DOCTOR_PROMPT : '') + systemPrompt + contextBlock,
           messages: [{ role: 'user', content: message }],
           max_tokens: 1500,
           temperature: 0.7
@@ -269,6 +317,11 @@ Assets: ${JSON.stringify(portfolio.assets, null, 2)}`;
       const data = await anthropicResponse.json();
       responseText = data.content?.[0]?.text || 'No response generated.';
       totalTokens = data.usage?.output_tokens + data.usage?.input_tokens || 0;
+    }
+
+    // Update usage count in DB using robust RPC with daily reset logic
+    if (responseText && responseText !== 'No response generated.') {
+      await supabase.rpc('increment_ai_usage', { user_id_val: user.id });
     }
 
     return new Response(JSON.stringify({

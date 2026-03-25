@@ -271,7 +271,7 @@ export function SubscriptionScreen({ navigation }: any) {
         <PlanCard 
           id="student"
           name="Student" 
-          price="4.99" 
+          price="5.00" 
           color="#10B981"
           active={false}
           locked={true}
@@ -279,6 +279,21 @@ export function SubscriptionScreen({ navigation }: any) {
           features={['10k Sim Paths', 'MFA Enabled', 'Same as Plus tier', 'Requires .edu validation']}
           onAction={() => {}}
         />
+
+        <View style={styles.divider} />
+
+        <View style={styles.managementNotice}>
+          <Typography variant="mono" style={[styles.sectionLabel, { color: theme.textTertiary, opacity: 0.7, marginBottom: 8 }]}>// BILLING_MASTER_CONTROL</Typography>
+          <Typography variant="caption" style={{ color: theme.textSecondary, fontStyle: 'italic', textAlign: 'center' }}>
+            To manage your renewal, view invoice history, or decommission your plan, please access your institutional vault via the QuantMind Web Terminal. 
+          </Typography>
+          <TouchableOpacity 
+            style={{ marginTop: 12, borderBottomWidth: 1, borderColor: theme.primary + '44' }}
+            onPress={() => Linking.openURL('https://quantmind.app/dashboard/settings')}
+          >
+            <Typography variant="monoBold" style={{ color: theme.primary, fontSize: 10 }}>NAVIGATE_TO_TERMINAL</Typography>
+          </TouchableOpacity>
+        </View>
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -417,5 +432,14 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#10B98133',
+  },
+  managementNotice: {
+    padding: 24,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+    alignItems: 'center',
+    marginVertical: 12,
   }
 });

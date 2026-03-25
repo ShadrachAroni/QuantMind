@@ -338,3 +338,44 @@ export function getQuantMindBasicWelcomeTemplate(userId: string) {
     "Node Initialized"
   );
 }
+
+/**
+ * Recovery / Reset Password Template
+ */
+export function getQuantMindRecoveryTemplate(token: string, origin: string = "https://quantmind.app") {
+  const accent = BRAND_COLOR;
+  const resetLink = `${origin}/auth/callback?type=recovery&code=${token}`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>${COMMON_HEAD}</head>
+<body>
+  <div class="container">
+    <div class="card" style="border: 1px solid rgba(0, 245, 255, 0.3) !important;">
+      <div class="header">
+        <div class="logo">Quant<span>Mind</span>.</div>
+      </div>
+      <div style="padding: 48px 32px; text-align: center;">
+        <div style="display: inline-block; background: rgba(0, 245, 255, 0.1); color: ${accent} !important; padding: 6px 16px; border-radius: 999px; font-size: 10px; font-weight: 900; letter-spacing: 1px; margin-bottom: 24px;">ACCESS_RECOVERY_PROTOCOL</div>
+        <h1 style="font-size: 26px; margin: 0; color: #fff !important;">PASSWORD RESET REQUEST</h1>
+        
+        <p style="font-size: 15px; line-height: 1.6; color: ${TEXT_SECONDARY} !important; margin: 32px 0;">
+          A security credential reset has been initiated for your QuantMind Terminal node. Use the following encrypted link to define a new access cipher:
+        </p>
+
+        <a href="${resetLink}" class="btn" style="width: 100%; box-sizing: border-box;">Initialize Cipher Reset</a>
+
+        <div style="margin-top: 32px; padding: 20px; background: rgba(255, 255, 255, 0.03) !important; border-radius: 12px; font-family: ui-monospace, monospace; font-size: 11px; color: ${TEXT_SECONDARY} !important; word-break: break-all;">
+          ${resetLink}
+        </div>
+
+        <p style="font-size: 12px; color: #64748b !important; margin-top: 32px;">
+          This link will expire in 60 minutes. If you did not request this recovery, please notify the QuantMind Security Operations Center (SOC) immediately.
+        </p>
+      </div>
+    </div>
+    ${SHARED_FOOTER}
+  </div>
+</body>
+</html>`;
+}

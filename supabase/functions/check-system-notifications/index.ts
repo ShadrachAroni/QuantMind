@@ -55,7 +55,32 @@ serve(async (req: Request) => {
         const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
 
         let shouldNotify = false;
-        if ([14, 7, 1].includes(daysLeft)) {
+        if (daysLeft <= 0) {
+          // --- 2a. Automated Downgrade on Expiry ---
+          const { data: { user } } = await supabase.auth.admin.getUserById(sub.user_id);
+          if (user?.email) {
+             // 1. Revert Tier to Free in both tables
+             await supabase.from('user_profiles').update({ 
+               tier: 'free', 
+               subscription_status: 'expired' 
+             }).eq('id', sub.user_id);
+             
+             await supabase.from('subscriptions').update({ 
+               status: 'expired', 
+               tier: 'free' 
+             }).eq('user_id', sub.user_id);
+
+             // 2. Notify User of Expiry & Extension Removal
+             await sendEmail(user.email, 'subscription_expired', {
+               planName: sub.tier,
+               expiryDate: periodEnd.toLocaleDateString()
+             });
+             
+             await sendPush(sub.user_id, 'TERM_EXPIRED', `Your ${sub.tier.toUpperCase()} node access has expired. Reverted to Standard.`);
+             results.subscription++;
+          }
+          continue; // Move to next sub
+        } else if ([14, 7, 1].includes(daysLeft)) {
           const lastNotified = sub.last_expiry_notified_at ? new Date(sub.last_expiry_notified_at) : null;
           if (!lastNotified || lastNotified.toDateString() !== now.toDateString()) {
             shouldNotify = true;

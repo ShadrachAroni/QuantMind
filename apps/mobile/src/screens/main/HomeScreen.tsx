@@ -114,7 +114,9 @@ export function HomeScreen({ navigation }: any) {
                 {portfolios.length} {STRINGS.ACTIVE_PORTFOLIOS}
               </Typography>
             </View>
-            <Typography variant="mono" style={[dynamicStyles.deltaText, { color: theme.primary }]}>+2.4% <TrendIcon size={10} color={theme.primary} /></Typography>
+            <Typography variant="mono" style={[dynamicStyles.deltaText, { color: totalValue >= 100000 ? theme.primary : '#FF453A' }]}>
+              {totalValue >= 100000 ? '+' : ''}{((totalValue - 100000) / 1000).toFixed(2)}% <TrendIcon size={10} color={totalValue >= 100000 ? theme.primary : '#FF453A'} />
+            </Typography>
           </View>
         </GlassCard>
 

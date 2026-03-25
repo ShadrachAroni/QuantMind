@@ -47,6 +47,15 @@ serve(async (req: Request) => {
         "Node Access Expiring"
       );
       finalSubject = subject || `[TERM_ALERT] Node Subscription Termination Approaching (${details.daysLeft}d)`;
+    } else if (type === 'subscription_expired') {
+      html = getQuantMindTemplate(
+        `<p>Your ${details.planName} protocol access has expired as of <strong>${details.expiryDate}</strong>.</p>
+         <p>Your account has been automatically reverted to the <strong>STND (Free) Tier</strong>. All elite node access and priority simulation bandwidth have been restricted.</p>
+         <p>To restore institutional-grade access, please initialize a new subscription via the terminal.</p>
+         <a href="https://quantmind.app/terminal/subscription" class="btn">Renew Node Access</a>`,
+        "Node Access Expired"
+      );
+      finalSubject = subject || `[TERM_ALERT] Node Subscription Token Expired - Reverted to Standard`;
     } else {
       // Fallback/Generic
       html = getQuantMindTemplate(

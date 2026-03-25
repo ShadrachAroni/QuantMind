@@ -11,23 +11,35 @@
   "dependencies": {
     "@quantmind/analytics": "*",
     "@quantmind/shared-types": "*",
+    "@supabase/ssr": "^0.9.0",
     "@supabase/supabase-js": "^2.45.4",
+    "@zxcvbn-ts/core": "^3.0.4",
+    "@zxcvbn-ts/language-common": "^3.0.4",
     "clsx": "^2.1.1",
     "d3-color": "3.1.0",
     "date-fns": "^4.1.0",
+    "framer-motion": "^12.38.0",
     "lucide-react": "^0.454.0",
     "minimatch": "9.0.9",
     "next": "16.2.1",
+    "next-themes": "^0.4.6",
+    "paystack-sdk": "^3.6.1",
     "react": "^18",
     "react-dom": "^18",
+    "react-markdown": "^10.1.0",
+    "resend": "^6.9.4",
+    "sonner": "^2.0.7",
     "tailwind-merge": "^2.5.4"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "autoprefixer": "^10.4.27",
     "eslint": "^8",
     "eslint-config-next": "^14.2.3",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^3.4.19",
     "typescript": "^5"
   }
 }

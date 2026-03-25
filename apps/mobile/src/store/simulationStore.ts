@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { SimulationParams, SimulationResult } from '@quantmind/shared-types';
 import { api } from '../services/api';
+import { supabase } from '../services/supabase';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 interface SimulationState {
   currentStatus: 'idle' | 'running' | 'completed' | 'failed';
@@ -8,9 +10,11 @@ interface SimulationState {
   result: SimulationResult | null;
   error: string | null;
   livePrices: Record<string, number>;
+  jobSubscription: RealtimeChannel | null;
   
   runSimulation: (portfolioId: string, params: SimulationParams) => Promise<void>;
-  pollStatus: (jobId: string) => Promise<void>;
+  subscribeToJob: (jobId: string) => void;
+  unsubscribeFromJob: () => void;
   clearResult: () => void;
   updateLivePrice: (symbol: string, price: number) => void;
 }
@@ -21,38 +25,55 @@ export const useSimulationStore = create<SimulationState>((set, get) => ({
   result: null,
   error: null,
   livePrices: {},
+  jobSubscription: null as RealtimeChannel | null,
 
   runSimulation: async (portfolioId, params) => {
     set({ currentStatus: 'running', error: null, result: null });
     try {
       const resp = await api.runSimulation(portfolioId, params);
       set({ currentJobId: resp.jobId });
-      get().pollStatus(resp.jobId);
+      get().subscribeToJob(resp.jobId);
     } catch (e: any) {
       set({ currentStatus: 'failed', error: e.message || 'Simulation failed' });
     }
   },
 
-  pollStatus: async (jobId: string) => {
-    const pollInterval = 1500;
-    
-    const check = async () => {
-      if (get().currentJobId !== jobId) return; // job changed or cancelled
-      try {
-        const resp = await api.getSimulationStatus(jobId);
-        if (resp.status === 'completed') {
-          set({ currentStatus: 'completed', result: resp.result });
-        } else if (resp.status === 'failed') {
-          set({ currentStatus: 'failed', error: resp.error_message });
-        } else {
-          setTimeout(check, pollInterval);
+  subscribeToJob: (jobId: string) => {
+    const { jobSubscription } = get();
+    if (jobSubscription) jobSubscription.unsubscribe();
+
+    const channel = supabase
+      .channel(`job-${jobId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'simulations',
+          filter: `id=eq.${jobId}`,
+        },
+        async (payload) => {
+          const data = payload.new as any;
+          if (data.status === 'completed') {
+            set({ currentStatus: 'completed', result: data.result });
+            get().unsubscribeFromJob();
+          } else if (data.status === 'failed') {
+            set({ currentStatus: 'failed', error: data.error_message });
+            get().unsubscribeFromJob();
+          }
         }
-      } catch (e: any) {
-        set({ currentStatus: 'failed', error: e.message });
-      }
-    };
-    
-    setTimeout(check, pollInterval);
+      )
+      .subscribe();
+
+    set({ jobSubscription: channel });
+  },
+
+  unsubscribeFromJob: () => {
+    const { jobSubscription } = get();
+    if (jobSubscription) {
+      jobSubscription.unsubscribe();
+      set({ jobSubscription: null });
+    }
   },
 
   clearResult: () => set({ currentStatus: 'idle', result: null, currentJobId: null, error: null }),
