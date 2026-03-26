@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { Typography } from '../../components/ui/Typography';
-import { usePortfolioStore } from '../../store/portfolioStore';
+import { usePortfolioStore, usePortfolios } from '../../store/portfolioStore';
 import { Asset } from '@quantmind/shared-types';
 import { AssetCard } from '../../components/ui/AssetCard';
 import { PieChart } from 'react-native-svg-charts';
@@ -12,12 +12,13 @@ import { GlowEffect } from '../../components/ui/GlowEffect';
 import { useTheme } from '../../context/ThemeContext';
 import { sharedTheme } from '../../constants/theme';
 import { STRINGS } from '../../constants/strings';
+import { CorrelationHeatmap } from '../../components/charts/CorrelationHeatmap';
 
 const { width } = Dimensions.get('window');
 
 export function PortfolioDetailScreen({ route, navigation }: any) {
   const { id } = route.params;
-  const { portfolios } = usePortfolioStore();
+  const portfolios = usePortfolios();
   const { theme, isDark } = useTheme();
   const portfolio = portfolios.find(p => p.id === id);
 
@@ -207,9 +208,7 @@ export function PortfolioDetailScreen({ route, navigation }: any) {
                 delta={isRebalanceMode ? delta : undefined}
                 onPress={() => {
                   if (isRebalanceMode) {
-                    // Open a weight adjustment slider (simplified for now as a mock)
                     const newWeights = [...proposedAssets];
-                    // Example: Toggle between 10% steps
                     newWeights[index].weight = (newWeights[index].weight + 0.1) % 0.5;
                     setProposedAssets(newWeights);
                   }
@@ -217,6 +216,14 @@ export function PortfolioDetailScreen({ route, navigation }: any) {
               />
             );
           })}
+        </View>
+
+        <View style={dynamicStyles.chartSection}>
+          <Typography variant="h3" style={[dynamicStyles.sectionTitle, { color: theme.textTertiary }]}>DIVERSIFICATION_INTERPLAY</Typography>
+          <CorrelationHeatmap 
+            labels={portfolio.assets?.map(a => a.ticker) || []} 
+            symbols={portfolio.assets?.map(a => a.ticker)}
+          />
         </View>
 
         <View style={{ height: 60 }} />

@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase';
+import { useSyncStore } from '@/store/syncStore';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 
 interface UserProfile {
   id: string;
@@ -22,20 +24,34 @@ interface UserProfile {
   ai_model: string | null;
   ai_expertise: string | null;
   last_credential_change_at: string | null;
+  is_admin: boolean;
 }
 
 interface UserContextType {
   profile: UserProfile | null;
   loading: boolean;
   refreshProfile: () => Promise<void>;
+  isOnline: boolean;
+  isMaintenanceMode: boolean;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const { profile, setProfile, setOnline } = useSyncStore();
+  const { isOnline } = useRealtimeSync();
   const [loading, setLoading] = useState(true);
+  const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
   const supabase = createClient();
+
+  const fetchMaintenanceStatus = async () => {
+    const { data } = await supabase
+      .from('app_config')
+      .select('value')
+      .eq('key', 'maintenance_mode')
+      .single();
+    if (data) setIsMaintenanceMode(data.value === 'true');
+  };
 
   const fetchProfile = async () => {
     try {
@@ -53,7 +69,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       if (data) {
-        setProfile({ ...data, email: user.email } as UserProfile);
+        setProfile({ ...data, email: user.email } as any);
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -64,8 +80,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     fetchProfile();
+    fetchMaintenanceStatus();
 
-    // Set up realtime listener for profile updates
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
        if (session) fetchProfile();
        else {
@@ -74,30 +90,24 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
        }
     });
 
-    const channel = supabase
-      .channel('user_profile_updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'user_profiles',
-        },
-        (payload) => {
-          if (profile && payload.new && (payload.new as any).id === profile.id) {
-            setProfile(payload.new as UserProfile);
-          }
-        }
-      )
+    const maintenanceChannel = supabase
+      .channel('public_maintenance_status')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'app_config', 
+        filter: 'key=eq.maintenance_mode' 
+      }, fetchMaintenanceStatus)
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      subscription.unsubscribe();
+      supabase.removeChannel(maintenanceChannel);
     };
   }, []);
 
   return (
-    <UserContext.Provider value={{ profile, loading, refreshProfile: fetchProfile }}>
+    <UserContext.Provider value={{ profile: profile as any, loading, refreshProfile: fetchProfile, isOnline, isMaintenanceMode }}>
       {children}
     </UserContext.Provider>
   );

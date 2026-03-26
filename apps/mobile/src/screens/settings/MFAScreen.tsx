@@ -1,16 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, ActivityIndicator, Switch } from 'react-native';
 import { supabase } from '../../services/supabase';
 import { Typography } from '../../components/ui/Typography';
+import { useAuthStore } from '../../store/authStore';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
-import { ChevronLeft, ShieldCheck, ShieldAlert, Key, Copy, RefreshCw, Trash2 } from 'lucide-react-native';
+import { GlassCard } from '../../components/ui/GlassCard';
+import { 
+  ChevronLeft, 
+  ShieldCheck, 
+  ShieldAlert, 
+  Key, 
+  Copy, 
+  RefreshCw, 
+  Trash2, 
+  Mail, 
+  Fingerprint,
+  Smartphone
+} from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
 import * as Clipboard from 'expo-clipboard';
+import { sharedTheme } from '../../constants/theme';
 
 export function MFAScreen({ navigation }: any) {
   const { theme, isDark } = useTheme();
   const { showToast } = useToast();
+  const { mfaEmailEnabled, mfaPasskeyEnabled, updateMFAEmail, updateMFAPasskey } = useAuthStore();
+  
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState(false);
   const [factorId, setFactorId] = useState<string | null>(null);
@@ -26,6 +42,9 @@ export function MFAScreen({ navigation }: any) {
   const CopyIcon = Copy as any;
   const RefreshIcon = RefreshCw as any;
   const TrashIcon = Trash2 as any;
+  const MailIcon = Mail as any;
+  const FingerprintIcon = Fingerprint as any;
+  const SmartphoneIcon = Smartphone as any;
 
   useEffect(() => {
     fetchFactors();
@@ -110,97 +129,109 @@ export function MFAScreen({ navigation }: any) {
     showToast('SECRET_COPIED_TO_BUFFER', 'success');
   };
 
-  if (loading && factors.length === 0) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.background, justifyContent: 'center' }]}>
-        <ActivityIndicator color={theme.primary} />
-      </View>
-    );
-  }
+  const isMFAActive = factors.length > 0 || mfaEmailEnabled || mfaPasskeyEnabled;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      <ScrollView contentContainerStyle={styles.scroll}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { borderColor: theme.border }]}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { borderColor: theme.border, backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }]}>
             <BackIcon size={20} color={theme.textPrimary} />
           </TouchableOpacity>
           <Typography variant="mono" style={{ color: theme.textTertiary, fontSize: 10, letterSpacing: 2 }}>SECURITY_PROTOCOL // MFA</Typography>
-          <Typography variant="h2" style={{ color: theme.textPrimary, marginTop: 4 }}>ENCRYPTION_KERNEL</Typography>
+          <Typography variant="h1" style={{ color: theme.textPrimary, marginTop: 4, letterSpacing: 1 }}>AUTH_REINFORCEMENT</Typography>
         </View>
 
-        {factors.length > 0 ? (
-          <View style={styles.section}>
-            <View style={[styles.statusBanner, { backgroundColor: theme.primary + '10', borderColor: theme.primary + '30' }]}>
-              <ShieldCheckIcon size={24} color={theme.primary} />
-              <View style={styles.bannerText}>
-                <Typography variant="monoBold" style={{ color: theme.primary, fontSize: 12 }}>STATUS: PROTOCOL_ACTIVE</Typography>
-                <Typography variant="caption" style={{ color: theme.textSecondary }}>Multi-factor authentication is currently operational.</Typography>
-              </View>
-            </View>
+        <View style={[styles.statusBanner, { 
+          backgroundColor: isMFAActive ? theme.primary + '10' : theme.warning + '10', 
+          borderColor: isMFAActive ? theme.primary + '30' : theme.warning + '30' 
+        }]}>
+          {isMFAActive ? <ShieldCheckIcon size={24} color={theme.primary} /> : <ShieldAlertIcon size={24} color={theme.warning} />}
+          <View style={styles.bannerText}>
+            <Typography variant="monoBold" style={{ color: isMFAActive ? theme.primary : theme.warning, fontSize: 12 }}>
+              STATUS: {isMFAActive ? 'REINFORCED_ACTIVE' : 'EXPOSED_SINGLE_FACTOR'}
+            </Typography>
+            <Typography variant="caption" style={{ color: theme.textSecondary }}>
+              {isMFAActive ? 'Multi-layered authentication is active.' : 'Account protection is below institutional standards.'}
+            </Typography>
+          </View>
+        </View>
 
-            <Typography variant="mono" style={styles.label}>ACTIVE_FACTORS</Typography>
+        <Typography variant="mono" style={styles.sectionLabel}>// AUTHENTICATION_PILLARS</Typography>
+        
+        <GlassCard style={styles.pillarCard}>
+          <MFAOption 
+            icon={SmartphoneIcon}
+            title="TOTP Authenticator"
+            subtitle="Google / Authy / Microsoft"
+            active={factors.length > 0}
+            onPress={() => {
+              if (factors.length === 0 && !qrCode) startEnrollment();
+              else if (factors.length > 0) showToast('TOTP_ALREADY_ACTIVE', 'info');
+            }}
+            theme={theme}
+          />
+          <View style={[styles.divider, { backgroundColor: theme.border + '22' }]} />
+          <MFAOptionToggle 
+            icon={MailIcon}
+            title="Email OTP"
+            subtitle="Instant secondary verification"
+            value={mfaEmailEnabled}
+            onValueChange={updateMFAEmail}
+            theme={theme}
+          />
+          <View style={[styles.divider, { backgroundColor: theme.border + '22' }]} />
+          <MFAOptionToggle 
+            icon={FingerprintIcon}
+            title="Biometric Passkey"
+            subtitle="WebAuthn hardware keys"
+            value={mfaPasskeyEnabled}
+            onValueChange={updateMFAPasskey}
+            theme={theme}
+          />
+        </GlassCard>
+
+        {factors.length > 0 && (
+          <>
+            <Typography variant="mono" style={styles.sectionLabel}>// ACTIVE_HARDWARE_TOKENS</Typography>
             {factors.map(f => (
-              <View key={f.id} style={[styles.factorCard, { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', borderColor: theme.border }]}>
+              <GlassCard key={f.id} style={styles.factorCard}>
                 <View style={styles.factorInfo}>
-                  <KeyIcon size={18} color={theme.textPrimary} />
-                  <View style={{ marginLeft: 12 }}>
-                    <Typography variant="mono" style={{ color: f.status === 'verified' ? theme.success : theme.warning }}>{f.friendly_name || 'TOTP_AUTHENTICATOR'}</Typography>
-                    <Typography variant="caption" style={{ color: theme.textTertiary }}>ID: {f.id.substring(0, 8).toUpperCase()}</Typography>
+                  <KeyIcon size={18} color={theme.primary} />
+                  <View style={{ marginLeft: 16 }}>
+                    <Typography variant="mono" style={{ color: theme.textPrimary, fontSize: 13 }}>{f.friendly_name || 'QUANTMIND_HUB'}</Typography>
+                    <Typography variant="caption" style={{ color: theme.textTertiary }}>PROVISIONED: {f.id.substring(0, 12).toUpperCase()}</Typography>
                   </View>
                 </View>
-                <TouchableOpacity onPress={() => unenrollFactor(f.id)}>
-                  <TrashIcon size={18} color={theme.error} />
+                <TouchableOpacity onPress={() => unenrollFactor(f.id)} style={styles.deleteBtn}>
+                  <TrashIcon size={16} color={theme.error} />
                 </TouchableOpacity>
-              </View>
+              </GlassCard>
             ))}
-          </View>
-        ) : (
-          !qrCode && (
-            <View style={styles.section}>
-              <View style={[styles.statusBanner, { backgroundColor: theme.warning + '10', borderColor: theme.warning + '30' }]}>
-                <ShieldAlertIcon size={24} color={theme.warning} />
-                <View style={styles.bannerText}>
-                  <Typography variant="monoBold" style={{ color: theme.warning, fontSize: 12 }}>STATUS: EXPOSED</Typography>
-                  <Typography variant="caption" style={{ color: theme.textSecondary }}>Account is currently operating under single-factor access.</Typography>
-                </View>
-              </View>
-
-              <TouchableOpacity 
-                style={[styles.enrollBtn, { backgroundColor: theme.primary }]}
-                onPress={startEnrollment}
-                disabled={enrolling}
-              >
-                {enrolling ? <ActivityIndicator color={theme.background} /> : (
-                  <>
-                    <Typography variant="monoBold" style={{ color: theme.background }}>PROVISION_TOTP</Typography>
-                    <RefreshIcon size={16} color={theme.background} style={{ marginLeft: 8 }} />
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
-          )
+          </>
         )}
 
+        {enrolling && <ActivityIndicator color={theme.primary} style={{ marginTop: 20 }} />}
+
         {qrCode && (
-          <View style={[styles.qrContainer, { backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)', borderColor: theme.border }]}>
-            <Typography variant="monoBold" style={styles.qrTitle}>NEW_TOTP_KEY_DETECTED</Typography>
+          <GlassCard intensity="high" style={styles.qrContainer}>
+            <Typography variant="monoBold" style={styles.qrTitle}>PROVISION_NEW_TOKEN</Typography>
             <View style={styles.qrWrapper}>
-              <QRCode value={qrCode} size={180} backgroundColor={theme.background} color={theme.textPrimary} />
+              <QRCode value={qrCode} size={160} backgroundColor="#FFFFFF" color="#000000" />
             </View>
             
             <View style={styles.secretBox}>
-              <Typography variant="caption" style={{ color: theme.textTertiary }}>MANUAL_SECRET</Typography>
-              <View style={styles.secretRow}>
-                <Typography variant="mono" style={{ color: theme.textSecondary, flex: 1 }}>{secret}</Typography>
+              <Typography variant="caption" style={{ color: theme.textTertiary, fontSize: 9 }}>MANUAL_INTEGRATION_KEY</Typography>
+              <View style={[styles.secretRow, { backgroundColor: theme.border + '22' }]}>
+                <Typography variant="mono" style={{ color: theme.textSecondary, flex: 1, fontSize: 11 }}>{secret}</Typography>
                 <TouchableOpacity onPress={() => secret && copyToClipboard(secret)}>
-                  <CopyIcon size={16} color={theme.primary} />
+                  <CopyIcon size={14} color={theme.primary} />
                 </TouchableOpacity>
               </View>
             </View>
 
             <View style={styles.verifySection}>
-              <Typography variant="mono" style={styles.label}>INITIAL_CHALLENGE</Typography>
+              <Typography variant="mono" style={styles.sectionLabel}>CHALLENGE_VERIFICATION</Typography>
               <TextInput
                 style={[styles.otpInput, { backgroundColor: theme.background, color: theme.textPrimary, borderColor: theme.border }]}
                 placeholder="6-DIGIT_OTP"
@@ -214,124 +245,81 @@ export function MFAScreen({ navigation }: any) {
                 style={[styles.verifyBtn, { backgroundColor: theme.primary }]}
                 onPress={verifyFactor}
               >
-                <Typography variant="monoBold" style={{ color: theme.background }}>SUBMIT_CHALLENGE</Typography>
+                <Typography variant="monoBold" style={{ color: theme.background }}>STABILIZE_FACTOR</Typography>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => { setQrCode(null); setSecret(null); }} style={{ alignSelf: 'center', marginTop: 12 }}>
+                <Typography variant="caption" style={{ color: theme.textTertiary }}>ABORT_PROVISIONING</Typography>
               </TouchableOpacity>
             </View>
-          </View>
+          </GlassCard>
         )}
+
+        <View style={{ height: 60 }} />
       </ScrollView>
     </View>
   );
 }
 
+function MFAOption({ icon: Icon, title, subtitle, active, onPress, theme }: any) {
+  return (
+    <TouchableOpacity style={styles.mfaOption} onPress={onPress}>
+      <View style={[styles.optionIcon, { backgroundColor: active ? theme.primary + '22' : theme.background + '44' }]}>
+        <Icon size={18} color={active ? theme.primary : theme.textTertiary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Typography variant="monoBold" style={{ fontSize: 12, color: theme.textPrimary }}>{title.toUpperCase()}</Typography>
+        <Typography variant="caption" style={{ fontSize: 9, color: theme.textTertiary }}>{subtitle}</Typography>
+      </View>
+      <View style={[styles.activeStatus, { backgroundColor: active ? theme.success + '22' : 'transparent', borderColor: active ? theme.success + '44' : theme.border }]}>
+        <Typography variant="mono" style={{ color: active ? theme.success : theme.textTertiary, fontSize: 8 }}>{active ? 'ACTIVE' : 'INACTIVE'}</Typography>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function MFAOptionToggle({ icon: Icon, title, subtitle, value, onValueChange, theme }: any) {
+  return (
+    <View style={styles.mfaOption}>
+      <View style={[styles.optionIcon, { backgroundColor: value ? theme.primary + '22' : theme.background + '44' }]}>
+        <Icon size={18} color={value ? theme.primary : theme.textTertiary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Typography variant="monoBold" style={{ fontSize: 12, color: theme.textPrimary }}>{title.toUpperCase()}</Typography>
+        <Typography variant="caption" style={{ fontSize: 9, color: theme.textTertiary }}>{subtitle}</Typography>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        trackColor={{ false: theme.border, true: theme.primary }}
+        thumbColor={value ? '#FFF' : '#475569'}
+        ios_backgroundColor={theme.border}
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scroll: {
-    padding: 24,
-    paddingTop: 64,
-  },
-  header: {
-    marginBottom: 32,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  section: {
-    gap: 20,
-  },
-  statusBanner: {
-    flexDirection: 'row',
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: 'center',
-    gap: 16,
-  },
-  bannerText: {
-    flex: 1,
-    gap: 2,
-  },
-  label: {
-    fontSize: 9,
-    letterSpacing: 2,
-    marginTop: 12,
-  },
-  factorCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  factorInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  enrollBtn: {
-    height: 56,
-    borderRadius: 16,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  qrContainer: {
-    padding: 24,
-    borderRadius: 24,
-    borderWidth: 1,
-    marginTop: 24,
-    alignItems: 'center',
-  },
-  qrTitle: {
-    fontSize: 12,
-    letterSpacing: 2,
-    marginBottom: 24,
-  },
-  qrWrapper: {
-    padding: 16,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 24,
-  },
-  secretBox: {
-    width: '100%',
-    gap: 8,
-    marginBottom: 24,
-  },
-  secretRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    borderRadius: 8,
-    gap: 12,
-  },
-  verifySection: {
-    width: '100%',
-    gap: 12,
-  },
-  otpInput: {
-    height: 50,
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    textAlign: 'center',
-    fontSize: 18,
-    fontFamily: 'JetBrains Mono',
-    letterSpacing: 4,
-  },
-  verifyBtn: {
-    height: 50,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  container: { flex: 1 },
+  scroll: { padding: 24, paddingTop: 64 },
+  header: { marginBottom: 32 },
+  backBtn: { width: 40, height: 40, borderRadius: 12, borderWidth: 1, justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
+  statusBanner: { flexDirection: 'row', padding: 18, borderRadius: 20, borderWidth: 1, alignItems: 'center', gap: 16, marginBottom: 32 },
+  bannerText: { flex: 1, gap: 2 },
+  sectionLabel: { fontSize: 9, letterSpacing: 2, marginBottom: 16, marginLeft: 4, color: 'rgba(255,255,255,0.4)' },
+  pillarCard: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 24, marginBottom: 32 },
+  mfaOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, gap: 16 },
+  optionIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  activeStatus: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1 },
+  divider: { height: 1, width: '100%' },
+  factorCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 16, marginBottom: 12 },
+  factorInfo: { flexDirection: 'row', alignItems: 'center' },
+  deleteBtn: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  qrContainer: { padding: 24, borderRadius: 24, marginTop: 12, alignItems: 'center' },
+  qrTitle: { fontSize: 12, letterSpacing: 2, marginBottom: 24 },
+  qrWrapper: { padding: 12, backgroundColor: '#FFF', borderRadius: 16, marginBottom: 24 },
+  secretBox: { width: '100%', gap: 8, marginBottom: 24 },
+  secretRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, gap: 12 },
+  verifySection: { width: '100%', gap: 12 },
+  otpInput: { height: 50, borderRadius: 12, borderWidth: 1, paddingHorizontal: 16, textAlign: 'center', fontSize: 20, fontFamily: 'JetBrains Mono', letterSpacing: 6 },
+  verifyBtn: { height: 54, borderRadius: 16, justifyContent: 'center', alignItems: 'center', shadowColor: '#00D4FF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
 });

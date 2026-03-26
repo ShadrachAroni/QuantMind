@@ -11,6 +11,8 @@ import { LoadingOverlay } from './src/components/ui/LoadingOverlay';
 import { ThemeProvider } from './src/context/ThemeContext';
 import { ToastProvider } from './src/context/ToastContext';
 import { useNotifications } from './src/hooks/useNotifications';
+import { voiceService } from './src/services/voiceService';
+import * as Linking from 'expo-linking';
 
 // Create QueryClient instance
 const queryClient = new QueryClient({
@@ -28,6 +30,13 @@ function AppContent() {
 
   useEffect(() => {
     initialize();
+    voiceService.registerShortcuts();
+
+    const subscription = Linking.addEventListener('url', (event) => {
+      voiceService.handleVoiceIntent(event.url);
+    });
+
+    return () => subscription.remove();
   }, [initialize]);
 
   if (!initialized || isLoading) {

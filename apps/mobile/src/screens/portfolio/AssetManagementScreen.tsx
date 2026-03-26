@@ -13,7 +13,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { sharedTheme } from '../../constants/theme';
 import { STRINGS } from '../../constants/strings';
-import { TickerTape } from '../../components/ui/TickerTape';
+// Removed TickerTape
 
 const { width } = Dimensions.get('window');
 

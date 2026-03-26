@@ -1,31 +1,35 @@
-import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Dimensions, Alert, Modal } from 'react-native';
 import { Typography } from '../../components/ui/Typography';
 import { useSimulationStore } from '../../store/simulationStore';
-import { usePortfolioStore } from '../../store/portfolioStore';
+import { usePortfolioStore, usePortfolios } from '../../store/portfolioStore';
 import { FanChart } from '../../components/charts/FanChart';
 import { RiskTemperatureGauge } from '../../components/charts/RiskTemperatureGauge';
 import { ProbabilityHistogram } from '../../components/charts/ProbabilityHistogram';
 import { MetricsGrid } from '../../components/ui/MetricsGrid';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { GlowEffect } from '../../components/ui/GlowEffect';
-import { Cpu, Download, ArrowDown, Layers, ChevronLeft, ShieldAlert, Zap, Activity, Info, Sparkles } from 'lucide-react-native';
+import { Cpu, Download, ArrowDown, Layers, ChevronLeft, ShieldAlert, Zap, Activity, Info, Sparkles, ShieldCheck, QrCode } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { sharedTheme } from '../../constants/theme';
 import { STRINGS } from '../../constants/strings';
 import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withTiming, withSequence } from 'react-native-reanimated';
 import { GatedFeature } from '../../components/ui/GatedFeature';
 import { useAuthStore } from '../../store/authStore';
-import { Alert } from 'react-native';
+import { hsmService } from '../../utils/hsm';
+import QRCode from 'react-native-qrcode-svg';
 
 const { width } = Dimensions.get('window');
 
 export function SimulationResultsScreen({ route, navigation }: any) {
   const { portfolioId } = route.params;
   const { currentStatus, result, error } = useSimulationStore();
-  const { portfolios } = usePortfolioStore();
+  const portfolios = usePortfolios();
   const { theme, isDark } = useTheme();
-  const { tier, powerShifts, usePowerShift } = useAuthStore();
+  const { tier, powerShifts, usePowerShift, user } = useAuthStore();
+  
+  const [isSigning, setIsSigning] = useState(false);
+  const [showQr, setShowQr] = useState(false);
   const portfolio = portfolios.find(p => p.id === portfolioId);
 
   const pulse = useSharedValue(1);
@@ -60,6 +64,38 @@ export function SimulationResultsScreen({ route, navigation }: any) {
   const InfoIcon = Info as any;
   const LayersIcon = Layers as any;
   const SparklesIcon = Sparkles as any;
+  const ShieldCheckIcon = ShieldCheck as any;
+  const QrIcon = QrCode as any;
+
+  const handleSignReport = async () => {
+    if (!result || !portfolio) return;
+    
+    setIsSigning(true);
+    try {
+      const isAvailable = await hsmService.isHardwareAvailable();
+      if (!isAvailable) {
+        Alert.alert('HSM_HARDWARE_UNAVAILABLE', 'Secure Enclave/Biometrics not available on this device.');
+        return;
+      }
+
+      const signature = await hsmService.signReport(result.id, {
+        metrics: result.metrics,
+        portfolioName: portfolio.name
+      });
+
+      if (signature) {
+        Alert.alert('REPORT_LOCKED', 'This simulation has been digitally signed and locked in the institutional ledger.');
+        // Refresh simulation result to show signed status if possible
+        // (In a real app, we'd trigger a reload from store)
+      }
+    } catch (err: any) {
+      if (err.message !== 'AUTHENTICATION_FAILED') {
+        Alert.alert('HSM_SIGNING_FAILURE', 'An error occurred while accessing the secure enclave.');
+      }
+    } finally {
+      setIsSigning(false);
+    }
+  };
 
   const dynamicStyles = getStyles(theme, isDark);
 
@@ -103,6 +139,7 @@ export function SimulationResultsScreen({ route, navigation }: any) {
 
   const initialValue = portfolio.total_value || 100000;
   const riskScore = Math.min(100, Math.max(0, result.metrics.var_95 * 100 * 3));
+  const isSigned = !!(result as any).hsm_signature;
 
   const metricsData = [
     { label: 'VaR (95%)', value: `${(result.metrics.var_95 * 100).toFixed(2)}%`, highlight: 'negative' as const, helperText: 'Max loss in 95% of cases' },
@@ -111,6 +148,8 @@ export function SimulationResultsScreen({ route, navigation }: any) {
     { label: 'Max Drawdown', value: `${(result.metrics.max_drawdown * 100).toFixed(2)}%`, highlight: 'negative' as const },
   ];
 
+  const verificationUrl = `https://quantmind.app/verify/${result.id}`;
+
   return (
     <View style={[dynamicStyles.container, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={dynamicStyles.scroll} showsVerticalScrollIndicator={false}>
@@ -118,8 +157,16 @@ export function SimulationResultsScreen({ route, navigation }: any) {
           <TouchableOpacity onPress={() => navigation.goBack()} style={[dynamicStyles.backBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', borderColor: theme.border }]}>
             <BackIcon size={20} color={theme.textSecondary} />
           </TouchableOpacity>
-          <View>
-            <Typography variant="mono" style={[dynamicStyles.subHeader, { color: theme.textTertiary }]}>{STRINGS.COMPUTE_REPORT}</Typography>
+          <View style={dynamicStyles.headerMain}>
+            <View style={dynamicStyles.headerTopRow}>
+               <Typography variant="mono" style={[dynamicStyles.subHeader, { color: theme.textTertiary }]}>{STRINGS.COMPUTE_REPORT}</Typography>
+               {isSigned && (
+                 <View style={[dynamicStyles.signedBadge, { backgroundColor: theme.primary + '22', borderColor: theme.primary + '33' }]}>
+                    <ShieldCheckIcon size={8} color={theme.primary} />
+                    <Typography variant="mono" style={{ fontSize: 7, color: theme.primary }}>LOCKED_LEDGER</Typography>
+                 </View>
+               )}
+            </View>
             <Typography variant="h2" style={[dynamicStyles.title, { color: theme.textPrimary }]}>{STRINGS.SIM_RESULTS}</Typography>
           </View>
         </View>
@@ -202,16 +249,16 @@ export function SimulationResultsScreen({ route, navigation }: any) {
                         text: "USE_POWER_SHIFT", 
                         onPress: () => {
                           usePowerShift();
-                          navigation.navigate('AI', { screen: 'AIChat', params: { portfolioId, simulationResultId: result.id, workflow: 'var_explanation' } });
+                          navigation.navigate('AI', { screen: 'AIChat', params: { portfolioId, simulationResultId: result.id, workflow: 'portfolio_doctor' } });
                         } 
                       }
                     ]
                   );
                 } else {
-                  navigation.navigate('Subscription');
+                  navigation.navigate('Operator', { screen: 'Subscription' });
                 }
               } else {
-                navigation.navigate('AI', { screen: 'AIChat', params: { portfolioId, simulationResultId: result.id, workflow: 'var_explanation' } });
+                navigation.navigate('AI', { screen: 'AIChat', params: { portfolioId, simulationResultId: result.id, workflow: 'portfolio_doctor' } });
               }
             }}
             activeOpacity={0.8}
@@ -238,11 +285,27 @@ export function SimulationResultsScreen({ route, navigation }: any) {
             requiredTier="PRO"
             style={dynamicStyles.actionButtonWrapper}
           >
-            <TouchableOpacity style={dynamicStyles.actionButtonWrapper} activeOpacity={0.8}>
-              <GlassCard style={dynamicStyles.actionCard}>
-                <DownloadIcon size={20} color={theme.textSecondary} />
-                <Typography variant="monoBold" style={[dynamicStyles.actionTitle, {color: theme.textSecondary}]}>EXPORT_XLS</Typography>
-                <Typography variant="caption" style={[dynamicStyles.actionDesc, { color: theme.textTertiary }]}>INSTITUTIONAL_DATA_DUMP</Typography>
+            <TouchableOpacity 
+               style={dynamicStyles.actionButtonWrapper} 
+               activeOpacity={0.8}
+               onPress={isSigned ? () => setShowQr(true) : handleSignReport}
+            >
+              <GlassCard style={[dynamicStyles.actionCard, isSigned && { borderColor: theme.primary + '33' }]}>
+                {isSigning ? (
+                  <ActivityIndicator size="small" color={theme.primary} />
+                ) : isSigned ? (
+                   <>
+                     <QrIcon size={24} color={theme.primary} />
+                     <Typography variant="monoBold" style={[dynamicStyles.actionTitle, {color: theme.primary}]}>VERIFY_REPORT</Typography>
+                     <Typography variant="caption" style={[dynamicStyles.actionDesc, { color: theme.textTertiary }]}>SHAREABLE_BLOCKCHAIN_RECEIPT</Typography>
+                   </>
+                ) : (
+                  <>
+                    <ShieldCheckIcon size={24} color={theme.textSecondary} />
+                    <Typography variant="monoBold" style={[dynamicStyles.actionTitle, {color: theme.textSecondary}]}>SIGN_REPORT</Typography>
+                    <Typography variant="caption" style={[dynamicStyles.actionDesc, { color: theme.textTertiary }]}>HSM_SECURE_ENCLAVE_AUTH</Typography>
+                  </>
+                )}
               </GlassCard>
             </TouchableOpacity>
           </GatedFeature>
@@ -250,10 +313,34 @@ export function SimulationResultsScreen({ route, navigation }: any) {
 
         <View style={dynamicStyles.footer}>
            <Typography variant="mono" style={[dynamicStyles.footerText, { color: theme.textTertiary }]}>ALPHA_KERNEL // PORTFOLIO_ID: {portfolio.id.slice(0, 8).toUpperCase()} // NON_DETERMINISTIC_MODEL</Typography>
+           {isSigned && <Typography variant="mono" style={[dynamicStyles.sigText, { color: theme.primary }]}>[SIG] {(result as any).hsm_signature.slice(0, 16).toUpperCase()}...</Typography>}
         </View>
 
         <View style={{ height: 60 }} />
       </ScrollView>
+
+      {/* QR Code Modal */}
+      <Modal visible={showQr} transparent animationType="fade" onRequestClose={() => setShowQr(false)}>
+        <View style={dynamicStyles.modalOverlay}>
+           <GlassCard intensity="high" style={dynamicStyles.modalCard}>
+              <Typography variant="monoBold" style={dynamicStyles.modalHeader}>REPORT_VERIFICATION</Typography>
+              <View style={dynamicStyles.qrWrapper}>
+                <QRCode
+                  value={verificationUrl}
+                  size={width * 0.5}
+                  color={theme.textPrimary}
+                  backgroundColor="transparent"
+                />
+              </View>
+              <Typography variant="caption" style={dynamicStyles.qrHelp}>
+                Scan to verify this simulation's authenticity on the institutional ledger.
+              </Typography>
+              <TouchableOpacity style={[dynamicStyles.closeBtn, { backgroundColor: theme.primary }]} onPress={() => setShowQr(false)}>
+                <Typography variant="monoBold" style={{ color: theme.background }}>DISMISS</Typography>
+              </TouchableOpacity>
+           </GlassCard>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -305,6 +392,23 @@ const getStyles = (theme: any, isDark: boolean) => StyleSheet.create({
     alignItems: 'center',
     marginBottom: 32,
     gap: 16,
+  },
+  headerMain: {
+    flex: 1,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  signedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    gap: 4,
   },
   backBtn: {
     width: 40,
@@ -435,11 +539,51 @@ const getStyles = (theme: any, isDark: boolean) => StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 1,
   },
+  sigText: {
+    fontSize: 7,
+    marginTop: 4,
+    letterSpacing: 0.5,
+  },
   rebootBtn: {
     marginTop: 32,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 12,
     borderWidth: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(5, 7, 10, 0.9)',
+  },
+  modalCard: {
+    padding: 32,
+    alignItems: 'center',
+    borderRadius: 32,
+    width: width * 0.8,
+  },
+  modalHeader: {
+    fontSize: 14,
+    letterSpacing: 2,
+    marginBottom: 32,
+  },
+  qrWrapper: {
+    padding: 24,
+    backgroundColor: 'white',
+    borderRadius: 24,
+    marginBottom: 32,
+  },
+  qrHelp: {
+    textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 18,
+  },
+  closeBtn: {
+    width: '100%',
+    height: 50,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

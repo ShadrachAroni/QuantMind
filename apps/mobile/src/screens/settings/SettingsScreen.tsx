@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Dimensions } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Dimensions, Modal, Pressable } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Typography } from '../../components/ui/Typography';
 import { useAuthStore } from '../../store/authStore';
@@ -21,7 +21,10 @@ import {
   Palette,
   CheckCircle2,
   Lock,
-  Fingerprint
+  Fingerprint,
+  Globe,
+  MapPin,
+  History
 } from 'lucide-react-native';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { GlowEffect } from '../../components/ui/GlowEffect';
@@ -33,10 +36,22 @@ import { ThemeType, sharedTheme } from '../../constants/theme';
 const { width } = Dimensions.get('window');
 
 export function SettingsScreen() {
-  const { user, tier, signOut, isBiometricSupported, isBiometricEnabled, setBiometricEnabled, biometricType, enrollBiometrics } = useAuthStore();
+  const { 
+    user, tier, signOut, 
+    isBiometricSupported, isBiometricEnabled, setBiometricEnabled, 
+    biometricType, enrollBiometrics,
+    region, interfaceLanguage, aiPersona,
+    updateRegion, updateInterfaceLanguage,
+    tierConfigs
+  } = useAuthStore();
   const { theme, themeType, setThemeType, isDark } = useTheme();
   const { showToast } = useToast();
   const navigation = useNavigation<any>();
+
+  const [selModal, setSelModal] = React.useState<{ visible: boolean, type: 'lang' | 'region' }>({ visible: false, type: 'lang' });
+  
+  const GlobeIcon = Globe as any;
+  const MapPinIcon = MapPin as any;
   
   const UserIconAny = UserIcon as any;
   const LogOutIcon = LogOut as any;
@@ -172,6 +187,22 @@ export function SettingsScreen() {
           </View>
         </GlassCard>
 
+        <Typography variant="mono" style={[dynamicStyles.sectionHeader, { color: theme.textSecondary }]}>// TERMINAL_LOCALIZATION</Typography>
+        <GlassCard style={dynamicStyles.section}>
+          <SettingRow 
+            icon={GlobeIcon} 
+            title="Interface Language" 
+            subtitle={interfaceLanguage === 'ENGLISH_INTL' ? 'ENGLISH (INTERNATIONAL)' : 'DEUTSCH (EUROPA)'} 
+            onPress={() => setSelModal({ visible: true, type: 'lang' })}
+          />
+          <SettingRow 
+            icon={MapPinIcon} 
+            title="Computing Region" 
+            subtitle={region === 'US_EAST_NY' ? 'US_EAST (NEW_YORK)' : region === 'EU_WEST_LDN' ? 'EU_WEST (LONDON)' : 'AF_WEST (LAGOS)'} 
+            onPress={() => setSelModal({ visible: true, type: 'region' })}
+          />
+        </GlassCard>
+
         <Typography variant="mono" style={[dynamicStyles.sectionHeader, { color: theme.textSecondary }]}>// BILLING_&_CLEARANCE</Typography>
         <GlassCard style={dynamicStyles.section}>
           <SettingRow 
@@ -235,7 +266,7 @@ export function SettingsScreen() {
           <SettingRow
             icon={!entitlements.allow_ai_tuning ? Lock : BrainCircuit}
             title="AI Preferences"
-            subtitle={!entitlements.allow_ai_tuning ? 'ACCESS_DENIED (PLUS_ONLY)' : 'Model tuning & cognitive overrides'}
+            subtitle={!entitlements.allow_ai_tuning ? 'ACCESS_DENIED (PLUS_ONLY)' : `PERSONA: ${aiPersona.replace('_', ' ')}`}
             onPress={() => !entitlements.allow_ai_tuning ? showToast('ACCESS_RESTRICTED: Upgrade required for AI tuning.', 'error') : navigation.navigate('AIPreferences')}
             color={!entitlements.allow_ai_tuning ? theme.textTertiary : theme.secondary}
           />
@@ -299,6 +330,99 @@ export function SettingsScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      <Modal
+        visible={selModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelModal({ ...selModal, visible: false })}
+      >
+        <Pressable 
+          style={dynamicStyles.modalOverlay} 
+          onPress={() => setSelModal({ ...selModal, visible: false })}
+        >
+          <GlassCard intensity="high" style={dynamicStyles.modalContent}>
+            <Typography variant="monoBold" style={[dynamicStyles.modalTitle, { color: theme.textPrimary }]}>
+              {selModal.type === 'lang' ? 'SELECT_INTERFACE_LANGUAGE' : 'SELECT_COMPUTING_REGION'}
+            </Typography>
+            
+            {selModal.type === 'lang' ? (
+              <>
+                <TouchableOpacity 
+                  style={dynamicStyles.modalOption} 
+                  onPress={async () => {
+                    await updateInterfaceLanguage('ENGLISH_INTL');
+                    setSelModal({ ...selModal, visible: false });
+                    showToast('LANGUAGE_UPDATED', 'success');
+                  }}
+                >
+                  <Typography variant="mono" style={{ color: interfaceLanguage === 'ENGLISH_INTL' ? theme.primary : theme.textSecondary }}>
+                    ENGLISH_INTL {interfaceLanguage === 'ENGLISH_INTL' && '// ACTIVE'}
+                  </Typography>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={dynamicStyles.modalOption} 
+                  onPress={async () => {
+                    await updateInterfaceLanguage('DEUTSCH_EU');
+                    setSelModal({ ...selModal, visible: false });
+                    showToast('LANGUAGE_UPDATED', 'success');
+                  }}
+                >
+                  <Typography variant="mono" style={{ color: interfaceLanguage === 'DEUTSCH_EU' ? theme.primary : theme.textSecondary }}>
+                    DEUTSCH_EU {interfaceLanguage === 'DEUTSCH_EU' && '// ACTIVE'}
+                  </Typography>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                <TouchableOpacity 
+                  style={dynamicStyles.modalOption} 
+                  onPress={async () => {
+                    await updateRegion('US_EAST_NY');
+                    setSelModal({ ...selModal, visible: false });
+                    showToast('REGION_UPDATED', 'success');
+                  }}
+                >
+                  <Typography variant="mono" style={{ color: region === 'US_EAST_NY' ? theme.primary : theme.textSecondary }}>
+                    US_EAST_NY {region === 'US_EAST_NY' && '// ACTIVE'}
+                  </Typography>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={dynamicStyles.modalOption} 
+                  onPress={async () => {
+                    await updateRegion('EU_WEST_LDN');
+                    setSelModal({ ...selModal, visible: false });
+                    showToast('REGION_UPDATED', 'success');
+                  }}
+                >
+                  <Typography variant="mono" style={{ color: region === 'EU_WEST_LDN' ? theme.primary : theme.textSecondary }}>
+                    EU_WEST_LDN {region === 'EU_WEST_LDN' && '// ACTIVE'}
+                  </Typography>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={dynamicStyles.modalOption} 
+                  onPress={async () => {
+                    await updateRegion('AF_WEST_LOS');
+                    setSelModal({ ...selModal, visible: false });
+                    showToast('REGION_UPDATED', 'success');
+                  }}
+                >
+                  <Typography variant="mono" style={{ color: region === 'AF_WEST_LOS' ? theme.primary : theme.textSecondary }}>
+                    AF_WEST_LOS {region === 'AF_WEST_LOS' && '// ACTIVE'}
+                  </Typography>
+                </TouchableOpacity>
+              </>
+            )}
+            
+            <TouchableOpacity 
+              style={[dynamicStyles.closeModalBtn, { borderColor: theme.border }]}
+              onPress={() => setSelModal({ ...selModal, visible: false })}
+            >
+              <Typography variant="mono" style={{ color: theme.textTertiary }}>CLOSE</Typography>
+            </TouchableOpacity>
+          </GlassCard>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -497,5 +621,35 @@ const getStyles = (theme: any, isDark: boolean) => StyleSheet.create({
   },
   versionText: {
     fontSize: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    width: '100%',
+    padding: 24,
+    borderRadius: 24,
+    gap: 16,
+  },
+  modalTitle: {
+    fontSize: 14,
+    marginBottom: 8,
+    letterSpacing: 1,
+  },
+  modalOption: {
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  closeModalBtn: {
+    marginTop: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
   },
 });

@@ -249,6 +249,8 @@ export interface TierEntitlements {
     allow_market_streaming: boolean;
     allow_ai_tuning: boolean;
     allow_asset_management: boolean;
+    allow_backtest: boolean;
+    allow_correlation_matrix: boolean;
 }
 
 export const TIER_ENTITLEMENTS: Record<SubscriptionTier, TierEntitlements> = {
@@ -262,6 +264,8 @@ export const TIER_ENTITLEMENTS: Record<SubscriptionTier, TierEntitlements> = {
         allow_market_streaming: false,
         allow_ai_tuning: false,
         allow_asset_management: false,
+        allow_backtest: false,
+        allow_correlation_matrix: false,
     },
     plus: {
         max_portfolios: 10,
@@ -273,6 +277,8 @@ export const TIER_ENTITLEMENTS: Record<SubscriptionTier, TierEntitlements> = {
         allow_market_streaming: true,
         allow_ai_tuning: true,
         allow_asset_management: true,
+        allow_backtest: true,
+        allow_correlation_matrix: true,
     },
     pro: {
         max_portfolios: -1, // Unlimited
@@ -284,6 +290,8 @@ export const TIER_ENTITLEMENTS: Record<SubscriptionTier, TierEntitlements> = {
         allow_market_streaming: true,
         allow_ai_tuning: true,
         allow_asset_management: true,
+        allow_backtest: true,
+        allow_correlation_matrix: true,
     },
     student: {
         max_portfolios: 5,
@@ -295,5 +303,7 @@ export const TIER_ENTITLEMENTS: Record<SubscriptionTier, TierEntitlements> = {
         allow_market_streaming: true,
         allow_ai_tuning: false,
         allow_asset_management: false,
+        allow_backtest: true,
+        allow_correlation_matrix: true,
     },
 };

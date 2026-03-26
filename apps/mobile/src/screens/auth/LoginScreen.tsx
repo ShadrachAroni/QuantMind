@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Dimensions, Animated, ScrollView } from 'react-native';
+import { View, StyleSheet, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Dimensions, Animated, ScrollView, Image } from 'react-native';
 import { supabase, getRedirectUrl } from '../../services/supabase';
 import { Typography } from '../../components/ui/Typography';
 import { LoadingOverlay } from '../../components/ui/LoadingOverlay';
@@ -112,7 +112,11 @@ export function LoginScreen({ navigation }: any) {
             <View style={dynamicStyles.logoWrapper}>
               <GlowEffect color={theme.primary} size={100} glowRadius={50} style={dynamicStyles.mainGlow} />
               <View style={[dynamicStyles.logoDiamond, { borderColor: theme.primary + '4D', backgroundColor: theme.primary + '0D' }]}>
-                 <ShieldIcon size={32} color={theme.primary} />
+                 <Image 
+                    source={require('../../../assets/icon.png')} 
+                    style={{ width: 40, height: 40, transform: [{ rotate: '-45deg' }] }}
+                    resizeMode="contain"
+                 />
               </View>
             </View>
             

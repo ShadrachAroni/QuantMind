@@ -1,24 +1,26 @@
-import React, { useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Dimensions } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Dimensions, Modal } from 'react-native';
 import { Typography } from '../../components/ui/Typography';
 import { sharedTheme } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuthStore } from '../../store/authStore';
-import { usePortfolioStore } from '../../store/portfolioStore';
+import { usePortfolioStore, usePortfolios } from '../../store/portfolioStore';
 import { useSimulationStore } from '../../store/simulationStore';
 import { TierBadge } from '../../components/ui/TierBadge';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { GlowEffect } from '../../components/ui/GlowEffect';
-import { TickerTape } from '../../components/ui/TickerTape';
 import { useToast } from '../../context/ToastContext';
 import { STRINGS } from '../../constants/strings';
 import { BiometricEnrollmentModal } from '../../components/auth/BiometricEnrollmentModal';
 import { TermsConsentModal } from '../../components/auth/TermsConsentModal';
 import { TrialRewardModal } from '../../components/rewards/TrialRewardModal';
+// Removed PromotionTicker
+import { MarketStatus } from '../../components/dashboard/MarketStatus';
+import { InsightFeed, Insight } from '../../components/dashboard/InsightFeed';
+import { supabase } from '../../services/supabase';
 import { 
   Activity, 
   Cpu, 
-  Settings, 
   Shield, 
   BarChart3, 
   Zap, 
@@ -26,198 +28,278 @@ import {
   Terminal,
   Layers,
   Lock,
-  Gift
+  Gift,
+  PlusCircle,
+  RefreshCw,
+  Maximize2,
+  ChevronRight,
+  ShieldCheck,
+  ChevronDown
 } from 'lucide-react-native';
-import { TIER_ENTITLEMENTS, SubscriptionTier } from '@quantmind/shared-types';
+import { TIER_ENTITLEMENTS } from '@quantmind/shared-types';
 
 const { width } = Dimensions.get('window');
 
 export function HomeScreen({ navigation }: any) {
   const { user, tier } = useAuthStore();
   const { theme, isDark } = useTheme();
-  const { portfolios, fetchPortfolios, isLoading } = usePortfolioStore();
-  const { result } = useSimulationStore();
+  const { fetchPortfolios, isLoading } = usePortfolioStore();
+  const portfolios = usePortfolios();
+  const { result, currentStatus } = useSimulationStore();
   const { isBiometricSupported, isBiometricEnabled, hasPromptedBiometrics, hasUsedTrial } = useAuthStore();
-  const [showBiometricModal, setShowBiometricModal] = React.useState(false);
-  const [showTrialModal, setShowTrialModal] = React.useState(false);
   
-  const ActivityIcon = Activity as any;
-  const CpuIcon = Cpu as any;
-  const SettingsIcon = Settings as any;
-  const ShieldIcon = Shield as any;
-  const ChartIcon = BarChart3 as any;
-  const ZapIcon = Zap as any;
-  const TrendIcon = TrendingUp as any;
-  const TerminalIcon = Terminal as any;
-  const LayersIcon = Layers as any;
-  const GiftIcon = Gift as any;
+  const [showBiometricModal, setShowBiometricModal] = useState(false);
+  const [showTrialModal, setShowTrialModal] = useState(false);
+  const [insights, setInsights] = useState<Insight[]>([]);
+  const [isFeedExpanded, setIsFeedExpanded] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const fetchInsights = useCallback(async () => {
+    if (!user) return;
+    const allInsights: Insight[] = [];
+
+    // Fetch Simulations
+    const { data: sims } = await supabase
+      .from('simulations')
+      .select('id, status, result, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
+    if (sims) {
+      sims.forEach(s => allInsights.push({
+        id: s.id,
+        type: s.status === 'completed' ? 'success' : s.status === 'failed' ? 'error' : 'info',
+        category: 'SYSTEM',
+        message: s.status === 'completed' 
+          ? `Simulation Result_${s.id.substring(0, 8)} finalized with optimal convergence.` 
+          : s.status === 'failed'
+          ? `Pipeline interruption detected on simulation_${s.id.substring(0, 8)}.`
+          : `Simulation_${s.id.substring(0, 8)} enqueued to institutional compute.`,
+        time: s.created_at
+      }));
+    }
+
+    // Fetch Portfolios
+    const { data: portData } = await supabase
+      .from('portfolios')
+      .select('id, name, total_value, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(3);
+
+    if (portData) {
+      portData.forEach(p => allInsights.push({
+        id: `p-${p.id}`,
+        type: 'success',
+        category: 'DEPLOYMENT',
+        message: `Institutional Vault_${p.name.toUpperCase()} successfully initialized.`,
+        time: p.created_at,
+        metadata: { label: 'CAPITAL', value: `$${(p.total_value || 0).toLocaleString()}` }
+      }));
+    }
+
+    setInsights(allInsights.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()));
+  }, [user]);
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await Promise.all([fetchPortfolios(), fetchInsights()]);
+    setIsRefreshing(false);
+  }, [fetchPortfolios, fetchInsights]);
 
   useEffect(() => {
-    fetchPortfolios();
+    onRefresh();
     
-    // Check if we should prompt for biometrics
     if (isBiometricSupported && !isBiometricEnabled && !hasPromptedBiometrics) {
       const timer = setTimeout(() => setShowBiometricModal(true), 1500);
       return () => clearTimeout(timer);
     }
   }, [isBiometricSupported, isBiometricEnabled, hasPromptedBiometrics]);
 
-  const totalValue = portfolios.reduce((sum, p) => sum + (p.total_value || 0), 0);
+  const totalValue = portfolios.reduce((sum: number, p: any) => sum + (p.total_value || 0), 0);
+  const riskScore = result?.metrics?.var_95 ? Math.round(result.metrics.var_95 * 100) : 0;
+  
+  const operatorName = user?.email?.split('@')[0].toUpperCase() || 'OPERATOR';
   const dynamicStyles = getStyles(theme, isDark);
 
   return (
     <View style={[dynamicStyles.container, { backgroundColor: theme.background }]}>
-      <TickerTape />
+      {/* Removed PromotionTicker */}
       <ScrollView 
         contentContainerStyle={dynamicStyles.scroll}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl 
-            refreshing={isLoading} 
-            onRefresh={fetchPortfolios} 
+            refreshing={isRefreshing} 
+            onRefresh={onRefresh} 
             tintColor={theme.primary} 
-            progressBackgroundColor={theme.surface}
           />
         }
       >
-        {/* Top Bar */}
-        <View style={dynamicStyles.topBar}>
-          <View>
-            <Typography variant="mono" style={dynamicStyles.greeting}>ACCESS_GRANTED // {user?.email?.split('@')[0].toUpperCase()}</Typography>
-            <Typography variant="h1" style={[dynamicStyles.mainTitle, { color: theme.textPrimary }]}>{STRINGS.TERMINAL_DASH}</Typography>
-          </View>
-          <TierBadge tier={tier as any} />
-        </View>
-
-        {/* Global Allocation GlassCard */}
-        <GlassCard intensity="high" style={dynamicStyles.allocationCard}>
-          <View style={dynamicStyles.cardHeader}>
-            <View style={dynamicStyles.statusRow}>
-              <GlowEffect color={theme.primary} size={6} glowRadius={8} />
-              <Typography variant="mono" style={[dynamicStyles.statusText, { color: theme.primary }]}>{STRINGS.SYSTEM_ACTIVE}</Typography>
+        {/* Header Section */}
+        <View style={dynamicStyles.headerSection}>
+          <View style={styles.statusRow}>
+            <View style={styles.terminalBadge}>
+              <Activity size={10} color={theme.primary} />
+              <Typography variant="mono" style={[styles.terminalBadgeText, { color: theme.primary }]}>TERMINAL_ACTIVE</Typography>
             </View>
-            <TrendIcon size={16} color={theme.primary} />
+            <MarketStatus />
           </View>
           
-          <Typography variant="mono" style={dynamicStyles.cardLabel}>{STRINGS.TOTAL_CAPITAL_ALLOCATION}</Typography>
-          <View style={dynamicStyles.valueRow}>
-            <Typography variant="h1" style={[dynamicStyles.currencySymbol, { color: theme.primary }]}>$</Typography>
-            <Typography variant="h1" style={[dynamicStyles.totalValue, { color: theme.textPrimary }]}>
+          <View style={dynamicStyles.titleRow}>
+            <View>
+              <Typography variant="h1" style={dynamicStyles.mainTitle}>
+                CONSOLE_<Typography variant="h1" style={{ color: theme.primary }}>{operatorName}</Typography>
+              </Typography>
+              <Typography variant="caption" style={dynamicStyles.subtitle}>Institutional Portfolio Command & Control</Typography>
+            </View>
+            <TierBadge tier={tier as any} />
+          </View>
+
+          <TouchableOpacity 
+            style={dynamicStyles.initBtn}
+            onPress={() => navigation.navigate('Portfolios', { screen: 'PortfolioBuilder' })}
+          >
+            <PlusCircle size={16} color={theme.background} />
+            <Typography variant="monoBold" style={[dynamicStyles.initBtnText, { color: theme.background }]}>INITIALIZE_STRATEGY</Typography>
+          </TouchableOpacity>
+        </View>
+
+        {/* Global Summary Card */}
+        <GlassCard intensity="high" style={dynamicStyles.summaryCard}>
+          <View style={styles.summaryHeader}>
+            <Typography variant="mono" style={styles.summaryLabel}>TOTAL_ASSETS_UNDER_MANAGEMENT</Typography>
+            <TouchableOpacity onPress={onRefresh} disabled={isRefreshing}>
+              <RefreshCw size={14} color={theme.textTertiary} style={isRefreshing && { opacity: 0.5 }} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.valueRow}>
+            <Typography variant="h1" style={[styles.currency, { color: theme.primary }]}>$</Typography>
+            <Typography variant="h1" style={styles.totalAum}>
               {totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </Typography>
           </View>
-          
-          <View style={dynamicStyles.cardFooter}>
-            <View style={dynamicStyles.assetCount}>
-              <LayersIcon size={12} color={theme.textTertiary} />
-              <Typography variant="caption" style={dynamicStyles.assetCountText}>
-                {portfolios.length} {STRINGS.ACTIVE_PORTFOLIOS}
-              </Typography>
+
+          <View style={styles.statsGrid}>
+            <View style={styles.statItem}>
+              <Typography variant="mono" style={styles.statLabel}>RISK_INTENSITY</Typography>
+              <Typography variant="monoBold" style={[styles.statValue, { color: '#FFD60A' }]}>{riskScore}% <Typography variant="caption" style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)' }}>NOMINAL</Typography></Typography>
             </View>
-            <Typography variant="mono" style={[dynamicStyles.deltaText, { color: totalValue >= 100000 ? theme.primary : '#FF453A' }]}>
-              {totalValue >= 100000 ? '+' : ''}{((totalValue - 100000) / 1000).toFixed(2)}% <TrendIcon size={10} color={totalValue >= 100000 ? theme.primary : '#FF453A'} />
-            </Typography>
+            <View style={styles.statItem}>
+              <Typography variant="mono" style={styles.statLabel}>ACTIVE_SIMS</Typography>
+              <Typography variant="monoBold" style={styles.statValue}>{currentStatus === 'running' ? '1' : '0'} <Typography variant="caption" style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)' }}>JOBS</Typography></Typography>
+            </View>
+            <View style={styles.statItem}>
+              <Typography variant="mono" style={styles.statLabel}>DEPLOYMENTS</Typography>
+              <Typography variant="monoBold" style={styles.statValue}>{portfolios.length} <Typography variant="caption" style={{ fontSize: 8, color: 'rgba(255,255,255,0.4)' }}>TOTAL</Typography></Typography>
+            </View>
           </View>
         </GlassCard>
 
-        {/* Trial Promotion Banner */}
-        {tier === 'free' && !hasUsedTrial && (
-          <TouchableOpacity onPress={() => setShowTrialModal(true)}>
-            <GlassCard intensity="medium" style={dynamicStyles.trialBanner}>
-              <View style={dynamicStyles.trialHeader}>
-                <View style={[dynamicStyles.rewardTag, { backgroundColor: '#D4AF37' + '22' }]}>
-                  <GiftIcon size={10} color="#D4AF37" />
-                  <Typography variant="monoBold" style={[dynamicStyles.rewardTagText, { color: '#D4AF37' }]}>
-                    {STRINGS.REWARD_AVAILABLE}
-                  </Typography>
-                </View>
-                <ZapIcon size={12} color="#D4AF37" fill="#D4AF37" />
-              </View>
-              <Typography variant="monoBold" style={dynamicStyles.trialTitle}>{STRINGS.CLAIM_PLUS_TRIAL}</Typography>
-              <Typography variant="caption" style={dynamicStyles.trialSubtitle}>EXPERIENCE_INSTITUTIONAL_CLEARANCE_NOW</Typography>
-            </GlassCard>
-          </TouchableOpacity>
-        )}
-
-        <Typography variant="h3" style={dynamicStyles.sectionTitle}>{STRINGS.CORE_MODULES}</Typography>
+        {/* Vault Insights Section */}
+        <View style={dynamicStyles.sectionHeader}>
+          <Typography variant="monoBold" style={dynamicStyles.sectionTitle}>VAULT_INSIGHTS</Typography>
+          <TrendingUp size={14} color={theme.primary} />
+        </View>
         
-        <View style={dynamicStyles.grid}>
+        <GlassCard intensity="medium" style={dynamicStyles.insightsCard}>
+          <InsightFeed insights={insights.slice(0, 3)} />
+          {insights.length > 3 && (
+            <TouchableOpacity 
+              style={dynamicStyles.expandBtn}
+              onPress={() => setIsFeedExpanded(true)}
+            >
+              <Typography variant="mono" style={dynamicStyles.expandText}>ACCESS_FULL_DATA_STREAM</Typography>
+              <ChevronRight size={14} color={theme.textTertiary} />
+            </TouchableOpacity>
+          )}
+        </GlassCard>
+
+        {/* Functional Modules Grid */}
+        <View style={dynamicStyles.sectionHeader}>
+          <Typography variant="monoBold" style={dynamicStyles.sectionTitle}>FUNCTIONAL_MODULES</Typography>
+        </View>
+        
+        <View style={dynamicStyles.moduleGrid}>
           <ModuleItem 
-            title={STRINGS.STATION}
-            desc={STRINGS.ASSET_MGMT}
-            Icon={TrendIcon}
+            title="STATION"
+            sub="Asset Mgmt"
+            Icon={TrendingUp}
             color={theme.primary}
             onPress={() => navigation.navigate('Portfolios', { screen: 'AssetManagement' })}
-            locked={!(TIER_ENTITLEMENTS as any)[(tier || 'free')]?.allow_asset_management}
           />
           <ModuleItem 
-            title={STRINGS.VAULT}
-            desc={STRINGS.ASSET_HOLDINGS}
-            Icon={ShieldIcon}
+            title="VAULT"
+            sub="Holdings"
+            Icon={Shield}
             color={theme.textSecondary}
             onPress={() => navigation.navigate('Portfolios', { screen: 'PortfolioList' })}
           />
           <ModuleItem 
-            title={STRINGS.STRAT}
-            desc={STRINGS.MODEL_BUILDER}
-            Icon={LayersIcon}
+            title="STRAT"
+            sub="Builder"
+            Icon={Layers}
             color={theme.secondary}
             onPress={() => navigation.navigate('Portfolios', { screen: 'PortfolioBuilder' })}
           />
           <ModuleItem 
-            title={STRINGS.MODEL}
-            desc={STRINGS.SIM_ENGINE}
-            Icon={ChartIcon}
+            title="MODEL"
+            sub="Simulator"
+            Icon={BarChart3}
             color="#F59E0B"
             onPress={() => navigation.navigate('Simulations', { screen: 'SimulationSetup' })}
           />
           <ModuleItem 
-            title={STRINGS.ORACLE}
-            desc={STRINGS.AI_ASSISTANT}
-            Icon={CpuIcon}
+            title="ORACLE"
+            sub="AI Intel"
+            Icon={Cpu}
             color="#10B981"
             onPress={() => navigation.navigate('AI', { screen: 'AIChatMain' })}
+            locked={tier === 'free'}
           />
         </View>
 
-        <Typography variant="h3" style={dynamicStyles.sectionTitle}>{STRINGS.REAL_TIME_FEED}</Typography>
-        {result ? (
-          <GlassCard style={dynamicStyles.activityCard}>
-            <View style={dynamicStyles.activityHeader}>
-              <View style={dynamicStyles.activityTag}>
-                <GlowEffect color={theme.primary} size={4} glowRadius={4} />
-                <Typography variant="mono" style={[dynamicStyles.tagText, { color: theme.primary }]}>{STRINGS.SIM_COMPLETE}</Typography>
-              </View>
-              <Typography variant="mono" style={dynamicStyles.timestamp}>{new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Typography>
+        {/* Security Alert Banner */}
+        {tier === 'free' && !hasUsedTrial && (
+          <TouchableOpacity onPress={() => setShowTrialModal(true)} style={styles.securityBanner}>
+            <View style={[styles.securityIcon, { backgroundColor: theme.primary }]}>
+              <ShieldCheck size={20} color={theme.background} />
             </View>
-            <Typography variant="body" style={[dynamicStyles.activityMsg, { color: isDark ? '#E2E8F0' : theme.textPrimary }]}>
-              Portfolio VaR calculated at <Typography variant="monoBold" style={{ color: theme.primary }}>{((result?.metrics?.var_95 || 0) * 100).toFixed(2)}%</Typography>
-            </Typography>
-            <TouchableOpacity 
-              style={[dynamicStyles.viewResultBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }]}
-              onPress={() => navigation.navigate('Simulations', { screen: 'SimulationResults' })}
-            >
-              <Typography variant="mono" style={[dynamicStyles.viewLink, { color: theme.primary }]}>{STRINGS.ACCESS_RESULTS_DATA_STREAM}</Typography>
-              <ZapIcon size={12} color={theme.primary} />
-            </TouchableOpacity>
-          </GlassCard>
-        ) : (
-          <GlassCard intensity="low" style={dynamicStyles.emptyState}>
-            <TerminalIcon size={20} color={theme.textTertiary} style={{ marginBottom: 12 }} />
-            <Typography variant="mono" style={dynamicStyles.emptyText}>{STRINGS.WAITING_FOR_DATA_INPUT}</Typography>
-          </GlassCard>
+            <View style={styles.securityContent}>
+              <Typography variant="monoBold" style={styles.securityTitle}>UPGRADE_RECOMMENDED</Typography>
+              <Typography variant="caption" style={styles.securitySubtitle}>Aactivate 14D Plus clearance to access institutional modules.</Typography>
+            </View>
+            <ChevronRight size={16} color={theme.primary} />
+          </TouchableOpacity>
         )}
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 60 }} />
       </ScrollView>
+
+      {/* Expanded Feed Modal */}
+      <Modal visible={isFeedExpanded} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: isDark ? '#05070A' : '#FFF' }]}>
+            <View style={styles.modalHeader}>
+              <Typography variant="h3">INSIGHT_STREAM</Typography>
+              <TouchableOpacity onPress={() => setIsFeedExpanded(false)}>
+                <ChevronDown size={24} color={theme.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={styles.modalScroll}>
+              <InsightFeed insights={insights} />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <BiometricEnrollmentModal 
         visible={showBiometricModal} 
         onClose={() => setShowBiometricModal(false)} 
       />
-      
       <TermsConsentModal />
-      
       <TrialRewardModal 
         isVisible={showTrialModal} 
         onClose={() => setShowTrialModal(false)} 
@@ -226,35 +308,21 @@ export function HomeScreen({ navigation }: any) {
   );
 }
 
-function ModuleItem({ title, desc, Icon, color, onPress, locked }: any) {
-  const { theme, isDark } = useTheme();
+function ModuleItem({ title, sub, Icon, color, onPress, locked }: any) {
+  const { theme } = useTheme();
   const { showToast } = useToast();
-  const dynamicStyles = getStyles(theme, isDark);
-  const IconAny = Icon as any;
-  const LockIcon = Lock as any;
 
   return (
     <TouchableOpacity 
-      style={[dynamicStyles.gridItemWrapper, locked && { opacity: 0.7 }]} 
+      style={styles.moduleItem}
       onPress={locked ? () => showToast('ACCESS_RESTRICTED: Upgrade required.', 'error') : onPress}
-      activeOpacity={locked ? 0.9 : 0.7}
     >
-      <GlassCard style={dynamicStyles.gridItem}>
-        <View style={[dynamicStyles.iconBox, { backgroundColor: locked ? theme.surfaceLight : color + '15', borderColor: locked ? theme.border : color + '33' }]}>
-          {locked ? (
-            <LockIcon size={20} color={theme.textTertiary} />
-          ) : (
-            <IconAny size={20} color={color} />
-          )}
+      <GlassCard intensity="low" style={styles.moduleCard}>
+        <View style={[styles.moduleIcon, { backgroundColor: locked ? 'rgba(255,255,255,0.05)' : color + '15' }]}>
+          {locked ? <Lock size={16} color="rgba(255,255,255,0.2)" /> : <Icon size={16} color={color} />}
         </View>
-        <Typography variant="monoBold" style={[dynamicStyles.gridTitle, { color: locked ? theme.textTertiary : theme.textPrimary }]}>{title}</Typography>
-        <Typography variant="caption" style={[dynamicStyles.gridDesc, { color: theme.textTertiary }]}>{locked ? 'LOCKED_MODULE' : desc}</Typography>
-        
-        {locked && (
-          <View style={[dynamicStyles.lockBadge, { backgroundColor: theme.primary }]}>
-            <LockIcon size={8} color={theme.background} />
-          </View>
-        )}
+        <Typography variant="monoBold" style={[styles.moduleTitle, locked && { opacity: 0.5 }]}>{title}</Typography>
+        <Typography variant="caption" style={styles.moduleSub}>{locked ? 'PLUS_ONLY' : sub}</Typography>
       </GlassCard>
     </TouchableOpacity>
   );
@@ -263,237 +331,234 @@ function ModuleItem({ title, desc, Icon, color, onPress, locked }: any) {
 const getStyles = (theme: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.background,
   },
   scroll: {
-    padding: sharedTheme.spacing.xl,
-    paddingTop: 32,
+    padding: 20,
+    paddingTop: 10,
   },
-  topBar: {
+  headerSection: {
+    marginBottom: 24,
+  },
+  titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 32,
-    marginTop: 24,
-  },
-  greeting: {
-    fontSize: 10,
-    color: theme.textTertiary,
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  mainTitle: {
-    letterSpacing: 2,
-    fontSize: 24,
-  },
-  allocationCard: {
-    padding: 24,
-    marginBottom: 32,
-    borderRadius: 24,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: 20,
   },
+  mainTitle: {
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: -1,
+    lineHeight: 32,
+  },
+  subtitle: {
+    fontSize: 10,
+    color: '#848D97',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginTop: 4,
+  },
+  initBtn: {
+    backgroundColor: '#FFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  initBtnText: {
+    fontSize: 10,
+    letterSpacing: 1,
+  },
+  summaryCard: {
+    padding: 24,
+    borderRadius: 24,
+    marginBottom: 24,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  sectionTitle: {
+    fontSize: 10,
+    color: '#848D97',
+    letterSpacing: 2,
+  },
+  insightsCard: {
+    padding: 16,
+    borderRadius: 20,
+    marginBottom: 24,
+  },
+  expandBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.05)',
+  },
+  expandText: {
+    fontSize: 9,
+    color: '#848D97',
+    letterSpacing: 1,
+  },
+  moduleGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 24,
+  },
+  container2: { // unused but placeholder
+  }
+});
+
+const styles = StyleSheet.create({
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
+    marginBottom: 16,
   },
-  statusText: {
-    fontSize: 9,
-    color: theme.primary,
+  terminalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0, 217, 255, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 217, 255, 0.2)',
+  },
+  terminalBadgeText: {
+    fontSize: 8,
+    fontWeight: 'bold',
     letterSpacing: 1,
   },
-  cardLabel: {
-    color: theme.textTertiary,
-    fontSize: 10,
-    letterSpacing: 1.5,
-    marginBottom: 8,
+  summaryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  summaryLabel: {
+    fontSize: 9,
+    color: '#848D97',
+    letterSpacing: 2,
   },
   valueRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 20,
+    marginBottom: 24,
   },
-  currencySymbol: {
+  currency: {
     fontSize: 24,
-    color: theme.primary,
-    marginTop: 4,
     marginRight: 4,
+    marginTop: 4,
   },
-  totalValue: {
-    fontSize: 36,
+  totalAum: {
+    fontSize: 42,
+    fontWeight: 'bold',
     letterSpacing: -1,
   },
-  cardFooter: {
+  statsGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+    borderTopColor: 'rgba(255,255,255,0.05)',
   },
-  assetCount: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  statItem: {
+    flex: 1,
   },
-  assetCountText: {
-    fontSize: 10,
-    color: theme.textTertiary,
+  statLabel: {
+    fontSize: 8,
+    color: '#848D97',
+    marginBottom: 4,
   },
-  deltaText: {
-    fontSize: 12,
-    color: theme.primary,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    color: theme.textTertiary,
-    letterSpacing: 2,
-    marginBottom: 16,
-    marginLeft: 4,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 32,
-  },
-  gridItemWrapper: {
-    width: (width - 48 - 12) / 2,
-  },
-  gridItem: {
-    padding: 16,
-    borderRadius: 20,
-    height: 120,
-    justifyContent: 'center',
-  },
-  iconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-    borderWidth: 1,
-  },
-  gridTitle: {
+  statValue: {
     fontSize: 14,
-    letterSpacing: 1,
-    marginBottom: 2,
-    color: theme.textPrimary,
   },
-  gridDesc: {
-    fontSize: 9,
-    color: theme.textTertiary,
-    letterSpacing: 0.5,
+  moduleItem: {
+    width: (width - 40 - 10) / 2, // 2 columns by default
   },
-  activityCard: {
+  moduleCard: {
     padding: 16,
-    borderRadius: 20,
-    marginBottom: 40,
-  },
-  activityHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  activityTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  tagText: {
-    fontSize: 9,
-    color: theme.primary,
-    letterSpacing: 1,
-  },
-  timestamp: {
-    fontSize: 10,
-    color: theme.textTertiary,
-  },
-  activityMsg: {
-    fontSize: 13,
-    lineHeight: 20,
-    marginBottom: 16,
-  },
-  viewResultBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 12,
-    borderRadius: 12,
-  },
-  viewLink: {
-    fontSize: 10,
-    color: theme.primary,
-    letterSpacing: 1,
-  },
-  emptyState: {
-    padding: 32,
-    alignItems: 'center',
+    borderRadius: 16,
+    height: 110,
     justifyContent: 'center',
-    borderRadius: 24,
-    borderStyle: 'dashed',
-    marginBottom: 40,
   },
-  emptyText: {
-    fontSize: 10,
-    color: theme.textTertiary,
-    letterSpacing: 2,
-  },
-  lockBadge: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 16,
-    height: 16,
+  moduleIcon: {
+    width: 32,
+    height: 32,
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 12,
   },
-  trialBanner: {
-    padding: 16,
-    marginBottom: 32,
-    borderRadius: 20,
+  moduleTitle: {
+    fontSize: 12,
+    letterSpacing: 1,
+    color: '#FFF',
+  },
+  moduleSub: {
+    fontSize: 8,
+    color: '#848D97',
+  },
+  securityBanner: {
+    backgroundColor: 'rgba(124, 58, 237, 0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.4)',
+    borderColor: 'rgba(124, 58, 237, 0.3)',
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  trialHeader: {
+  securityIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  securityContent: {
+    flex: 1,
+  },
+  securityTitle: {
+    fontSize: 12,
+    color: '#FFF',
+    marginBottom: 2,
+  },
+  securitySubtitle: {
+    fontSize: 9,
+    color: '#848D97',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    height: '80%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+  },
+  modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 24,
   },
-  rewardTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  rewardTagText: {
-    fontSize: 9,
-    letterSpacing: 1,
-  },
-  trialTitle: {
-    fontSize: 14,
-    color: '#D4AF37',
-    marginBottom: 2,
-    letterSpacing: 1,
-  },
-  trialSubtitle: {
-    fontSize: 9,
-    color: '#777',
-    letterSpacing: 0.5,
-  },
+  modalScroll: {
+    paddingBottom: 40,
+  }
 });
+

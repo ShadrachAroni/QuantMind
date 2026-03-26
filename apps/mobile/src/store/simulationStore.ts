@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SimulationParams, SimulationResult } from '@quantmind/shared-types';
 import { api } from '../services/api';
 import { supabase } from '../services/supabase';
@@ -19,66 +21,82 @@ interface SimulationState {
   updateLivePrice: (symbol: string, price: number) => void;
 }
 
-export const useSimulationStore = create<SimulationState>((set, get) => ({
-  currentStatus: 'idle',
-  currentJobId: null,
-  result: null,
-  error: null,
-  livePrices: {},
-  jobSubscription: null as RealtimeChannel | null,
+export const useSimulationStore = create<SimulationState>()(
+  persist(
+    (set, get) => ({
+      currentStatus: 'idle',
+      currentJobId: null,
+      result: null,
+      error: null,
+      livePrices: {},
+      jobSubscription: null as RealtimeChannel | null,
 
-  runSimulation: async (portfolioId, params) => {
-    set({ currentStatus: 'running', error: null, result: null });
-    try {
-      const resp = await api.runSimulation(portfolioId, params);
-      set({ currentJobId: resp.jobId });
-      get().subscribeToJob(resp.jobId);
-    } catch (e: any) {
-      set({ currentStatus: 'failed', error: e.message || 'Simulation failed' });
-    }
-  },
-
-  subscribeToJob: (jobId: string) => {
-    const { jobSubscription } = get();
-    if (jobSubscription) jobSubscription.unsubscribe();
-
-    const channel = supabase
-      .channel(`job-${jobId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'simulations',
-          filter: `id=eq.${jobId}`,
-        },
-        async (payload) => {
-          const data = payload.new as any;
-          if (data.status === 'completed') {
-            set({ currentStatus: 'completed', result: data.result });
-            get().unsubscribeFromJob();
-          } else if (data.status === 'failed') {
-            set({ currentStatus: 'failed', error: data.error_message });
-            get().unsubscribeFromJob();
-          }
+      runSimulation: async (portfolioId, params) => {
+        set({ currentStatus: 'running', error: null, result: null });
+        try {
+          const resp = await api.runSimulation(portfolioId, params);
+          set({ currentJobId: resp.jobId });
+          get().subscribeToJob(resp.jobId);
+        } catch (e: any) {
+          set({ currentStatus: 'failed', error: e.message || 'Simulation failed' });
         }
-      )
-      .subscribe();
+      },
 
-    set({ jobSubscription: channel });
-  },
+      subscribeToJob: (jobId: string) => {
+        const { jobSubscription } = get();
+        if (jobSubscription) jobSubscription.unsubscribe();
 
-  unsubscribeFromJob: () => {
-    const { jobSubscription } = get();
-    if (jobSubscription) {
-      jobSubscription.unsubscribe();
-      set({ jobSubscription: null });
+        console.log(`[SimulationStore] Subscribing to job: ${jobId}`);
+        const channel = supabase
+          .channel(`job-${jobId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'UPDATE',
+              schema: 'public',
+              table: 'simulations',
+              filter: `id=eq.${jobId}`,
+            },
+            async (payload) => {
+              const data = payload.new as any;
+              console.log(`[SimulationStore] Job status update: ${data.status}`);
+              if (data.status === 'completed') {
+                set({ currentStatus: 'completed', result: data.result });
+                get().unsubscribeFromJob();
+              } else if (data.status === 'failed') {
+                set({ currentStatus: 'failed', error: data.error_message || 'KERNEL_PANIC: Simulation failed.' });
+                get().unsubscribeFromJob();
+              }
+            }
+          )
+          .subscribe();
+
+        set({ jobSubscription: channel });
+      },
+
+      unsubscribeFromJob: () => {
+        const { jobSubscription } = get();
+        if (jobSubscription) {
+          jobSubscription.unsubscribe();
+          set({ jobSubscription: null });
+        }
+      },
+
+      clearResult: () => set({ currentStatus: 'idle', result: null, currentJobId: null, error: null }),
+      
+      updateLivePrice: (symbol, price) => set((state) => ({ 
+        livePrices: { ...state.livePrices, [symbol]: price } 
+      })),
+    }),
+    {
+      name: 'quantmind-simulation-storage',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({ 
+        result: state.result, 
+        currentStatus: state.currentStatus, 
+        currentJobId: state.currentJobId 
+      }),
     }
-  },
+  )
+);
 
-  clearResult: () => set({ currentStatus: 'idle', result: null, currentJobId: null, error: null }),
-  
-  updateLivePrice: (symbol, price) => set((state) => ({ 
-    livePrices: { ...state.livePrices, [symbol]: price } 
-  })),
-}));

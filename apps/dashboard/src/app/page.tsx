@@ -21,7 +21,8 @@ export default function AdminDashboard() {
     tickets: 0,
     revenue: 0, 
     expenses: 0,
-    activeCampaigns: 0,
+    portfolios: 0,
+    oracleMessages: 0,
   });
   const [recentLogs, setRecentLogs] = useState<any[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
@@ -34,6 +35,8 @@ export default function AdminDashboard() {
         { count: proCount },
         { count: activeSimsCount },
         { count: openTicketsCount },
+        { count: portfolioCount },
+        { count: oracleCount },
         { data: auditLogData },
         { data: transactionData },
         { data: allRevenueData }
@@ -42,18 +45,14 @@ export default function AdminDashboard() {
         supabase.from('user_profiles').select('*', { count: 'exact', head: true }).eq('tier', 'pro'),
         supabase.from('simulations').select('*', { count: 'exact', head: true }).eq('status', 'running'),
         supabase.from('support_tickets').select('*', { count: 'exact', head: true }).eq('status', 'open'),
+        supabase.from('portfolios').select('*', { count: 'exact', head: true }),
+        supabase.from('oracle_chat_messages').select('*', { count: 'exact', head: true }),
         supabase.from('admin_audit_log').select('*').order('created_at', { ascending: false }).limit(6),
         supabase.from('paystack_transactions').select('*').order('created_at', { ascending: false }).limit(5),
         supabase.from('paystack_transactions').select('amount').eq('status', 'success')
       ]);
 
       const totalRevenue = allRevenueData?.reduce((acc, curr) => acc + Number(curr.amount), 0) || 0;
-
-      // Fetch active campaigns count
-      const { count: activeCampaignsCount } = await supabase
-        .from('email_campaigns')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'active');
 
       setStats({
         users: userCount || 0,
@@ -62,7 +61,8 @@ export default function AdminDashboard() {
         tickets: openTicketsCount || 0,
         revenue: totalRevenue,
         expenses: totalRevenue * 0.12, 
-        activeCampaigns: activeCampaignsCount || 0,
+        portfolios: portfolioCount || 0,
+        oracleMessages: oracleCount || 0,
       });
 
       if (auditLogData) setRecentLogs(auditLogData);
@@ -81,6 +81,8 @@ export default function AdminDashboard() {
     const channels = [
       supabase.channel('admin-metrics-profiles').on('postgres_changes', { event: '*', schema: 'public', table: 'user_profiles' }, fetchDashboardData).subscribe(),
       supabase.channel('admin-metrics-sims').on('postgres_changes', { event: '*', schema: 'public', table: 'simulations' }, fetchDashboardData).subscribe(),
+      supabase.channel('admin-metrics-portfolios').on('postgres_changes', { event: '*', schema: 'public', table: 'portfolios' }, fetchDashboardData).subscribe(),
+      supabase.channel('admin-metrics-oracle').on('postgres_changes', { event: '*', schema: 'public', table: 'oracle_chat_messages' }, fetchDashboardData).subscribe(),
       supabase.channel('admin-metrics-tickets').on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, fetchDashboardData).subscribe(),
       supabase.channel('admin-metrics-logs').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'admin_audit_log' }, fetchDashboardData).subscribe(),
       supabase.channel('admin-metrics-trans').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'paystack_transactions' }, fetchDashboardData).subscribe(),
@@ -104,37 +106,36 @@ export default function AdminDashboard() {
         <div className="summary-grid">
            <div className="summary-card glass-card group">
               <div className="card-top">
-                 <span className="label mono italic text-purple-400">Aggregated Revenue (KES)</span>
-                 <div className="trend purple animate-pulse">LIVE_STREAMing</div>
+                 <span className="label mono italic text-purple-400">Yield Engine (Portfolios)</span>
+                 <div className="trend purple animate-pulse">ACTIVE_NODES</div>
               </div>
               <div className="amount font-black tabular-nums tracking-tighter neon-text-purple">
-                {loading ? '---,---' : stats.revenue.toLocaleString()}
+                {loading ? '0' : stats.portfolios}
               </div>
               <div className="card-stats-row border-white/5">
-                 <div className="mini-icon-box purple shadow-[0_0_20px_rgba(168,85,247,0.4)]"><ArrowUpRight size={14} /></div>
+                 <div className="mini-icon-box purple shadow-[0_0_20px_rgba(168,85,247,0.4)]"><LayoutDashboard size={14} /></div>
                  <div className="mini-info">
-                    <strong className="mono italic text-[10px] text-purple-300">SYSTEM_REVENUE_AGGREGATE</strong>
-                    <p className="text-[10px] text-gray-500 leading-tight">Total lifetime volume processed via Paystack gateway.</p>
+                    <strong className="mono italic text-[10px] text-purple-300">PORTFOLIO_DENSITY</strong>
+                    <p className="text-[10px] text-gray-500 leading-tight">Total user portfolios currently under management.</p>
                  </div>
               </div>
-              {/* Decorative Glow */}
               <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-purple-600/10 blur-[60px] rounded-full pointer-events-none" />
            </div>
 
            <div className="summary-card glass-card group">
               <div className="card-top">
-                 <span className="label mono italic text-cyan-400">Pro Tier Density</span>
-                 <div className="trend cyan">+24.5% MOh</div>
+                 <span className="label mono italic text-cyan-400">Oracle Penetration</span>
+                 <div className="trend cyan">SENTIMENT_FLOW</div>
               </div>
               <div className="amount font-black tabular-nums tracking-tighter neon-text-cyan flex items-baseline gap-2">
-                {loading ? '0' : stats.proUsers}
-                <span className="text-xl text-gray-500 font-medium font-sans">/ {stats.users}</span>
+                {loading ? '0' : stats.oracleMessages}
+                <span className="text-xl text-gray-500 font-medium font-sans">TX</span>
               </div>
               <div className="card-stats-row border-white/5">
-                 <div className="mini-icon-box cyan shadow-[0_0_20px_rgba(34,211,238,0.4)]"><ArrowUpRight size={14} /></div>
+                 <div className="mini-icon-box cyan shadow-[0_0_20px_rgba(34,211,238,0.4)]"><Activity size={14} /></div>
                  <div className="mini-info">
-                    <strong className="mono italic text-[10px] text-cyan-300">PREMIUM_USER_DATA</strong>
-                    <p className="text-[10px] text-gray-500 leading-tight">Live count of users on the PRO subscription tier.</p>
+                    <strong className="mono italic text-[10px] text-cyan-300">AI_ORACLE_SESSIONS</strong>
+                    <p className="text-[10px] text-gray-500 leading-tight">Total sentiment analysis requests processed by AI.</p>
                  </div>
               </div>
               <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-cyan-600/10 blur-[60px] rounded-full pointer-events-none" />
@@ -142,17 +143,17 @@ export default function AdminDashboard() {
 
            <div className="summary-card glass-card group">
               <div className="card-top">
-                 <span className="label mono italic text-pink-400">Operational Burn (KES)</span>
-                 <div className="trend pink">PROJected</div>
+                 <span className="label mono italic text-pink-400">System Revenue (KES)</span>
+                 <div className="trend pink">AGGREGATED</div>
               </div>
               <div className="amount font-black tabular-nums tracking-tighter text-pink-500/90">
-                {loading ? '---,---' : stats.expenses.toLocaleString()}
+                {loading ? '---,---' : stats.revenue.toLocaleString()}
               </div>
               <div className="card-stats-row border-white/5">
-                 <div className="mini-icon-box pink bg-pink-500 shadow-[0_0_20px_rgba(236,72,153,0.4)]"><ArrowDownRight size={14} /></div>
+                 <div className="mini-icon-box pink bg-pink-500 shadow-[0_0_20px_rgba(236,72,153,0.4)]"><DollarSign size={14} /></div>
                  <div className="mini-info">
-                    <strong className="mono italic text-[10px] text-pink-300">ESTIMATED_OVERHEAD</strong>
-                    <p className="text-[10px] text-gray-500 leading-tight">Calculated variable expenses (12% margin).</p>
+                    <strong className="mono italic text-[10px] text-pink-300">TOTAL_PROCESSED</strong>
+                    <p className="text-[10px] text-gray-500 leading-tight">Total lifetime volume via Paystack gateway.</p>
                  </div>
               </div>
               <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-pink-600/10 blur-[60px] rounded-full pointer-events-none" />

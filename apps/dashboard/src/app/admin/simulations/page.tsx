@@ -27,13 +27,18 @@ export default function AdminSimulationsPage() {
 
 function SimulationsContent() {
   const [activeSims, setActiveSims] = useState<any[]>([]);
-  const [usageStats, setUsageStats] = useState<any[]>([]);
   const [aiConsumption, setAiConsumption] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loaderProgress, setLoaderProgress] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
   const [killLoading, setKillLoading] = useState<string | null>(null);
   const { success, error, info } = useToast();
+
+  const [stats, setStats] = useState({
+    activeThreads: 0,
+    avgCompute: '0.0s',
+    loadFactor: '0.00'
+  });
 
   useEffect(() => {
     if (loading) {
@@ -68,7 +73,20 @@ function SimulationsContent() {
       .order('created_at', { ascending: false })
       .limit(50);
     
-    if (data) setActiveSims(data);
+    if (data) {
+      setActiveSims(data);
+      const running = data.filter(s => s.status === 'running').length;
+      const completed = data.filter(s => s.status === 'completed' && s.duration_ms);
+      const avgDur = completed.length > 0 
+        ? (completed.reduce((acc, curr) => acc + curr.duration_ms, 0) / completed.length / 1000).toFixed(1) + 's'
+        : '0.0s';
+      
+      setStats({
+        activeThreads: running,
+        avgCompute: avgDur,
+        loadFactor: (running / 24).toFixed(2) // Normalized to 24 parallel worker threads
+      });
+    }
     setLoading(false);
   }
 
@@ -131,8 +149,6 @@ function SimulationsContent() {
     />
   );
 
-  const runningCount = activeSims.filter(s => s.status === 'running').length;
-
   return (
     <div className="space-y-8 animate-fade-in pb-20">
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -144,15 +160,15 @@ function SimulationsContent() {
         <div className="flex items-center gap-6 p-4 bg-white/5 border border-white/10 rounded-2xl">
            <div className="flex flex-col border-r border-white/10 pr-6">
               <span className="mono text-[8px] text-gray-500 uppercase">Active_Threads</span>
-              <span className="text-xl font-black text-cyan-400 tracking-tighter">{runningCount}</span>
+              <span className="text-xl font-black text-cyan-400 tracking-tighter">{stats.activeThreads}</span>
            </div>
            <div className="flex flex-col border-r border-white/10 pr-6 pl-2">
               <span className="mono text-[8px] text-gray-500 uppercase">Avg_Compute</span>
-              <span className="text-xl font-black text-purple-400 tracking-tighter">1.2s</span>
+              <span className="text-xl font-black text-purple-400 tracking-tighter">{stats.avgCompute}</span>
            </div>
            <div className="flex flex-col pl-2">
               <span className="mono text-[8px] text-gray-500 uppercase">Load_Factor</span>
-              <span className="text-xl font-black text-white tracking-tighter">0.14</span>
+              <span className="text-xl font-black text-white tracking-tighter">{stats.loadFactor}</span>
            </div>
         </div>
       </header>
@@ -194,7 +210,11 @@ function SimulationsContent() {
                              <td className="p-4">
                                 <div className="flex flex-col">
                                    <span className="text-[11px] font-black text-white">{sim.num_paths?.toLocaleString()} paths</span>
-                                   <span className="text-[8px] mono text-gray-600 uppercase">{sim.duration_ms ? `${sim.duration_ms}ms` : 'COMPUTING...'}</span>
+                                   <span className="text-[8px] mono text-gray-600 uppercase">
+                                     {sim.duration_ms 
+                                       ? `${sim.duration_ms}ms (${Math.round(sim.num_paths / (sim.duration_ms / 1000))} p/s)` 
+                                       : 'COMPUTING...'}
+                                   </span>
                                 </div>
                              </td>
                              <td className="p-4 text-center">

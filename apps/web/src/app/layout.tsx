@@ -53,6 +53,8 @@ export const metadata: Metadata = {
 import { InitialLoader } from "@/components/ui/InitialLoader";
 import { Toaster } from "sonner";
 import { UserProvider } from "@/components/UserContext";
+import { MaintenanceGuard } from "@/components/MaintenanceGuard";
+import { ConnectivityListener } from "@/components/ConnectivityListener";
 
 export default function RootLayout({
   children,
@@ -96,7 +98,10 @@ export default function RootLayout({
         >
           <UserProvider>
             <InitialLoader />
-            {children}
+            <ConnectivityListener />
+            <MaintenanceGuard>
+              {children}
+            </MaintenanceGuard>
             <Toaster position="bottom-right" theme="dark" closeButton />
           </UserProvider>
         </ThemeProvider>

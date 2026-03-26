@@ -66,6 +66,7 @@ export default function LoginPage() {
       
       <div className="w-full max-w-md z-10">
         <div className="text-center mb-12">
+          <img src="/logo.png" alt="QuantMind" className="w-20 h-20 mx-auto mb-8 drop-shadow-[0_0_20px_rgba(34,211,238,0.3)] animate-float" />
           <span className="text-[10px] mono text-cyan-400 letter-spacing-[3px] block mb-2">SECURE_ACCESS_GATEWAY</span>
           <h1 className="text-3xl font-extrabold tracking-tighter text-white">Quant<span className="text-cyan-400">Mind</span> Admin</h1>
           <p className="text-gray-500 mt-2 text-sm">INTERNAL_USE_ONLY // ENCRYPTED_TERMINAL</p>

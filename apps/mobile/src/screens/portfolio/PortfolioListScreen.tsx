@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Dimensions } from 'react-native';
 import { Typography } from '../../components/ui/Typography';
-import { usePortfolioStore } from '../../store/portfolioStore';
+import { usePortfolioStore, usePortfolios } from '../../store/portfolioStore';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { GlowEffect } from '../../components/ui/GlowEffect';
 import { Plus, MoreVertical, TrendingUp, TrendingDown, Database, Activity, Lock } from 'lucide-react-native';
@@ -75,14 +75,15 @@ const Sparkline = ({ seed = 'default', color = '#3B82F6', width = 100, height = 
 };
 
 export function PortfolioListScreen({ navigation }: any) {
-  const { portfolios, fetchPortfolios, isLoading } = usePortfolioStore();
+  const { fetchPortfolios, isLoading } = usePortfolioStore();
+  const portfolios = usePortfolios();
   const { theme, isDark } = useTheme();
 
   useEffect(() => {
     fetchPortfolios();
-  }, []);
+  }, [fetchPortfolios]);
 
-  const totalValue = portfolios.reduce((sum, p) => sum + (p.total_value || 0), 0);
+  const totalValue = portfolios.reduce((sum: number, p: any) => sum + (p.total_value || 0), 0);
   
   const PlusIcon = Plus as any;
   const DatabaseIcon = Database as any;

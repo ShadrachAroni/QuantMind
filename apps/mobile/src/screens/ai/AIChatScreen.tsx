@@ -1,201 +1,36 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, TextInput, FlatList, TouchableOpacity, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { View, StyleSheet, TextInput, FlatList, TouchableOpacity, KeyboardAvoidingView, Platform, Dimensions, Alert } from 'react-native';
 import { Typography } from '../../components/ui/Typography';
 import { api } from '../../services/api';
+import { supabase } from '../../services/supabase';
 import { useAuthStore } from '../../store/authStore';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { GlowEffect } from '../../components/ui/GlowEffect';
-import { Send, Cpu, User, ChevronLeft, Activity } from 'lucide-react-native';
+import { Send, Cpu, User, ChevronLeft, Activity, Lock, Trash2, History as HistoryIcon } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { sharedTheme } from '../../constants/theme';
+import { SentimentIndicator } from '../../components/ui/SentimentIndicator';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing } from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
-
-const getStyles = (theme: any, isDark: boolean) => StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    padding: sharedTheme.spacing.xl,
-    paddingTop: 64,
-    borderBottomWidth: 1,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  statusGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  statusText: {
-    fontSize: 9,
-    letterSpacing: 1,
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  subHeader: {
-    fontSize: 10,
-    letterSpacing: 2,
-    marginBottom: 2,
-  },
-  title: {
-    fontSize: 24,
-    letterSpacing: 2,
-  },
-  computeStats: {
-    flexDirection: 'row',
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-  },
-  statBox: {
-    alignItems: 'center',
-    paddingHorizontal: 8,
-  },
-  statLabel: {
-    fontSize: 7,
-    marginBottom: 2,
-  },
-  statVal: {
-    fontSize: 10,
-  },
-  statDivider: {
-    width: 1,
-  },
-  chatList: {
-    padding: sharedTheme.spacing.lg,
-    paddingBottom: 40,
-  },
-  messageRow: {
-    flexDirection: 'row',
-    marginBottom: 24,
-    alignItems: 'flex-end',
-    gap: 12,
-  },
-  aiAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  userAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-  messageCard: {
-    maxWidth: width * 0.72,
-    padding: 16,
-    borderRadius: 20,
-  },
-  userCard: {
-    borderBottomRightRadius: 4,
-  },
-  aiCard: {
-    borderBottomLeftRadius: 4,
-  },
-  messageHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-    opacity: 0.8,
-  },
-  messageLabel: {
-    fontSize: 9,
-    letterSpacing: 1.5,
-  },
-  timestamp: {
-    fontSize: 8,
-  },
-  messageText: {
-    fontSize: 13,
-    lineHeight: 22,
-  },
-  loadingArea: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 16,
-    marginBottom: 12,
-  },
-  computeGlow: {
-    position: 'absolute',
-    opacity: 0.1,
-  },
-  computingText: {
-    fontSize: 10,
-    letterSpacing: 2,
-  },
-  inputArea: {
-    margin: 16,
-    marginBottom: Platform.OS === 'ios' ? 32 : 16,
-    padding: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  input: {
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 14,
-    maxHeight: 120,
-  },
-  sendBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-  },
-});
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  timestamp?: string;
 }
 
 export function AIChatScreen({ route, navigation }: any) {
   const { portfolioId, simulationResultId, workflow, initialMessage } = route.params || {};
-  const { tier, aiPrefs } = useAuthStore();
+  const { user, tier, aiPrefs } = useAuthStore();
   const { theme, isDark } = useTheme();
   const { showToast } = useToast();
   
   const [messages, setMessages] = useState<Message[]>([
     {
-      id: '1',
+      id: 'welcome',
       role: 'assistant',
       content: workflow === 'portfolio_doctor' 
         ? 'PORTFOLIO_DOCTOR_V1.0 // DIAGNOSTIC_MODE_ACTIVE\n\nI have accessed your simulation parameters and risk metrics. Analyzing for structural vulnerabilities...'
@@ -204,6 +39,7 @@ export function AIChatScreen({ route, navigation }: any) {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isHistLoading, setIsHistLoading] = useState(true);
   const flatListRef = useRef<FlatList>(null);
 
   const SendIcon = Send as any;
@@ -211,24 +47,56 @@ export function AIChatScreen({ route, navigation }: any) {
   const UserIconAny = User as any;
   const BackIcon = ChevronLeft as any;
   const ActivityIcon = Activity as any;
+  const LockIcon = Lock as any;
+  const TrashIcon = Trash2 as any;
+
+  const fetchHistory = useCallback(async () => {
+    if (!user) return;
+    setIsHistLoading(true);
+
+    try {
+      const eightHoursAgo = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
+      
+      const { data, error } = await supabase
+        .from('oracle_chat_messages')
+        .select('*')
+        .eq('user_id', user.id)
+        .gt('created_at', eightHoursAgo)
+        .order('created_at', { ascending: true });
+
+      if (data && data.length > 0) {
+        setMessages(data.map(m => ({
+          id: m.id || m.created_at,
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+          timestamp: m.created_at
+        })));
+      }
+    } catch (err) {
+      console.error('HISTORY_SYNC_ERROR:', err);
+    } finally {
+      setIsHistLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
-    if (initialMessage && messages.length === 1) {
+    fetchHistory();
+  }, [fetchHistory]);
+
+  useEffect(() => {
+    if (!isHistLoading && initialMessage && messages.length <= 1) {
       handleSend(initialMessage);
-    } else if (workflow === 'portfolio_doctor' && messages.length === 1 && simulationResultId) {
-      // Auto-initiate diagnostic
+    } else if (!isHistLoading && workflow === 'portfolio_doctor' && messages.length <= 1 && simulationResultId) {
       handleSend("Perform a full diagnostic analysis on my latest simulation results.");
     }
-  }, [initialMessage, workflow, simulationResultId]);
-
-  const dynamicStyles = getStyles(theme, isDark);
+  }, [initialMessage, workflow, simulationResultId, isHistLoading]);
 
   const pulseScale = useSharedValue(1);
   useEffect(() => {
     if (isLoading) {
       pulseScale.value = withRepeat(
         withSequence(
-          withTiming(1.1, { duration: 800, easing: Easing.inOut(Easing.ease) }),
+          withTiming(1.05, { duration: 800, easing: Easing.inOut(Easing.ease) }),
           withTiming(1, { duration: 800, easing: Easing.inOut(Easing.ease) })
         ),
         -1,
@@ -246,71 +114,130 @@ export function AIChatScreen({ route, navigation }: any) {
 
   const handleSend = async (overrideInput?: string) => {
     const textToSend = overrideInput || input;
-    if (!textToSend.trim()) return;
+    if (!textToSend.trim() || !user) return;
 
-    const userMessage: Message = { id: Date.now().toString(), role: 'user', content: textToSend.trim() };
+    const userMessage: Message = { 
+      id: Date.now().toString(), 
+      role: 'user', 
+      content: textToSend.trim(),
+      timestamp: new Date().toISOString()
+    };
+    
     setMessages(prev => [...prev, userMessage]);
     if (!overrideInput) setInput('');
     setIsLoading(true);
 
     try {
+      // 1. Persist user message
+      await supabase.from('oracle_chat_messages').insert({
+        user_id: user.id,
+        role: 'user',
+        content: userMessage.content
+      });
+
+      // 2. Call AI relay
       const response = await api.aiChat(userMessage.content, { 
         portfolioId, 
         simulation_result_id: simulationResultId,
-        aiPrefs 
+        aiPrefs,
+        history: messages.slice(-5).map(m => ({ role: m.role, content: m.content }))
       }, workflow);
       
+      const aiContent = response.message || response.reply || "RESPONSE_UNDER_DETERMINED";
+      
+      // 3. Persist assistant message
+      await supabase.from('oracle_chat_messages').insert({
+        user_id: user.id,
+        role: 'assistant',
+        content: aiContent
+      });
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: response.message || response.reply,
+        content: aiContent,
+        timestamp: new Date().toISOString()
       };
       
       setMessages(prev => [...prev, aiMessage]);
     } catch (e: any) {
-      if (e.message?.includes('limit')) {
-         showToast('QUOTA_EXHAUSTED: Upgrade for unbounded compute.', 'error');
-      } else {
-         showToast(e.message?.toUpperCase() || 'KERNEL_COMM_FAILURE', 'error');
-      }
+      const errorMsg = e.message?.includes('limit') ? 'QUOTA_EXHAUSTED' : 'KERNEL_COMM_FAILURE';
+      showToast(errorMsg, 'error');
+      
+      setMessages(prev => [...prev, {
+        id: 'err-' + Date.now(),
+        role: 'assistant',
+        content: `ERROR: ${errorMsg}. Deep cognitive relay interrupted.`
+      }]);
     } finally {
       setIsLoading(false);
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     }
   };
 
+  const clearHistory = async () => {
+    Alert.alert(
+      "CLEAR_NEURAL_BUFFER",
+      "Are you sure you want to permanently delete current chat history?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "WIPE_BUFFER", 
+          style: "destructive",
+          onPress: async () => {
+            if (!user) return;
+            setIsLoading(true);
+            try {
+              await supabase.from('oracle_chat_messages').delete().eq('user_id', user.id);
+              setMessages([{
+                id: 'welcome',
+                role: 'assistant',
+                content: 'NEURAL_BUFFER_WIPED // SESSION_RESTARTED'
+              }]);
+              showToast('BUFFER_CLEARED', 'success');
+            } catch (err) {
+              showToast('WIPE_FAILURE', 'error');
+            } finally {
+              setIsLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const renderMessage = ({ item }: { item: Message }) => {
     const isUser = item.role === 'user';
     const accentColor = isUser ? theme.primary : theme.secondary;
+    const time = item.timestamp ? new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
     
     return (
-      <View style={[dynamicStyles.messageRow, isUser ? { justifyContent: 'flex-end' } : { justifyContent: 'flex-start' }]}>
+      <View style={[styles.messageRow, isUser ? { justifyContent: 'flex-end' } : { justifyContent: 'flex-start' }]}>
         {!isUser && (
-          <View style={[dynamicStyles.aiAvatar, { backgroundColor: theme.secondary + '10', borderColor: theme.secondary + '33' }]}>
+          <View style={[styles.aiAvatar, { backgroundColor: theme.secondary + '10', borderColor: theme.secondary + '33' }]}>
              <CpuIcon size={12} color={theme.secondary} />
           </View>
         )}
         <GlassCard 
           intensity={isUser ? 'low' : 'medium'}
           style={[
-            dynamicStyles.messageCard, 
-            isUser ? dynamicStyles.userCard : dynamicStyles.aiCard
+            styles.messageCard, 
+            isUser ? styles.userCard : styles.aiCard,
+            { backgroundColor: isUser ? (isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)') : (isDark ? 'rgba(0,217,255,0.05)' : 'rgba(0,0,0,0.02)') }
           ]}
         >
-          <View style={dynamicStyles.messageHeader}>
-            <Typography variant="mono" style={[dynamicStyles.messageLabel, { color: accentColor }]}>
+          <View style={styles.messageHeader}>
+            <Typography variant="mono" style={[styles.messageLabel, { color: accentColor }]}>
               {isUser ? 'OPERATOR' : 'ORACLE'}
             </Typography>
-            <Typography variant="caption" style={[dynamicStyles.timestamp, { color: theme.textTertiary }]}>
-              {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-            </Typography>
+            <Typography variant="caption" style={[styles.timestamp, { color: theme.textTertiary }]}>{time}</Typography>
           </View>
-          <Typography variant="body" style={[dynamicStyles.messageText, { color: theme.textSecondary }]}>
+          <Typography variant="body" style={[styles.messageText, { color: isUser ? theme.textPrimary : theme.textSecondary }]}>
             {item.content}
           </Typography>
         </GlassCard>
         {isUser && (
-          <View style={[dynamicStyles.userAvatar, { backgroundColor: theme.primary + '10', borderColor: theme.primary + '33' }]}>
+          <View style={[styles.userAvatar, { backgroundColor: theme.primary + '10', borderColor: theme.primary + '33' }]}>
              <UserIconAny size={12} color={theme.primary} />
           </View>
         )}
@@ -320,46 +247,37 @@ export function AIChatScreen({ route, navigation }: any) {
 
   return (
     <KeyboardAvoidingView 
-      style={[dynamicStyles.container, { backgroundColor: theme.background }]} 
+      style={[styles.container, { backgroundColor: theme.background }]} 
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
-      <View style={[dynamicStyles.header, { borderBottomColor: theme.border }]}>
-        <View style={dynamicStyles.headerTop}>
-          <TouchableOpacity onPress={() => navigation?.goBack()} style={[dynamicStyles.backBtn, { backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)', borderColor: theme.border }]}>
+      <View style={[styles.header, { borderBottomColor: theme.border }]}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={() => navigation?.goBack()} style={[styles.backBtn, { borderColor: theme.border }]}>
              <BackIcon size={20} color={theme.textSecondary} />
           </TouchableOpacity>
-          <View style={[dynamicStyles.statusGroup, { 
-            backgroundColor: (workflow === 'portfolio_doctor' ? theme.secondary : theme.primary) + '10', 
-            borderColor: (workflow === 'portfolio_doctor' ? theme.secondary : theme.primary) + '33' 
-          }]}>
+          <View style={[styles.statusGroup, { backgroundColor: (workflow === 'portfolio_doctor' ? theme.secondary : theme.primary) + '10', borderColor: (workflow === 'portfolio_doctor' ? theme.secondary : theme.primary) + '33' }]}>
              <GlowEffect color={workflow === 'portfolio_doctor' ? theme.secondary : theme.primary} size={6} glowRadius={6} />
-             <Typography variant="mono" style={[dynamicStyles.statusText, { color: workflow === 'portfolio_doctor' ? theme.secondary : theme.primary }]}>
+             <Typography variant="mono" style={[styles.statusText, { color: workflow === 'portfolio_doctor' ? theme.secondary : theme.primary }]}>
                {workflow === 'portfolio_doctor' ? 'DIAGNOSTIC_SYNCED' : 'KERNEL_SYNCED'}
              </Typography>
           </View>
+          <TouchableOpacity onPress={clearHistory} style={[styles.backBtn, { borderColor: theme.border }]}>
+             <TrashIcon size={16} color={theme.error} />
+          </TouchableOpacity>
         </View>
-        <View style={dynamicStyles.headerTitleRow}>
+
+        <View style={styles.headerTitleRow}>
            <View>
-             <Typography variant="mono" style={[dynamicStyles.subHeader, { color: theme.textTertiary }]}>
+             <Typography variant="mono" style={[styles.subHeader, { color: theme.textTertiary }]}>
                {workflow === 'portfolio_doctor' ? 'RISK_DIAGNOSTICS' : 'INSTITUTIONAL_AI'}
              </Typography>
-             <Typography variant="h2" style={[dynamicStyles.title, { color: theme.textPrimary }]}>
+             <Typography variant="h2" style={[styles.title, { color: theme.textPrimary }]}>
                {workflow === 'portfolio_doctor' ? 'DOCTOR' : 'ORACLE'}
              </Typography>
            </View>
-           <View style={[dynamicStyles.computeStats, { backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)', borderColor: theme.border }]}>
-             <View style={dynamicStyles.statBox}>
-               <Typography variant="mono" style={[dynamicStyles.statLabel, { color: theme.textTertiary }]}>LATENCY</Typography>
-               <Typography variant="monoBold" style={[dynamicStyles.statVal, { color: theme.secondary }]}>42ms</Typography>
-             </View>
-             <View style={[dynamicStyles.statDivider, { backgroundColor: theme.border }]} />
-             <View style={dynamicStyles.statBox}>
-               <Typography variant="mono" style={[dynamicStyles.statLabel, { color: theme.textTertiary }]}>THROUGHPUT</Typography>
-               <Typography variant="monoBold" style={[dynamicStyles.statVal, { color: theme.secondary }]}>10k/s</Typography>
-             </View>
-           </View>
         </View>
+        <SentimentIndicator />
       </View>
 
       <FlatList
@@ -367,21 +285,22 @@ export function AIChatScreen({ route, navigation }: any) {
         data={messages}
         keyExtractor={item => item.id}
         renderItem={renderMessage}
-        contentContainerStyle={dynamicStyles.chatList}
+        contentContainerStyle={styles.chatList}
         showsVerticalScrollIndicator={false}
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
       />
 
-      <Animated.View style={[dynamicStyles.loadingArea, loadingAnimatedStyle]}>
-         <ActivityIcon size={14} color={theme.secondary} style={{ marginRight: 8 }} />
-         <Typography variant="mono" style={[dynamicStyles.computingText, { color: theme.secondary }]}>CONVOLVING_LOGIC_PATHS...</Typography>
-         <GlowEffect color={theme.secondary} size={80} glowRadius={30} style={dynamicStyles.computeGlow} />
-      </Animated.View>
+      {isLoading && (
+        <Animated.View style={[styles.loadingArea, loadingAnimatedStyle]}>
+           <ActivityIcon size={14} color={theme.secondary} style={{ marginRight: 8 }} />
+           <Typography variant="mono" style={[styles.computingText, { color: theme.secondary }]}>CONVOLVING_LOGIC_PATHS...</Typography>
+        </Animated.View>
+      )}
 
-      <GlassCard intensity="high" style={[dynamicStyles.inputArea, { borderColor: theme.border }]}>
-        <View style={dynamicStyles.inputWrapper}>
+      <GlassCard intensity="high" style={[styles.inputArea, { borderColor: theme.border }]}>
+        <View style={styles.inputWrapper}>
           <TextInput
-            style={[dynamicStyles.input, { color: theme.textPrimary, fontFamily: sharedTheme.typography.fonts.mono }]}
+            style={[styles.input, { color: theme.textPrimary, fontFamily: sharedTheme.typography.fonts.mono }]}
             placeholder="TYPE_OBJECTIVE_SET..."
             placeholderTextColor={theme.textTertiary}
             value={input}
@@ -390,7 +309,7 @@ export function AIChatScreen({ route, navigation }: any) {
             maxLength={1000}
           />
           <TouchableOpacity 
-            style={[dynamicStyles.sendBtn, { backgroundColor: theme.primary + '10', borderColor: theme.primary + '33' }, (!input.trim() || isLoading) && {opacity: 0.3}]} 
+            style={[styles.sendBtn, { backgroundColor: theme.primary + '10', borderColor: theme.primary + '33' }, (!input.trim() || isLoading) && {opacity: 0.3}]} 
             onPress={() => handleSend()}
             disabled={!input.trim() || isLoading}
           >
@@ -398,7 +317,56 @@ export function AIChatScreen({ route, navigation }: any) {
           </TouchableOpacity>
         </View>
       </GlassCard>
+
+      {tier === 'free' && (
+        <View style={styles.gatingOverlay}>
+          <GlassCard intensity="high" style={styles.gatingCard}>
+            <LockIcon size={48} color={theme.primary} style={{ marginBottom: 16 }} />
+            <Typography variant="h3" style={{ textAlign: 'center', marginBottom: 8, color: theme.textPrimary }}>RESTRICTED_PROTOCOL</Typography>
+            <Typography variant="body" style={{ textAlign: 'center', color: theme.textSecondary, marginBottom: 24, fontSize: 12 }}>
+              The Institutional AI Oracle requires a Plus or Pro subscription to establish a secure cognitive relay.
+            </Typography>
+            <TouchableOpacity 
+              style={[styles.upgradeBtn, { backgroundColor: theme.primary }]}
+              onPress={() => navigation.navigate('Operator', { screen: 'Subscription' })}
+            >
+              <Typography variant="monoBold" style={{ color: theme.background, fontSize: 10 }}>UPGRADE_TO_PLUS_ACCESS</Typography>
+            </TouchableOpacity>
+          </GlassCard>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
 
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  header: { padding: 20, paddingTop: 60, borderBottomWidth: 1 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  backBtn: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  statusGroup: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
+  statusText: { fontSize: 8, letterSpacing: 1 },
+  headerTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  subHeader: { fontSize: 10, letterSpacing: 2, marginBottom: 2 },
+  title: { fontSize: 24, fontWeight: 'bold' },
+  chatList: { padding: 20, paddingBottom: 40 },
+  messageRow: { flexDirection: 'row', marginBottom: 24, alignItems: 'flex-end', gap: 12 },
+  aiAvatar: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  userAvatar: { width: 32, height: 32, borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  messageCard: { maxWidth: width * 0.72, padding: 16, borderRadius: 20 },
+  userCard: { borderBottomRightRadius: 4 },
+  aiCard: { borderBottomLeftRadius: 4 },
+  messageHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  messageLabel: { fontSize: 9, fontWeight: 'bold', letterSpacing: 1 },
+  timestamp: { fontSize: 8 },
+  messageText: { fontSize: 13, lineHeight: 20 },
+  loadingArea: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16 },
+  computingText: { fontSize: 9, letterSpacing: 1 },
+  inputArea: { margin: 16, marginBottom: Platform.OS === 'ios' ? 40 : 16, padding: 8, borderRadius: 20, borderWidth: 1 },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center' },
+  input: { flex: 1, paddingHorizontal: 16, paddingVertical: 12, fontSize: 14, maxHeight: 120 },
+  sendBtn: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  gatingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(5, 7, 10, 0.8)', zIndex: 100, justifyContent: 'center', alignItems: 'center', padding: 32 },
+  gatingCard: { padding: 32, alignItems: 'center', borderRadius: 24, width: '100%' },
+  upgradeBtn: { height: 50, width: '100%', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+});

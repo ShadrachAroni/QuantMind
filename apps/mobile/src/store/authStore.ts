@@ -11,6 +11,8 @@ const ACTIVITY_KEY = 'quantmind_last_activity';
 const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 Hours in ms
 const CACHE_TTL = 5 * 60 * 1000; // 5 Minutes in ms
 
+export type AIPersona = 'DEFAULT' | 'AGGRESSIVE' | 'CONSERVATIVE' | 'INSTITUTIONAL';
+
 export interface AIPrefs {
   ai_model: 'haiku' | 'sonnet' | 'opus';
   ai_expertise: 'beginner' | 'intermediate' | 'advanced';
@@ -58,6 +60,12 @@ interface AuthState {
   tier: string;
   isStudentVerified: boolean;
   aiPrefs: AIPrefs | null;
+  aiPersona: AIPersona;
+  aiRiskSensitivity: number;
+  region: string;
+  interfaceLanguage: string;
+  mfaEmailEnabled: boolean;
+  mfaPasskeyEnabled: boolean;
   aiConfigs: AIConfig[];
   changelog: ChangelogEntry[];
   initialized: boolean;
@@ -82,6 +90,8 @@ interface AuthState {
   signOut: () => Promise<void>;
   completeOnboarding: () => Promise<void>;
   updateAIPreferences: (prefs: AIPrefs) => Promise<void>;
+  updateAIPersona: (persona: AIPersona) => Promise<void>;
+  updateAIRiskSensitivity: (sensitivity: number) => Promise<void>;
   checkBiometricCompatibility: () => Promise<void>;
   setBiometricEnabled: (enabled: boolean) => Promise<void>;
   enrollBiometrics: () => Promise<boolean>;
@@ -105,6 +115,10 @@ interface AuthState {
   deleteAIConfig: (configId: string) => Promise<void>;
   fetchChangelog: () => Promise<void>;
   profileSubscription: RealtimeChannel | null;
+  updateRegion: (region: string) => Promise<void>;
+  updateInterfaceLanguage: (lang: string) => Promise<void>;
+  updateMFAEmail: (enabled: boolean) => Promise<void>;
+  updateMFAPasskey: (enabled: boolean) => Promise<void>;
 }
 
 const DEFAULT_AI_PREFS: AIPrefs = {
@@ -118,7 +132,7 @@ const DEFAULT_AI_PREFS: AIPrefs = {
 async function fetchProfile(userId: string) {
   const { data } = await supabase
     .from('user_profiles')
-    .select('tier, is_student_verified, accepted_tos_version, ai_model, ai_expertise, ai_portfolio_doctor, ai_voice_synthesis, ai_risk_alerts, has_used_trial, trial_ends_at, password_last_changed_at')
+    .select('*')
     .eq('id', userId)
     .single();
   return data;
@@ -141,6 +155,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   tier: 'free',
   isStudentVerified: false,
   aiPrefs: null,
+  aiPersona: 'DEFAULT',
+  aiRiskSensitivity: 50,
+  region: 'US_EAST_NY',
+  interfaceLanguage: 'ENGLISH_INTL',
+  mfaEmailEnabled: false,
+  mfaPasskeyEnabled: false,
   aiConfigs: [],
   changelog: [],
   initialized: false,
@@ -175,7 +195,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   initialize: async () => {
     try {
-      // Load last activity from SecureStore
       const storedActivity = await SecureStore.getItemAsync(ACTIVITY_KEY);
       const lastActivity = storedActivity ? parseInt(storedActivity, 10) : null;
       set({ lastActivityAt: lastActivity });
@@ -183,31 +202,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { data: { session } } = await supabase.auth.getSession();
       set({ user: mapSupabaseUser(session?.user) });
 
-      // Fetch remote config and events
       await get().fetchTierConfigs();
       await get().fetchSubscriptionPlans();
       await get().fetchSystemEvents();
 
-      // Fetch latest active ToS version
-      const { data: tosData } = await supabase
-        .from('tos_versions')
-        .select('version')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-      
-      const latestVersion = tosData?.version || null;
-      set({ latestTosVersion: latestVersion });
-
       if (session?.user) {
         const data = await fetchProfile(session.user.id);
         if (data) {
-          const needsConsent = latestVersion && data.accepted_tos_version !== latestVersion;
           set({
             tier: data.tier ?? 'free',
             isStudentVerified: !!data.is_student_verified,
-            needsTosConsent: !!needsConsent,
+            aiPersona: (data.ai_persona as AIPersona) ?? 'DEFAULT',
+            aiRiskSensitivity: data.ai_risk_sensitivity ?? 50,
             aiPrefs: {
               ai_model: data.ai_model ?? DEFAULT_AI_PREFS.ai_model,
               ai_expertise: data.ai_expertise ?? DEFAULT_AI_PREFS.ai_expertise,
@@ -215,26 +221,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               ai_voice_synthesis: data.ai_voice_synthesis ?? DEFAULT_AI_PREFS.ai_voice_synthesis,
               ai_risk_alerts: data.ai_risk_alerts ?? DEFAULT_AI_PREFS.ai_risk_alerts,
             },
+            region: data.region ?? 'US_EAST_NY',
+            interfaceLanguage: data.interface_language ?? 'ENGLISH_INTL',
+            mfaEmailEnabled: !!data.mfa_email_enabled,
+            mfaPasskeyEnabled: !!data.mfa_passkey_enabled,
             hasUsedTrial: !!data.has_used_trial,
             trialEndsAt: data.trial_ends_at ?? null,
             passwordLastChangedAt: data.password_last_changed_at ?? null,
           });
 
-          // Initialize portfolio realtime sync
           usePortfolioStore.getState().subscribeToChanges(session.user.id);
 
-          // Password Expiration Check (60 Days)
-          if (data.password_last_changed_at) {
-            const EXPR_PERIOD = 60 * 24 * 60 * 60 * 1000;
-            const lastChanged = new Date(data.password_last_changed_at).getTime();
-            if (Date.now() - lastChanged > EXPR_PERIOD) {
-              set({ isPasswordExpired: true });
-            } else {
-              set({ isPasswordExpired: false });
-            }
-          }
-
-          // Handle Power Shifts Reset
           const today = new Date().toISOString().split('T')[0];
           const lastReset = await SecureStore.getItemAsync('quantmind_powershift_reset');
           if (lastReset !== today) {
@@ -251,11 +248,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           }
         }
       }
-
-      // Check for expiry before finishing initialization
-      const isExpired = await useAuthStore.getState().checkSessionExpiry();
-      if (isExpired) return;
-
     } catch (e) {
       console.error('Auth initialization error', e);
     } finally {
@@ -277,14 +269,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     supabase.auth.onAuthStateChange(async (_event, session) => {
       set({ user: mapSupabaseUser(session?.user) });
       if (session?.user) {
-        const { latestTosVersion } = useAuthStore.getState();
         const data = await fetchProfile(session.user.id);
         if (data) {
-          const needsConsent = latestTosVersion && data.accepted_tos_version !== latestTosVersion;
           set({
             tier: data.tier ?? 'free',
             isStudentVerified: !!data.is_student_verified,
-            needsTosConsent: !!needsConsent,
+            aiPersona: (data.ai_persona as AIPersona) ?? 'DEFAULT',
+            aiRiskSensitivity: data.ai_risk_sensitivity ?? 50,
             aiPrefs: {
               ai_model: data.ai_model ?? DEFAULT_AI_PREFS.ai_model,
               ai_expertise: data.ai_expertise ?? DEFAULT_AI_PREFS.ai_expertise,
@@ -292,148 +283,94 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               ai_voice_synthesis: data.ai_voice_synthesis ?? DEFAULT_AI_PREFS.ai_voice_synthesis,
               ai_risk_alerts: data.ai_risk_alerts ?? DEFAULT_AI_PREFS.ai_risk_alerts,
             },
-            hasUsedTrial: !!data.has_used_trial,
-            trialEndsAt: data.trial_ends_at ?? null,
-            passwordLastChangedAt: data.password_last_changed_at ?? null,
+            region: data.region ?? 'US_EAST_NY',
+            interfaceLanguage: data.interface_language ?? 'ENGLISH_INTL',
+            mfaEmailEnabled: !!data.mfa_email_enabled,
+            mfaPasskeyEnabled: !!data.mfa_passkey_enabled,
           });
-
-          // Initialize portfolio realtime sync
-          usePortfolioStore.getState().subscribeToChanges(session.user.id);
-
-          // Password Expiration Check (60 Days)
-          if (data.password_last_changed_at) {
-            const EXPR_PERIOD = 60 * 24 * 60 * 60 * 1000;
-            const lastChanged = new Date(data.password_last_changed_at).getTime();
-            if (Date.now() - lastChanged > EXPR_PERIOD) {
-              set({ isPasswordExpired: true });
-            } else {
-              set({ isPasswordExpired: false });
-            }
-          }
-        }
-      } else {
-        set({ tier: 'free', aiPrefs: null, needsTosConsent: false, hasUsedTrial: false, trialEndsAt: null, isPasswordExpired: false, passwordLastChangedAt: null });
-      }
-      
-      if (session?.user) {
-        await useAuthStore.getState().recordActivity();
-        
-        // Subscribe to profile changes
-        const { profileSubscription } = get();
-        if (profileSubscription) profileSubscription.unsubscribe();
-
-        const channel = supabase
-          .channel('profile-realtime')
-          .on(
-            'postgres_changes',
-            {
-              event: 'UPDATE',
-              schema: 'public',
-              table: 'user_profiles',
-              filter: `id=eq.${session.user.id}`,
-            },
-            async (payload) => {
-              const data = payload.new as any;
-              const { latestTosVersion } = get();
-              const needsConsent = latestTosVersion && data.accepted_tos_version !== latestTosVersion;
-              
-              set({
-                tier: data.tier ?? 'free',
-                isStudentVerified: !!data.is_student_verified,
-                needsTosConsent: !!needsConsent,
-                aiPrefs: {
-                  ai_model: data.ai_model ?? DEFAULT_AI_PREFS.ai_model,
-                  ai_expertise: data.ai_expertise ?? DEFAULT_AI_PREFS.ai_expertise,
-                  ai_portfolio_doctor: data.ai_portfolio_doctor ?? DEFAULT_AI_PREFS.ai_portfolio_doctor,
-                  ai_voice_synthesis: data.ai_voice_synthesis ?? DEFAULT_AI_PREFS.ai_voice_synthesis,
-                  ai_risk_alerts: data.ai_risk_alerts ?? DEFAULT_AI_PREFS.ai_risk_alerts,
-                },
-                hasUsedTrial: !!data.has_used_trial,
-                trialEndsAt: data.trial_ends_at ?? null,
-                passwordLastChangedAt: data.password_last_changed_at ?? null,
-              });
-            }
-          )
-          .subscribe();
-        
-        set({ profileSubscription: channel });
-      } else {
-        const { profileSubscription } = get();
-        if (profileSubscription) {
-          profileSubscription.unsubscribe();
-          set({ profileSubscription: null });
         }
       }
     });
   },
 
-  signOut: async () => {
-    set({ isLoading: true });
-    await supabase.auth.signOut();
-    await SecureStore.deleteItemAsync(ACTIVITY_KEY);
-    usePortfolioStore.getState().unsubscribeFromChanges();
-    const { profileSubscription } = get();
-    if (profileSubscription) {
-      profileSubscription.unsubscribe();
-    }
-    set({ user: null, tier: 'free', aiPrefs: null, isLoading: false, lastActivityAt: null, isPasswordExpired: false, passwordLastChangedAt: null, profileSubscription: null });
+  updateRegion: async (region: string) => {
+    const { user } = get();
+    if (!user) return;
+    const { error } = await supabase.from('user_profiles').update({ region }).eq('id', user.id);
+    if (error) throw error;
+    set({ region });
   },
 
-  completeOnboarding: async () => {
-    const { user } = useAuthStore.getState();
+  updateInterfaceLanguage: async (lang: string) => {
+    const { user } = get();
     if (!user) return;
+    const { error } = await supabase.from('user_profiles').update({ interface_language: lang }).eq('id', user.id);
+    if (error) throw error;
+    set({ interfaceLanguage: lang });
+  },
 
-    set({ isLoading: true });
-    try {
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({ onboarding_completed: true })
-        .eq('id', user.id);
+  updateMFAEmail: async (enabled: boolean) => {
+    const { user } = get();
+    if (!user) return;
+    const { error } = await supabase.from('user_profiles').update({ mfa_email_enabled: enabled }).eq('id', user.id);
+    if (error) throw error;
+    set({ mfaEmailEnabled: enabled });
+  },
 
-      if (error) throw error;
+  updateMFAPasskey: async (enabled: boolean) => {
+    const { user } = get();
+    if (!user) return;
+    const { error } = await supabase.from('user_profiles').update({ mfa_passkey_enabled: enabled }).eq('id', user.id);
+    if (error) throw error;
+    set({ mfaPasskeyEnabled: enabled });
+  },
 
-      set((state: AuthState) => ({
-        user: state.user ? {
-          ...state.user,
-          metadata: { ...state.user.metadata, onboarding_completed: true }
-        } : null
-      }));
-    } catch (e) {
-      console.error('Failed to complete onboarding', e);
-    } finally {
-      set({ isLoading: false });
-    }
+  updateAIPersona: async (persona: AIPersona) => {
+    const { user } = get();
+    if (!user) return;
+    const { error } = await supabase.from('user_profiles').update({ ai_persona: persona }).eq('id', user.id);
+    if (error) throw error;
+    set({ aiPersona: persona });
+  },
+
+  updateAIRiskSensitivity: async (sensitivity: number) => {
+    const { user } = get();
+    if (!user) return;
+    const { error } = await supabase.from('user_profiles').update({ ai_risk_sensitivity: sensitivity }).eq('id', user.id);
+    if (error) throw error;
+    set({ aiRiskSensitivity: sensitivity });
   },
 
   updateAIPreferences: async (prefs: AIPrefs) => {
-    const { user } = useAuthStore.getState();
+    const { user } = get();
     if (!user) return;
-    const { error } = await supabase
-      .from('user_profiles')
-      .update({
-        ai_model: prefs.ai_model,
-        ai_expertise: prefs.ai_expertise,
-        ai_portfolio_doctor: prefs.ai_portfolio_doctor,
-        ai_voice_synthesis: prefs.ai_voice_synthesis,
-        ai_risk_alerts: prefs.ai_risk_alerts,
-      })
-      .eq('id', user.id);
+    const { error } = await supabase.from('user_profiles').update({
+      ai_model: prefs.ai_model,
+      ai_expertise: prefs.ai_expertise,
+      ai_portfolio_doctor: prefs.ai_portfolio_doctor,
+      ai_voice_synthesis: prefs.ai_voice_synthesis,
+      ai_risk_alerts: prefs.ai_risk_alerts,
+    }).eq('id', user.id);
     if (error) throw error;
     set({ aiPrefs: prefs });
+  },
+
+  signOut: async () => {
+    await supabase.auth.signOut();
+    set({ user: null, tier: 'free', aiPrefs: null, initialized: false });
+  },
+
+  completeOnboarding: async () => {
+    const { user } = get();
+    if (!user) return;
+    await supabase.from('user_profiles').update({ onboarding_completed: true }).eq('id', user.id);
   },
 
   checkBiometricCompatibility: async () => {
     const isSupported = await biometricService.isCompatible();
     const isEnabled = await biometricService.isEnabled();
     const type = await biometricService.getSupportedTypes();
-    const hasPrompted = await biometricService.hasBeenPrompted();
-
-    set({ 
-      isBiometricSupported: isSupported,
-      isBiometricEnabled: isEnabled,
-      biometricType: type,
-      hasPromptedBiometrics: hasPrompted
-    });
+    set({ isBiometricSupported: isSupported, isBiometricEnabled: isEnabled, biometricType: type });
   },
 
   setBiometricEnabled: async (enabled: boolean) => {
@@ -442,75 +379,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   enrollBiometrics: async () => {
-    const success = await biometricService.authenticate('Enroll in Biometric Access');
+    const success = await biometricService.authenticate('ENROLL_BIOMETRIC_ACCESS');
     if (success) {
       await biometricService.setEnabled(true);
-      await biometricService.setPrompted(true);
-      set({ isBiometricEnabled: true, hasPromptedBiometrics: true });
+      set({ isBiometricEnabled: true });
     }
     return success;
   },
 
   biometricLogin: async () => {
-    const { isBiometricEnabled } = useAuthStore.getState();
-    if (!isBiometricEnabled) return;
-
-    const success = await biometricService.authenticate();
+    const success = await biometricService.authenticate('BIOMETRIC_LOGIN');
     if (success) {
-      // Supabase persistent session should already handle this if the user was logged in before.
-      // If we need a explicit login, we would need to store email/pass in SecureStore, which we avoid.
-      // However, Supabase session persistence WITH SecureStore as storage IS exactly what's needed.
-      // If the session is present, we are logged in.
-      // For Biometric Login as a feature to be meaningful, it usually implies re-authenticating.
-      
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-          set({ user: mapSupabaseUser(session.user) });
-      }
+      if (session) set({ user: mapSupabaseUser(session.user) });
     }
   },
 
   acceptTerms: async (ipAddress: string) => {
-    const { user, latestTosVersion } = useAuthStore.getState();
+    const { user, latestTosVersion } = get();
     if (!user || !latestTosVersion) return;
-
-    set({ isLoading: true });
-    try {
-      // Get version ID
-      const { data: versionData } = await supabase
-        .from('tos_versions')
-        .select('id')
-        .eq('version', latestTosVersion)
-        .single();
-
-      if (!versionData) throw new Error('ToS Version not found');
-
-      // Insert acceptance record
-      const { error: acceptanceError } = await supabase
-        .from('terms_acceptance')
-        .insert({
-          user_id: user.id,
-          version_id: versionData.id,
-          ip_address: ipAddress
-        });
-
-      if (acceptanceError) throw acceptanceError;
-
-      // Update user profile
-      const { error: profileError } = await supabase
-        .from('user_profiles')
-        .update({ accepted_tos_version: latestTosVersion })
-        .eq('id', user.id);
-
-      if (profileError) throw profileError;
-
-      set({ needsTosConsent: false });
-    } catch (e) {
-      console.error('Failed to accept terms', e);
-      throw e;
-    } finally {
-      set({ isLoading: false });
-    }
+    await supabase.from('user_profiles').update({ accepted_tos_version: latestTosVersion }).eq('id', user.id);
+    set({ needsTosConsent: false });
   },
 
   recordActivity: async () => {
@@ -520,178 +409,72 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   checkSessionExpiry: async () => {
-    const { user, lastActivityAt, signOut } = useAuthStore.getState();
-    if (!user || !lastActivityAt) return false;
-
-    const now = Date.now();
-    const isExpired = (now - lastActivityAt) > SESSION_TIMEOUT;
-
-    if (isExpired) {
-      console.warn('Session expired due to 24h inactivity.');
-      await signOut();
+    const { lastActivityAt } = get();
+    if (!lastActivityAt) return false;
+    if (Date.now() - lastActivityAt > SESSION_TIMEOUT) {
+      await get().signOut();
       return true;
     }
     return false;
   },
 
-      usePowerShift: () => {
-        const { powerShifts } = get();
-        if (powerShifts > 0) {
-          const newCount = powerShifts - 1;
-          set({ powerShifts: newCount });
-          SecureStore.setItemAsync('quantmind_powershifts', newCount.toString());
-          return true;
-        }
-        return false;
-      },
+  usePowerShift: () => {
+    const { powerShifts } = get();
+    if (powerShifts > 0) {
+      const newShifts = powerShifts - 1;
+      set({ powerShifts: newShifts });
+      SecureStore.setItemAsync('quantmind_powershifts', newShifts.toString());
+      return true;
+    }
+    return false;
+  },
 
-      fetchTierConfigs: async () => {
-        const { lastConfigsFetch } = get();
-        const now = Date.now();
-        
-        if (lastConfigsFetch && (now - lastConfigsFetch) < CACHE_TTL) {
-          return;
-        }
+  fetchTierConfigs: async () => {
+    const { data } = await supabase.from('app_config').select('value').eq('key', 'tier_config').single();
+    if (data?.value) set({ tierConfigs: data.value as TierConfig });
+  },
 
-        try {
-          const { data, error } = await supabase
-            .from('app_config')
-            .select('value')
-            .eq('key', 'tier_config')
-            .single();
-          
-          if (error) throw error;
-          if (data?.value) {
-            set({ tierConfigs: data.value as TierConfig, lastConfigsFetch: now });
-          }
-        } catch (error) {
-          console.error('Error fetching tier configs:', error);
-          // Fallback is already set in initial state
-        }
-      },
+  fetchSubscriptionPlans: async () => {
+    const { data } = await supabase.from('app_config').select('value').eq('key', 'subscription_plans').single();
+    if (data?.value) set({ subscriptionPlans: data.value as any[] });
+  },
 
-      fetchSubscriptionPlans: async () => {
-        const { lastPlansFetch } = get();
-        const now = Date.now();
+  fetchSystemEvents: async () => {
+    const { data } = await supabase.from('system_events').select('*').order('created_at', { ascending: false }).limit(10);
+    set({ systemEvents: data || [] });
+  },
 
-        if (lastPlansFetch && (now - lastPlansFetch) < CACHE_TTL) {
-          return;
-        }
+  grantTrialReward: async () => {
+    const { data } = await supabase.functions.invoke('grant-trial');
+    if (data?.status === 'success') {
+      set({ tier: 'plus', hasUsedTrial: true, trialEndsAt: data.trial_ends_at });
+    }
+  },
 
-        try {
-          const { data, error } = await supabase
-            .from('app_config')
-            .select('value')
-            .eq('key', 'subscription_plans')
-            .single();
-          
-          if (error) throw error;
-          if (data?.value) {
-            set({ subscriptionPlans: data.value as any[], lastPlansFetch: now });
-          }
-        } catch (error) {
-          console.error('Error fetching subscription plans:', error);
-        }
-      },
+  fetchAIConfigs: async () => {
+    const { user } = get();
+    if (!user) return;
+    const { data } = await supabase.from('user_ai_configs').select('*').eq('user_id', user.id);
+    set({ aiConfigs: data || [] });
+  },
 
-      fetchSystemEvents: async () => {
-        try {
-          const { data, error } = await supabase
-            .from('system_events')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(10);
-          
-          if (error) throw error;
-          set({ systemEvents: data || [] });
-        } catch (error) {
-          console.error('Error fetching system events:', error);
-        }
-      },
+  saveAIConfig: async (provider, modelId, apiKey) => {
+    await supabase.rpc('save_user_ai_config', { p_provider: provider, p_model_id: modelId, p_api_key: apiKey });
+    await get().fetchAIConfigs();
+  },
 
-      grantTrialReward: async () => {
-        set({ isLoading: true });
-        try {
-          const { data, error } = await supabase.functions.invoke('grant-trial');
-          if (error) throw error;
-          
-          if (data?.status === 'success') {
-            set({ 
-              tier: 'plus', 
-              hasUsedTrial: true, 
-              trialEndsAt: data.trial_ends_at 
-            });
-            await get().fetchSystemEvents();
-          }
-        } catch (error) {
-          console.error('Failed to grant trial reward:', error);
-          throw error;
-        } finally {
-          set({ isLoading: false });
-        }
-      },
+  toggleAIConfig: async (configId, active) => {
+    await supabase.from('user_ai_configs').update({ is_active: active }).eq('id', configId);
+    await get().fetchAIConfigs();
+  },
 
-      fetchAIConfigs: async () => {
-        const { user } = get();
-        if (!user) return;
-        const { data, error } = await supabase
-          .from('user_ai_configs')
-          .select('id, provider, model_id, is_active, updated_at')
-          .eq('user_id', user.id)
-          .order('updated_at', { ascending: false });
-        
-        if (error) throw error;
-        set({ aiConfigs: data || [] });
-      },
+  deleteAIConfig: async (configId) => {
+    await supabase.from('user_ai_configs').delete().eq('id', configId);
+    await get().fetchAIConfigs();
+  },
 
-      saveAIConfig: async (provider: string, modelId: string, apiKey: string) => {
-        const { error } = await supabase.rpc('save_user_ai_config', {
-          p_provider: provider,
-          p_model_id: modelId,
-          p_api_key: apiKey
-        });
-        if (error) throw error;
-        await get().fetchAIConfigs();
-      },
-
-      toggleAIConfig: async (configId: string, active: boolean) => {
-        const { user } = get();
-        if (!user) return;
-
-        // If activating, deactivate all others first (enforce single active custom config)
-        if (active) {
-          await supabase
-            .from('user_ai_configs')
-            .update({ is_active: false })
-            .eq('user_id', user.id);
-        }
-
-        const { error } = await supabase
-          .from('user_ai_configs')
-          .update({ is_active: active })
-          .eq('id', configId);
-        
-        if (error) throw error;
-        await get().fetchAIConfigs();
-      },
-
-      deleteAIConfig: async (configId: string) => {
-        const { error } = await supabase
-          .from('user_ai_configs')
-          .delete()
-          .eq('id', configId);
-        if (error) throw error;
-        await get().fetchAIConfigs();
-      },
-
-      fetchChangelog: async () => {
-        const { data, error } = await supabase
-          .from('app_changelog')
-          .select('*')
-          .eq('environment', 'production')
-          .order('created_at', { ascending: false });
-        
-        if (error) throw error;
-        set({ changelog: data || [] });
-      },
+  fetchChangelog: async () => {
+    const { data } = await supabase.from('changelog').select('*').order('created_at', { ascending: false });
+    set({ changelog: data || [] });
+  },
 }));

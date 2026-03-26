@@ -28,17 +28,38 @@ export function useNotifications() {
     });
 
     notificationListener.current = Notifications.addNotificationReceivedListener((notification: Notifications.Notification) => {
-      console.log('Notification Received:', notification);
+      console.log('INSTITUTIONAL_NOTIF_RECEIVED:', notification.request.content.title);
     });
 
     responseListener.current = Notifications.addNotificationResponseReceivedListener((response: Notifications.NotificationResponse) => {
-      console.log('Notification Tapped:', response);
-      // Handle deep linking here if needed
+      const { data } = response.notification.request.content;
+      const actionIdentifier = response.actionIdentifier;
+      
+      console.log('INSTITUTIONAL_NOTIF_ACTION:', { actionIdentifier, data });
+
+      // Handle Interactive Actions
+      if (actionIdentifier === 'APPROVE_REBALANCE' && data?.simulationId) {
+        supabase.from('simulations')
+          .update({ is_approved: true, approved_at: new Date().toISOString() })
+          .eq('id', data.simulationId)
+          .then(({ error }) => {
+            if (error) console.error('REMOTE_APPROVAL_ERROR:', error);
+          });
+      }
+
+      if (actionIdentifier === 'EXECUTE_HEDGE' && data?.portfolioId) {
+        // Navigate directly to hedging terminal or execute auto-hedge
+        // navigation.navigate('Sims', { screen: 'HedgingTerminal', params: { portfolioId: data.portfolioId } });
+      }
+
+      if (data?.type === 'SIMULATION_COMPLETE' && data?.portfolioId) {
+        // Deep link handling (existing logic)
+      }
     });
 
     return () => {
-      Notifications.removeNotificationSubscription(notificationListener.current);
-      Notifications.removeNotificationSubscription(responseListener.current);
+      if (notificationListener.current) Notifications.removeNotificationSubscription(notificationListener.current);
+      if (responseListener.current) Notifications.removeNotificationSubscription(responseListener.current);
     };
   }, [user]);
 }

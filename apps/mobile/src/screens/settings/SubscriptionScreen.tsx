@@ -24,7 +24,7 @@ import {
 } from 'lucide-react-native';
 import { BillingAddressModal, BillingAddress } from '../../components/ui/BillingAddressModal';
 import { Linking } from 'react-native';
-import { PromotionTicker } from '../../components/ui/PromotionTicker';
+// Removed PromotionTicker
 
 const { width } = Dimensions.get('window');
 
@@ -226,7 +226,7 @@ export function SubscriptionScreen({ navigation }: any) {
           <Typography variant="h1" style={[styles.title, { color: theme.textPrimary }]}>SUBSCRIPTIONS</Typography>
         </View>
 
-        <PromotionTicker />
+        {/* Removed PromotionTicker */}
 
         {subscriptionPlans.map((plan: any) => {
           const color = plan.id === 'plus' ? theme.secondary : plan.id === 'pro' ? theme.primary : '#8B5CF6';

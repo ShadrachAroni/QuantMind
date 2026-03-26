@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { Typography } from '../../components/ui/Typography';
 import { useAuthStore } from '../../store/authStore';
-import { usePortfolioStore } from '../../store/portfolioStore';
+import { usePortfolioStore, usePortfolios } from '../../store/portfolioStore';
 import { useSimulationStore } from '../../store/simulationStore';
 import { SubscriptionTier } from '@quantmind/shared-types';
 import { Settings2, Play, Cpu, Activity, Zap, Layers, ChevronLeft } from 'lucide-react-native';
@@ -26,7 +26,7 @@ const SIMULATION_MODELS = [
 
 export function SimulationScreen({ route, navigation }: any) {
   const { tier, powerShifts, usePowerShift, tierConfigs } = useAuthStore();
-  const { portfolios } = usePortfolioStore();
+  const portfolios = usePortfolios();
   const { runSimulation } = useSimulationStore();
   const { theme, isDark } = useTheme();
   const { showToast } = useToast();

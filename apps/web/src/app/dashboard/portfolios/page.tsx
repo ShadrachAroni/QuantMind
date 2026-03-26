@@ -9,8 +9,11 @@ import { cn } from '@/lib/utils';
 import { UpgradeModal } from '@/components/subscription/UpgradeModal';
 import { LimitBanner } from '@/components/subscription/LimitBanner';
 import { useUser } from '@/components/UserContext';
+import { useSyncStore } from '@/store/syncStore';
+import { Portfolio } from '@quantmind/shared-types';
 
 export default function PortfoliosPage() {
+  const { portfolios: rawPortfolios } = useSyncStore();
   const [portfolios, setPortfolios] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL_STATUS');
@@ -22,24 +25,17 @@ export default function PortfoliosPage() {
   const supabase = createClient();
 
   useEffect(() => {
-    const fetchPortfolios = async () => {
-      setIsLoading(true);
-      // Fetch portfolios
-      const { data: portfolioData } = await supabase
-        .from('portfolios')
-        .select('*')
-        .order('created_at', { ascending: false });
-
+    const fetchPrices = async () => {
       // Fetch latest prices for valuation
       const { data: priceData } = await supabase
         .from('prices')
         .select('symbol, price, open, timestamp')
         .order('timestamp', { ascending: false });
 
-      if (portfolioData && priceData) {
+      if (rawPortfolios && priceData) {
         // Deduplicate prices to keep only latest for each symbol
         const latestPrices = new Map<string, { price: number; open: number }>();
-        priceData.forEach(p => {
+        priceData.forEach((p: any) => {
            if (!latestPrices.has(p.symbol)) {
               latestPrices.set(p.symbol, { 
                  price: Number(p.price), 
@@ -51,15 +47,14 @@ export default function PortfoliosPage() {
         const priceMap = latestPrices;
 
         // Enhanced data with real stats from assets and prices
-        const enhanced = portfolioData.map(p => {
+        const enhanced = rawPortfolios.map(p => {
           const assets = Array.isArray(p.assets) ? p.assets : [];
           
-          // Calculate Real-time Total Value
           let totalValue = 0;
           let totalOpenValue = 0;
           
           assets.forEach((asset: any) => {
-             const market = priceMap.get(asset.symbol);
+             const market = priceMap.get(asset.ticker || asset.symbol);
              const price = market?.price || 0;
              const open = market?.open || price;
              const quantity = Number(asset.quantity || asset.amount || 0);
@@ -68,20 +63,16 @@ export default function PortfoliosPage() {
              totalOpenValue += quantity * open;
           });
 
-          // Fallback to notional if assets are empty (new portfolio)
-          const displayValue = totalValue || Number(p.notional_value || 0);
+          const displayValue = totalValue || Number((p as any).notional_value || 0);
           const displayOpenValue = totalOpenValue || displayValue;
           
-          // Calculate 24h Change based on aggregate asset movements
           const change24h = displayOpenValue > 0 
             ? Number(((displayValue - displayOpenValue) / displayOpenValue * 100).toFixed(2))
             : 0;
 
-          // Generate deterministic history sparkline based on current change and ID
           const history = Array.from({ length: 12 }, (_, i) => {
              const base = displayValue * 0.95;
              const variance = displayValue * 0.1;
-             // Use i and portfolio id for a stable-looking curve
              const noise = (Math.sin(i + p.id.charCodeAt(0)) + 1) / 2;
              return base + (variance * noise);
           });
@@ -92,37 +83,31 @@ export default function PortfoliosPage() {
             history,
             change_24h: change24h,
             asset_count: assets.length,
-            risk_profile: p.metadata?.risk_profile || 'MODERATE',
-            status: p.metadata?.strategy || p.status || 'DIVERSIFIED'
+            risk_profile: (p as any).metadata?.risk_profile || 'MODERATE',
+            status: (p as any).metadata?.strategy || (p as any).status || 'DIVERSIFIED'
           };
         });
         setPortfolios(enhanced);
+        setIsLoading(false);
+      } else if (rawPortfolios) {
+        setPortfolios(rawPortfolios);
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
-    fetchPortfolios();
-
-    // Section 14.1 Realtime sub
-    const portfolioChannel = supabase
-      .channel('registry-portfolios')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'portfolios' }, () => {
-        fetchPortfolios();
-      })
-      .subscribe();
+    fetchPrices();
 
     const priceChannel = supabase
       .channel('registry-prices')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'prices' }, () => {
-        fetchPortfolios();
+        fetchPrices();
       })
       .subscribe();
 
     return () => {
-      supabase.removeChannel(portfolioChannel);
       supabase.removeChannel(priceChannel);
     };
-  }, [supabase]);
+  }, [supabase, rawPortfolios]);
 
   const filtered = portfolios.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());

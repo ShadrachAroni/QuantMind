@@ -34,45 +34,37 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [unreadCount, setUnreadCount] = useState(0);
   const [systemStats, setSystemStats] = useState({ latency: 24, uptime: 99.98 });
+  const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
+  const [isTogglingMaintenance, setIsTogglingMaintenance] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [activeAlert, setActiveAlert] = useState<any>(null);
 
   useEffect(() => {
     setMounted(true);
+    fetchMaintenanceMode();
+    fetchUnreadCount();
+    fetchActiveAlert();
+    
     const interval = setInterval(() => {
       setSystemStats({
         latency: Math.floor(Math.random() * (32 - 18) + 18),
         uptime: 99.97 + (Math.random() * 0.02)
       });
     }, 5000);
-    return () => clearInterval(interval);
-  }, []);
 
-  // Close more menu on route change
-  useEffect(() => {
-    setIsMoreMenuOpen(false);
-  }, [pathname]);
+    const configChannel = supabase
+      .channel('app_config_maintenance')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'app_config', 
+        filter: "key=eq.maintenance_mode" 
+      }, fetchMaintenanceMode)
+      .subscribe();
 
-  useEffect(() => {
-    fetchNotifications();
-    
     const eventsChannel = supabase
       .channel('system_events_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'system_events' }, fetchNotifications)
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(eventsChannel);
-    };
-  }, []);
-
-  useEffect(() => {
-    fetchUnreadCount();
-    fetchActiveAlert();
-    
-    const eventsChannel = supabase
-      .channel('system_events_count')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'system_events' }, fetchUnreadCount)
       .subscribe();
 
     const alertsChannel = supabase
@@ -81,10 +73,58 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       .subscribe();
 
     return () => {
+      clearInterval(interval);
+      supabase.removeChannel(configChannel);
       supabase.removeChannel(eventsChannel);
       supabase.removeChannel(alertsChannel);
     };
   }, []);
+
+  const fetchMaintenanceMode = async () => {
+    const { data } = await supabase
+      .from('app_config')
+      .select('value')
+      .eq('key', 'maintenance_mode')
+      .single();
+    if (data) setIsMaintenanceMode(data.value === 'true');
+  };
+
+  const handleToggleMaintenance = async () => {
+    if (!user) return;
+    setIsTogglingMaintenance(true);
+    const newValue = !isMaintenanceMode;
+    
+    const { error } = await supabase
+      .from('app_config')
+      .update({ 
+        value: String(newValue), 
+        updated_at: new Date().toISOString() 
+      })
+      .eq('key', 'maintenance_mode');
+    
+    if (!error) {
+      await supabase.from('admin_audit_log').insert({
+        admin_user_id: user.id,
+        action_type: 'MAINTENANCE_MODE_TOGGLE',
+        target_resource: 'SYSTEM',
+        new_value: { enabled: newValue },
+        old_value: { enabled: isMaintenanceMode },
+        reason: newValue ? 'Manual maintenance triggered via dashboard' : 'Maintenance mode deactivated'
+      });
+      
+      logSystemEvent(
+        newValue ? 'CRITICAL: System entering maintenance mode' : 'NOTICE: System status restored to nominal',
+        newValue ? 'security' : 'upgrade'
+      );
+    }
+    
+    setIsTogglingMaintenance(false);
+  };
+
+  // Close more menu on route change
+  useEffect(() => {
+    setIsMoreMenuOpen(false);
+  }, [pathname]);
 
   const fetchUnreadCount = async () => {
     const { count } = await supabase
@@ -192,6 +232,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { href: '/admin/notifications', label: 'Alerts', icon: Bell },
     { href: '/admin/logs', label: 'Audit Logs', icon: Terminal },
     { href: '/admin/monitoring', label: 'Health', icon: Activity },
+    { href: '/admin/portfolios', label: 'Portfolios', icon: Wallet },
+    { href: '/admin/compliance', label: 'Compliance', icon: ShieldCheck },
     { href: '/admin/simulations', label: 'Simulations', icon: Zap },
     { href: '/admin/revenue', label: 'Revenue', icon: DollarSign },
     { href: '/admin/communications', label: 'Communications', icon: MessageSquare },
@@ -273,7 +315,29 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </Link>
         </div>
 
-        <div className="header-actions pointer-events-auto bg-[#15161c]/40 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/5">
+        <div className="header-actions pointer-events-auto bg-[#15161c]/40 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/5 flex items-center gap-3">
+            <button 
+              onClick={handleToggleMaintenance}
+              disabled={isTogglingMaintenance}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all duration-500 overflow-hidden relative group ${
+                isMaintenanceMode 
+                  ? 'bg-red-500/20 border-red-500/40 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]' 
+                  : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/20 hover:text-white'
+              }`}
+            >
+              <div className={`w-2 h-2 rounded-full ${isMaintenanceMode ? 'bg-red-500 animate-pulse' : 'bg-gray-600'}`} />
+              <span className="text-[10px] font-black uppercase tracking-widest px-1">
+                {isMaintenanceMode ? 'SYSTEM_OFFLINE' : 'DOWNTIME_CTRL'}
+              </span>
+              {isTogglingMaintenance && (
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                  <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                </div>
+              )}
+            </button>
+
+            <div className="w-[1px] h-6 bg-white/10 mx-1" />
+
             <button 
               className="icon-btn theme-toggle"
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}

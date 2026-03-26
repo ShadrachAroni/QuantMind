@@ -6,6 +6,8 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuthStore } from '../store/authStore';
 import { useTheme } from '../context/ThemeContext';
 import { TIER_ENTITLEMENTS, SubscriptionTier } from '@quantmind/shared-types';
+import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { useSyncStore } from '../store/syncStore';
 
 // Screens
 import { HomeScreen } from '../screens/main/HomeScreen';
@@ -19,6 +21,7 @@ import { AssetManagementScreen } from '../screens/portfolio/AssetManagementScree
 import { PortfolioDetailScreen } from '../screens/portfolio/PortfolioDetailScreen';
 import { SimulationScreen } from '../screens/simulation/SimulationScreen';
 import { SimulationResultsScreen } from '../screens/simulation/SimulationResultsScreen';
+import { BacktestScreen } from '../screens/simulation/BacktestScreen';
 import { AIChatScreen } from '../screens/ai/AIChatScreen';
 import { SettingsScreen } from '../screens/settings/SettingsScreen';
 import { PrivacyPolicyScreen } from '../screens/settings/PrivacyPolicyScreen';
@@ -35,10 +38,12 @@ import { CustomAIIntegrationsScreen } from '../screens/settings/CustomAIIntegrat
 import { ChangelogScreen } from '../screens/settings/ChangelogScreen';
 import { PasswordExpiredScreen } from '../screens/auth/PasswordExpiredScreen';
 import { SessionWarningModal } from '../components/auth/SessionWarningModal';
+import { MaintenanceScene } from '../screens/MaintenanceScene';
+import { OfflineScene } from '../screens/OfflineScene';
 
 // UI
 import { GlowEffect } from '../components/ui/GlowEffect';
-import { LayoutGrid, Briefcase, Play, Cpu, UserCircle, Lock } from 'lucide-react-native';
+import { LayoutGrid, Briefcase, Play, BarChart3, Cpu, UserCircle, Lock } from 'lucide-react-native';
 import { Typography } from '../components/ui/Typography';
 import { sharedTheme } from '../constants/theme';
 
@@ -161,6 +166,7 @@ function MainTabNavigator() {
           if (route.name === 'Home') Icon = LayoutGrid;
           else if (route.name === 'Portfolios') Icon = Briefcase;
           else if (route.name === 'Sims') Icon = Play;
+          else if (route.name === 'Backtest') Icon = BarChart3;
           else if (route.name === 'Oracle') Icon = Cpu;
           else if (route.name === 'Operator') Icon = UserCircle;
 
@@ -181,6 +187,9 @@ function MainTabNavigator() {
       <MainTab.Screen name="Home" component={HomeScreen} />
       <MainTab.Screen name="Portfolios" component={PortfolioNavigator} />
       <MainTab.Screen name="Sims" component={SimulationNavigator} />
+      <MainTab.Screen name="Backtest">
+        {(props) => <TierRestrictedScreen {...props} component={BacktestScreen} requirement="allow_backtest" />}
+      </MainTab.Screen>
       <MainTab.Screen name="Oracle" component={AINavigator} />
       <MainTab.Screen name="Operator" component={SettingsNavigator} />
     </MainTab.Navigator>
@@ -208,9 +217,10 @@ const linking = {
             path: 'sims',
             screens: {
               SimulationSetup: '',
-              SimulationResults: 'risk/:simulationId',
+              SimulationResults: 'risk/:portfolioId/:simulationId',
             },
           },
+          Backtest: 'backtest',
           Oracle: 'oracle',
           Operator: {
             path: 'operator',
@@ -227,11 +237,17 @@ const linking = {
 
 export default function AppNavigator() {
   const { user, lastActivityAt, recordActivity, checkSessionExpiry, isPasswordExpired } = useAuthStore();
+  const { isOnline } = useRealtimeSync(user?.id);
+  const { isMaintenanceMode } = useSyncStore();
   const { theme, isDark } = useTheme();
   const [showWarning, setShowWarning] = useState(false);
   const [timeUntilExpiry, setTimeUntilExpiry] = useState(0);
 
   const appState = useRef(AppState.currentState);
+
+  // Maintenance Check
+  const isUserAdmin = (user?.metadata as any)?.is_admin === true;
+  const showMaintenance = isMaintenanceMode && !isUserAdmin;
 
   // Constants for session logic
   const SESSION_TIMEOUT = 24 * 60 * 60 * 1000;
@@ -281,6 +297,14 @@ export default function AppNavigator() {
     await recordActivity();
     setShowWarning(false);
   };
+
+  if (!isOnline) {
+    return <OfflineScene />;
+  }
+
+  if (showMaintenance) {
+    return <MaintenanceScene />;
+  }
 
   return (
     <View style={{ flex: 1 }} {...panResponder.panHandlers}>

@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { globalAudioEngine } from '../../lib/audioEngine';
 import { HoloLoader } from './HoloLoader';
+import { LoadingOverlay } from './LoadingOverlay';
 
 interface LoadingContextType {
   isLoading: boolean;
@@ -101,9 +102,7 @@ export function LoadingProvider({ children }: { children: ReactNode }) {
   return (
     <LoadingContext.Provider value={{ isLoading, progress, phase, isMuted, startLoading, stopLoading, updateProgress, toggleMute }}>
       {children}
-      {isLoading && (
-        <HoloLoader progress={progress} phase={phase} isMuted={isMuted} onToggleMute={toggleMute} />
-      )}
+      <LoadingOverlay visible={isLoading} message={phase} />
     </LoadingContext.Provider>
   );
 }
