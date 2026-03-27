@@ -331,15 +331,6 @@ export default function HomePage() {
                   <Shield size={18} />
                   <span>Create Vault</span>
                 </Link>
-                <div className="btn-link-wrap">
-                  <button
-                    onClick={() => document.getElementById('engine')?.scrollIntoView({ behavior: 'smooth' })}
-                    className="btn-link"
-                  >
-                    <Play size={14} className="fill-current" />
-                    Watch Demo
-                  </button>
-                </div>
               </div>
             </div>
             <div className="hero-visual">
@@ -364,14 +355,18 @@ export default function HomePage() {
             ].map((stat, i) => (
               <div
                 key={i}
-                className={`stat-card glass-card tilt-card reveal slide-up delay-${i + 1}`}
+                className={`stat-card group glass-card tilt-card reveal slide-up delay-${i + 1}`}
                 onMouseMove={handleCardTilt}
                 onMouseLeave={resetCardTilt}
               >
                 <div className="stat-glow"></div>
-                <div className="stat-content">
-                  <span className="stat-value">{stat.val}</span>
-                  <span className="stat-label">{stat.label}</span>
+                <div className="stat-content text-center">
+                  <span className="block font-mono text-4xl md:text-5xl font-bold tracking-tighter text-white mb-2 transition-all duration-400 group-hover:text-cyan-400 group-hover:scale-110">
+                    {stat.val}
+                  </span>
+                  <span className="font-space text-xs md:text-sm uppercase tracking-[0.2em] text-[#848D97] font-bold transition-all duration-400 group-hover:text-white group-hover:tracking-[0.3em]">
+                    {stat.label}
+                  </span>
                 </div>
               </div>
             ))}
@@ -966,7 +961,7 @@ export default function HomePage() {
           transform: translateX(-50%);
           width: calc(100% - 48px);
           max-width: 1200px;
-          height: 72px;
+          height: 60px;
           z-index: 1000;
           background: rgba(8, 8, 16, 0.45) !important;
           backdrop-filter: blur(28px) saturate(180%);
@@ -1008,8 +1003,8 @@ export default function HomePage() {
         }
 
         :global(.brand-logo-container) {
-          width: 64px;
-          height: 64px;
+          width: 52px;
+          height: 52px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -1043,7 +1038,7 @@ export default function HomePage() {
           display: none;
           gap: 2.5rem; /* Massive improvement in spacing */
           background: rgba(255, 255, 255, 0.03);
-          padding: 0.6rem 2rem;
+          padding: 0.4rem 1.5rem;
           border-radius: 100px;
           border: 1px solid rgba(255, 255, 255, 0.08);
           transition: all 0.3s ease;
@@ -1094,7 +1089,7 @@ export default function HomePage() {
         }
 
         :global(.nav-cta) {
-          padding: 0.8rem 2.2rem;
+          padding: 0.6rem 1.8rem;
           background: #00F0FF !important; /* Force the cyan background */
           color: #080810 !important;
           border-radius: 100px;
@@ -1480,37 +1475,11 @@ export default function HomePage() {
           z-index: 1;
         }
 
-        .stat-value {
-          display: block;
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 3.5rem;
-          color: white;
-          font-weight: 700;
-          letter-spacing: -2px;
-          margin-bottom: 0.5rem;
-          text-shadow: 0 0 30px rgba(255, 255, 255, 0.1);
-          transition: all 0.4s;
-        }
+        /* Stats handled via globals.css */
 
-        .stat-card:hover .stat-value {
-          color: #00F0FF;
-          text-shadow: 0 0 30px rgba(0, 240, 255, 0.4);
-          transform: scale(1.1);
-        }
 
-        .stat-label {
-          font-family: 'Space Grotesk', sans-serif;
-          font-size: 0.75rem;
-          text-transform: uppercase;
-          letter-spacing: 0.3em;
-          color: #848D97;
-          font-weight: 700;
-        }
+        /* Stats handled via Tailwind group-hover */
 
-        .stat-card:hover .stat-label {
-          color: white;
-          letter-spacing: 0.4em;
-        }
 
         /* Features */
         .features-section {
@@ -1681,7 +1650,7 @@ export default function HomePage() {
           flex-direction: column;
         }
 
-        .stat-label {
+        .chart-overlay .stat-label {
           font-family: 'Space Grotesk', sans-serif;
           font-size: 0.6rem;
           font-weight: 800;
@@ -1690,7 +1659,7 @@ export default function HomePage() {
           text-transform: uppercase;
         }
 
-        .stat-value {
+        .chart-overlay .stat-value {
           font-family: 'JetBrains Mono', monospace;
           font-size: 0.75rem;
           font-weight: 500;
@@ -1860,7 +1829,7 @@ export default function HomePage() {
 
         .plan-name {
           font-family: 'Space Grotesk', sans-serif;
-          font-size: 0.875rem;
+          font-size: 1rem;
           text-transform: uppercase;
           letter-spacing: 0.25rem;
           color: #9090B8;
@@ -1890,7 +1859,7 @@ export default function HomePage() {
         .plan-tagline { 
           font-style: italic; 
           color: #9090B8; 
-          font-size: 0.8rem; 
+          font-size: 0.95rem; 
           margin-bottom: 2.5rem; 
           min-height: 3rem;
           display: flex;

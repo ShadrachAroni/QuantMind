@@ -1,8 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, SafeAreaView, Dimensions, StatusBar, Image } from 'react-native';
 import { Clock, Lock } from 'lucide-react-native';
-// @ts-ignore
-import LinearGradient from 'react-native-linear-gradient';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
 

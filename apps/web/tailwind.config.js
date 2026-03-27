@@ -15,8 +15,10 @@ module.exports = {
         },
       },
       fontFamily: {
-        mono: ['"JetBrains Mono"', "monospace"],
-        sans: ["Outfit", "sans-serif"],
+        mono: ['var(--font-mono)', "monospace"],
+        sans: ['var(--font-inter)', "sans-serif"],
+        space: ['var(--font-space)', "sans-serif"],
+        cormorant: ['var(--font-cormorant)', "serif"],
       },
       animation: {
         'pulse-glow': 'pulse-glow 4s ease-in-out infinite',

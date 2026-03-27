@@ -95,16 +95,10 @@ export function useRealtimeSync(userId: string | undefined) {
   }, [isOnline, processQueue]);
 
   useEffect(() => {
-    const handleOnline = () => setOnline(true);
-    const handleOffline = () => setOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
+    // Note: window.addEventListener is a web API and causes crashes in native environments.
+    // For now, we rely on the initial store state. In a real native environment, 
+    // @react-native-community/netinfo or expo-network should be used here.
+    setOnline(true);
   }, [setOnline]);
 
   useEffect(() => {

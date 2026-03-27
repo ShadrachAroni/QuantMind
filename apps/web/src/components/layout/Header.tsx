@@ -128,7 +128,7 @@ export function Header() {
   };
 
   return (
-    <header className="h-16 border-b border-white/5 bg-[#05070A]/50 backdrop-blur-md flex items-center justify-between px-4 md:px-8 sticky top-0 z-50">
+    <header className="h-14 border-b border-white/5 bg-[#05070A]/50 backdrop-blur-md flex items-center justify-between px-4 md:px-8 sticky top-0 z-50">
       <CommandPalette isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
       
       {/* Mobile Menu Toggle */}
