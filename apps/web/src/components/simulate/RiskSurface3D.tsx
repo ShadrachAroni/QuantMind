@@ -16,11 +16,12 @@ interface RiskSurface3DProps {
 export const RiskSurface3D: React.FC<RiskSurface3DProps> = ({ data }) => {
   const { median, upper95, lower95, upper99, lower99 } = data;
   
-  if (!median || median.length === 0) return null;
-
   // Downsample to make it faster/cleaner for 3D view
-  const step = Math.max(1, Math.floor(median.length / 40));
+  const step = Math.max(1, Math.floor((median?.length || 0) / 40));
+  
   const points = useMemo(() => {
+    if (!median || median.length === 0) return [];
+    
     const p = [];
     for (let i = 0; i < median.length; i += step) {
       p.push({
@@ -45,7 +46,9 @@ export const RiskSurface3D: React.FC<RiskSurface3DProps> = ({ data }) => {
       });
     }
     return p;
-  }, [data, step]);
+  }, [data, step, median, upper95, lower95, upper99, lower99]);
+
+  if (!median || median.length === 0) return null;
 
   const initialValue = median[0];
   const maxVal = Math.max(...upper99) * 1.1;

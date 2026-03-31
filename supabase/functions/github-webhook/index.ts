@@ -23,7 +23,13 @@ async function verifySignature(payload: string, signature: string, secret: strin
   const hashArray = Array.from(new Uint8Array(signatureBuffer));
   const hex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   
-  return hex === receivedHash.toLowerCase();
+  const isValid = hex === receivedHash.toLowerCase();
+  
+  if (!isValid) {
+    console.error(`[GITHUB_SIG_FAIL] Computed: ${hex.substring(0, 8)}..., Received: ${receivedHash.substring(0, 8)}...`);
+  }
+  
+  return isValid;
 }
 
 serve(async (req: Request) => {

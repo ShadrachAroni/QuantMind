@@ -11,12 +11,9 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
-    "test": "turbo run test",
-    "postinstall": "node -e \"const fs = require('fs'); const path = require('path'); const codegenPath = path.join('node_modules', 'ajv', 'dist', 'compile', 'codegen.js'); if (fs.existsSync(path.dirname(codegenPath)) && !fs.existsSync(codegenPath)) { fs.writeFileSync(codegenPath, 'module.exports = require(\\\"./codegen/index.js\\\");'); console.log('✅ Created ajv codegen shim'); }\""
+    "test": "turbo run test"
   },
   "devDependencies": {
-    "ajv": "^8.18.0",
-    "ajv-keywords": "^5.1.0",
     "babel-plugin-module-resolver": "^5.0.3",
     "chalk": "^4.1.2",
     "fs-extra": "^11.1.1",
@@ -26,12 +23,13 @@
     "turbo": "latest"
   },
   "overrides": {
+    "@eslint/eslintrc": {
+      "ajv": "^6.12.6"
+    },
     "fast-xml-parser": "^5.0.0",
     "glob": "^11.0.0",
     "minimatch": "^9.0.7",
     "d3-color": "^3.1.0",
-    "ajv": "^8.18.0",
-    "ajv-keywords": "^5.1.0",
     "next": "^15.1.0",
     "picomatch": "^4.0.4",
     "react": "19.1.0",

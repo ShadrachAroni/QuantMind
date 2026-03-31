@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import httpx
 import zlib
 import os
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict
 from app.models.simulation import Asset, RiskMetrics, SimulationJob
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://qvqczzyghhgzaesiwtkj.supabase.co")
