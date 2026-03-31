@@ -6,9 +6,10 @@ async function verifySignature(payload: string, signature: string, secret: strin
   
   const receivedHash = signature.substring(7); // Remove 'sha256='
   const enc = new TextEncoder();
+  const trimmedSecret = secret.trim();
   const key = await crypto.subtle.importKey(
     'raw', 
-    enc.encode(secret), 
+    enc.encode(trimmedSecret), 
     { name: 'HMAC', hash: 'SHA-256' }, 
     false, 
     ['sign', 'verify']
@@ -44,9 +45,11 @@ serve(async (req: Request) => {
     }
 
     if (!secret) {
-       console.error('[GITHUB_WEBHOOK] GITHUB_WEBHOOK_SECRET not configured');
+       console.error('[GITHUB_WEBHOOK] QUANTMIND_GH_SECRET not configured in Supabase');
        return new Response('Config missing', { status: 500 });
     }
+
+    console.log(`[GITHUB_WEBHOOK] Received ${eventType} event. Secret length: ${secret.length}. Fragment: ${secret.substring(0, 4)}...`);
 
     const payloadText = await req.text();
     const isValid = await verifySignature(payloadText, signature, secret);
