@@ -2,6 +2,7 @@ import React from 'react';
 import { Text, TextProps, StyleSheet } from 'react-native';
 import { sharedTheme } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
+import { useResponsive } from '../../hooks/useResponsive';
 
 interface TypographyProps extends TextProps {
   variant?: 'h0' | 'h1' | 'h2' | 'h3' | 'h4' | 'body' | 'bodyBold' | 'caption' | 'button' | 'mono' | 'monoBold' | 'label';
@@ -29,6 +30,9 @@ const FALLBACK_SIZES = {
 
 export function Typography({ variant = 'body', color, style, children, ...props }: TypographyProps) {
   const { theme } = useTheme();
+  const { scaleFactor } = useResponsive();
+
+  const getFontSize = (size: number) => Math.round(size * scaleFactor);
 
   const getColor = (colorName: string) => {
     if (!theme) return colorName;
@@ -71,75 +75,75 @@ export function Typography({ variant = 'body', color, style, children, ...props 
   const dynamicStyles = StyleSheet.create({
     h0: {
       fontFamily: getFont('bold'),
-      fontSize: sizes?.xxxl || 40,
+      fontSize: getFontSize(sizes?.xxxl || 40),
       fontWeight: '700',
       color: theme?.textPrimary || theme?.colors?.textPrimary || '#FFFFFF',
       letterSpacing: -1,
     },
     h1: {
       fontFamily: getFont('bold'),
-      fontSize: sizes?.xxl || 32,
+      fontSize: getFontSize(sizes?.xxl || 32),
       fontWeight: '700',
       color: theme?.textPrimary || theme?.colors?.textPrimary || '#FFFFFF',
       letterSpacing: -0.5,
     },
     h2: {
       fontFamily: getFont('bold'),
-      fontSize: sizes?.xl || 24,
+      fontSize: getFontSize(sizes?.xl || 24),
       fontWeight: '600',
       color: theme?.textPrimary || theme?.colors?.textPrimary || '#FFFFFF',
     },
     h3: {
       fontFamily: getFont('semiBold'),
-      fontSize: sizes?.lg || 18,
+      fontSize: getFontSize(sizes?.lg || 18),
       fontWeight: '600',
       color: theme?.textPrimary || theme?.colors?.textPrimary || '#FFFFFF',
     },
     h4: {
       fontFamily: getFont('semiBold'),
-      fontSize: sizes?.md || 14,
+      fontSize: getFontSize(sizes?.md || 14),
       fontWeight: '600',
       color: theme?.textPrimary || theme?.colors?.textPrimary || '#FFFFFF',
     },
     body: {
       fontFamily: getFont('regular'),
-      fontSize: sizes?.md || 14,
+      fontSize: getFontSize(sizes?.md || 14),
       color: theme?.textPrimary || theme?.colors?.textPrimary || '#FFFFFF',
-      lineHeight: 20,
+      lineHeight: getFontSize(20),
     },
     bodyBold: {
       fontFamily: getFont('bold'),
-      fontSize: sizes?.md || 14,
+      fontSize: getFontSize(sizes?.md || 14),
       fontWeight: '700',
       color: theme?.textPrimary || theme?.colors?.textPrimary || '#FFFFFF',
-      lineHeight: 20,
+      lineHeight: getFontSize(20),
     },
     caption: {
       fontFamily: getFont('regular'),
-      fontSize: sizes?.sm || 12,
+      fontSize: getFontSize(sizes?.sm || 12),
       color: theme?.textSecondary || theme?.colors?.textSecondary || '#848D97',
     },
     button: {
       fontFamily: getFont('semiBold'),
-      fontSize: sizes?.md || 14,
+      fontSize: getFontSize(sizes?.md || 14),
       fontWeight: '600',
       color: theme?.textPrimary || theme?.colors?.textPrimary || '#FFFFFF',
       textTransform: 'uppercase',
     },
     mono: {
       fontFamily: getFont('mono'),
-      fontSize: sizes?.sm || 12,
+      fontSize: getFontSize(sizes?.sm || 12),
       color: theme?.textPrimary || theme?.colors?.textPrimary || '#FFFFFF',
     },
     monoBold: {
       fontFamily: getFont('mono'),
-      fontSize: sizes?.sm || 12,
+      fontSize: getFontSize(sizes?.sm || 12),
       fontWeight: '700',
       color: theme?.textPrimary || theme?.colors?.textPrimary || '#FFFFFF',
     },
     label: {
       fontFamily: getFont('medium'),
-      fontSize: sizes?.xs || 10,
+      fontSize: getFontSize(sizes?.xs || 10),
       color: theme?.textSecondary || theme?.colors?.textSecondary || '#848D97',
       textTransform: 'uppercase',
       letterSpacing: 1,

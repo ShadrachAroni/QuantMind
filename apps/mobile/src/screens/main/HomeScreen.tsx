@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Dimensions, Modal } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, RefreshControl, Modal } from 'react-native';
 import { Typography } from '../../components/ui/Typography';
 import { sharedTheme } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
@@ -11,10 +11,10 @@ import { GlassCard } from '../../components/ui/GlassCard';
 import { GlowEffect } from '../../components/ui/GlowEffect';
 import { useToast } from '../../context/ToastContext';
 import { STRINGS } from '../../constants/strings';
+import { useResponsive } from '../../hooks/useResponsive';
 import { BiometricEnrollmentModal } from '../../components/auth/BiometricEnrollmentModal';
 import { TermsConsentModal } from '../../components/auth/TermsConsentModal';
 import { TrialRewardModal } from '../../components/rewards/TrialRewardModal';
-// Removed PromotionTicker
 import { MarketStatus } from '../../components/dashboard/MarketStatus';
 import { InsightFeed, Insight } from '../../components/dashboard/InsightFeed';
 import { supabase } from '../../services/supabase';
@@ -38,11 +38,10 @@ import {
 } from 'lucide-react-native';
 import { TIER_ENTITLEMENTS } from '@quantmind/shared-types';
 
-const { width } = Dimensions.get('window');
-
 export function HomeScreen({ navigation }: any) {
   const { user, tier } = useAuthStore();
   const { theme, isDark } = useTheme();
+  const { width, breakpoint, isTablet, isLandscape } = useResponsive();
   const { fetchPortfolios, isLoading } = usePortfolioStore();
   const portfolios = usePortfolios();
   const { result, currentStatus } = useSimulationStore();
@@ -58,7 +57,6 @@ export function HomeScreen({ navigation }: any) {
     if (!user) return;
     const allInsights: Insight[] = [];
 
-    // Fetch Simulations
     const { data: sims } = await supabase
       .from('simulations')
       .select('id, status, result, created_at')
@@ -80,7 +78,6 @@ export function HomeScreen({ navigation }: any) {
       }));
     }
 
-    // Fetch Portfolios
     const { data: portData } = await supabase
       .from('portfolios')
       .select('id, name, total_value, created_at')
@@ -121,11 +118,10 @@ export function HomeScreen({ navigation }: any) {
   const riskScore = result?.metrics?.var_95 ? Math.round(result.metrics.var_95 * 100) : 0;
   
   const operatorName = user?.email?.split('@')[0].toUpperCase() || 'OPERATOR';
-  const dynamicStyles = getStyles(theme, isDark);
+  const dynamicStyles = getStyles(theme, isDark, width, breakpoint);
 
   return (
     <View style={[dynamicStyles.container, { backgroundColor: theme.background }]}>
-      {/* Removed PromotionTicker */}
       <ScrollView 
         contentContainerStyle={dynamicStyles.scroll}
         showsVerticalScrollIndicator={false}
@@ -229,6 +225,7 @@ export function HomeScreen({ navigation }: any) {
             Icon={TrendingUp}
             color={theme.primary}
             onPress={() => navigation.navigate('Portfolios', { screen: 'AssetManagement' })}
+            width={dynamicStyles.moduleWidth}
           />
           <ModuleItem 
             title="VAULT"
@@ -236,6 +233,7 @@ export function HomeScreen({ navigation }: any) {
             Icon={Shield}
             color={theme.textSecondary}
             onPress={() => navigation.navigate('Portfolios', { screen: 'PortfolioList' })}
+            width={dynamicStyles.moduleWidth}
           />
           <ModuleItem 
             title="STRAT"
@@ -243,6 +241,7 @@ export function HomeScreen({ navigation }: any) {
             Icon={Layers}
             color={theme.secondary}
             onPress={() => navigation.navigate('Portfolios', { screen: 'PortfolioBuilder' })}
+            width={dynamicStyles.moduleWidth}
           />
           <ModuleItem 
             title="MODEL"
@@ -250,6 +249,7 @@ export function HomeScreen({ navigation }: any) {
             Icon={BarChart3}
             color="#F59E0B"
             onPress={() => navigation.navigate('Simulations', { screen: 'SimulationSetup' })}
+            width={dynamicStyles.moduleWidth}
           />
           <ModuleItem 
             title="ORACLE"
@@ -258,6 +258,7 @@ export function HomeScreen({ navigation }: any) {
             color="#10B981"
             onPress={() => navigation.navigate('AI', { screen: 'AIChatMain' })}
             locked={tier === 'free'}
+            width={dynamicStyles.moduleWidth}
           />
         </View>
 
@@ -308,13 +309,13 @@ export function HomeScreen({ navigation }: any) {
   );
 }
 
-function ModuleItem({ title, sub, Icon, color, onPress, locked }: any) {
+function ModuleItem({ title, sub, Icon, color, onPress, locked, width }: any) {
   const { theme } = useTheme();
   const { showToast } = useToast();
 
   return (
     <TouchableOpacity 
-      style={styles.moduleItem}
+      style={[styles.moduleItem, { width }]}
       onPress={locked ? () => showToast('ACCESS_RESTRICTED: Upgrade required.', 'error') : onPress}
     >
       <GlassCard intensity="low" style={styles.moduleCard}>
@@ -328,95 +329,107 @@ function ModuleItem({ title, sub, Icon, color, onPress, locked }: any) {
   );
 }
 
-const getStyles = (theme: any, isDark: boolean) => StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scroll: {
-    padding: 20,
-    paddingTop: 10,
-  },
-  headerSection: {
-    marginBottom: 24,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 20,
-  },
-  mainTitle: {
-    fontSize: 28,
-    fontWeight: '900',
-    letterSpacing: -1,
-    lineHeight: 32,
-  },
-  subtitle: {
-    fontSize: 10,
-    color: '#848D97',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    marginTop: 4,
-  },
-  initBtn: {
-    backgroundColor: '#FFF',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  initBtnText: {
-    fontSize: 10,
-    letterSpacing: 1,
-  },
-  summaryCard: {
-    padding: 24,
-    borderRadius: 24,
-    marginBottom: 24,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    paddingHorizontal: 4,
-  },
-  sectionTitle: {
-    fontSize: 10,
-    color: '#848D97',
-    letterSpacing: 2,
-  },
-  insightsCard: {
-    padding: 16,
-    borderRadius: 20,
-    marginBottom: 24,
-  },
-  expandBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: 16,
-    paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)',
-  },
-  expandText: {
-    fontSize: 9,
-    color: '#848D97',
-    letterSpacing: 1,
-  },
-  moduleGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 24,
-  },
-  container2: { // unused but placeholder
-  }
-});
+const getStyles = (theme: any, isDark: boolean, width: number, breakpoint: string) => {
+  const isLarge = breakpoint === 'lg' || breakpoint === 'xl';
+  const numColumns = isLarge ? 4 : (breakpoint === 'md' ? 3 : 2);
+  const gap = 10;
+  const padding = 20;
+  const moduleWidth = (width - (padding * 2) - (gap * (numColumns - 1))) / numColumns;
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    scroll: {
+      padding: padding,
+      paddingTop: 10,
+    },
+    headerSection: {
+      marginBottom: 24,
+    },
+    titleRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: 20,
+    },
+    mainTitle: {
+      fontSize: isLarge ? 36 : 28,
+      fontWeight: '900',
+      letterSpacing: -1,
+      lineHeight: isLarge ? 40 : 32,
+    },
+    subtitle: {
+      fontSize: 10,
+      color: '#848D97',
+      textTransform: 'uppercase',
+      letterSpacing: 1,
+      marginTop: 4,
+    },
+    initBtn: {
+      backgroundColor: '#FFF',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+      paddingVertical: 12,
+      borderRadius: 12,
+      maxWidth: isLarge ? 300 : '100%',
+    },
+    initBtnText: {
+      fontSize: 10,
+      letterSpacing: 1,
+    },
+    summaryCard: {
+      padding: 24,
+      borderRadius: 24,
+      marginBottom: 24,
+    },
+    sectionHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 16,
+      paddingHorizontal: 4,
+    },
+    sectionTitle: {
+      fontSize: 10,
+      color: '#848D97',
+      letterSpacing: 2,
+    },
+    insightsCard: {
+      padding: 16,
+      borderRadius: 20,
+      marginBottom: 24,
+    },
+    expandBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      marginTop: 16,
+      paddingTop: 16,
+      borderTopWidth: 1,
+      borderTopColor: 'rgba(255,255,255,0.05)',
+    },
+    expandText: {
+      fontSize: 9,
+      color: '#848D97',
+      letterSpacing: 1,
+    },
+    moduleGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: gap,
+      marginBottom: 24,
+    },
+  });
+
+  return {
+    ...styles,
+    moduleWidth,
+  };
+};
 
 const styles = StyleSheet.create({
   statusRow: {
@@ -486,7 +499,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   moduleItem: {
-    width: (width - 40 - 10) / 2, // 2 columns by default
+    marginBottom: 10,
   },
   moduleCard: {
     padding: 16,
@@ -561,4 +574,3 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   }
 });
-

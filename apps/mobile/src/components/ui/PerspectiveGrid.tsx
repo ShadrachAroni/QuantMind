@@ -1,8 +1,10 @@
 import React from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
 import Svg, { Line, Defs, LinearGradient, Stop } from 'react-native-svg';
+import { useResponsive } from '../../hooks/useResponsive';
+import { usePerformance } from '../../context/PerformanceContext';
 
-const { width, height } = Dimensions.get('window');
+
 
 interface PerspectiveGridProps {
   color?: string;
@@ -11,8 +13,12 @@ interface PerspectiveGridProps {
 
 export const PerspectiveGrid: React.FC<PerspectiveGridProps> = ({ 
   color = 'rgba(0, 240, 255, 0.15)', 
-  spacing = 50 
+  spacing: initialSpacing = 50 
 }) => {
+  const { width, height } = useResponsive();
+  const { isLowEnd } = usePerformance();
+  
+  const spacing = isLowEnd ? initialSpacing * 1.5 : initialSpacing;
   const horizontalLines = Math.ceil(height / spacing) + 10;
   const verticalLines = Math.ceil(width / spacing) + 10;
 
@@ -73,10 +79,10 @@ const styles = StyleSheet.create({
   },
   gridWrapper: {
     position: 'absolute',
-    top: -height * 0.5,
-    left: -width * 0.5,
-    width: width * 2,
-    height: height * 2,
+    top: '-25%',
+    left: '-25%',
+    width: '150%',
+    height: '150%',
     transform: [
       { perspective: 1000 },
       { rotateX: '65deg' },

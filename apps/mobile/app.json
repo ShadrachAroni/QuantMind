@@ -3,7 +3,7 @@
         "name": "Quantmind",
         "slug": "quantmind",
         "version": "1.0.0",
-        "orientation": "portrait",
+        "orientation": "default",
         "icon": "./assets/icon.png",
         "scheme": "quantmind",
         "userInterfaceStyle": "dark",
@@ -36,6 +36,7 @@
             }
         },
         "android": {
+            "supportsTablet": true,
             "userInterfaceStyle": "dark",
             "adaptiveIcon": {
                 "foregroundImage": "./assets/adaptive-icon.png",

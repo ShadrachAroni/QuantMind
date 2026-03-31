@@ -8,6 +8,8 @@ import { useTheme } from '../context/ThemeContext';
 import { TIER_ENTITLEMENTS, SubscriptionTier } from '@quantmind/shared-types';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { useSyncStore } from '../store/syncStore';
+import { useResponsive } from '../hooks/useResponsive';
+import { usePerformance } from '../context/PerformanceContext';
 
 // Screens
 import { HomeScreen } from '../screens/main/HomeScreen';
@@ -140,6 +142,10 @@ function SettingsNavigator() {
 
 function MainTabNavigator() {
   const { theme, isDark } = useTheme();
+  const { isTablet, isLandscape, width, scaleFactor } = useResponsive();
+  const { enableGlows } = usePerformance();
+
+  const isSideRail = isTablet || (isLandscape && width > 600);
 
   return (
     <MainTab.Navigator
@@ -147,15 +153,19 @@ function MainTabNavigator() {
         headerShown: false,
         tabBarStyle: {
           backgroundColor: theme.background,
-          borderTopWidth: 1,
+          borderTopWidth: isSideRail ? 0 : 1,
           borderTopColor: theme.border,
-          height: Platform.OS === 'ios' ? 88 : 68,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 10,
+          borderRightWidth: isSideRail ? 1 : 0,
+          borderRightColor: theme.border,
+          height: isSideRail ? '100%' : (Platform.OS === 'ios' ? 88 : 68),
+          width: isSideRail ? 80 : '100%',
+          paddingBottom: isSideRail ? 20 : (Platform.OS === 'ios' ? 28 : 10),
           paddingTop: 10,
           position: 'absolute',
           bottom: 0,
           left: 0,
-          right: 0,
+          right: isSideRail ? undefined : 0,
+          flexDirection: isSideRail ? 'column' : 'row',
           elevation: 0,
         },
         tabBarActiveTintColor: theme.primary,
@@ -179,7 +189,7 @@ function MainTabNavigator() {
           const IconComp = Icon as any;
           return (
             <View style={styles.iconContainer}>
-              {focused && (
+              {focused && enableGlows && (
                 <View style={styles.activeGlow}>
                   <GlowEffect color={color} size={32} glowRadius={15} />
                 </View>

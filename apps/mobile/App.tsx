@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Platform, Appearance, TouchableOpacity, Text } from 'react-native';
+import { View, StyleSheet, Platform, Appearance, TouchableOpacity, Text, useWindowDimensions } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -13,18 +13,16 @@ import { SplashScreen as CustomSplashScreen } from './src/screens/Splash';
 import { terminalDebugger } from './src/utils/terminalDebugger';
 import { GlobalErrorBoundary } from './src/components/debug/GlobalErrorBoundary';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
+import { PerformanceProvider } from './src/context/PerformanceContext';
 import { ToastProvider } from './src/context/ToastContext';
 import { DraggableDebugFAB } from './src/components/debug/DraggableDebugFAB';
 import { useNotifications } from './src/hooks/useNotifications';
 import { voiceService } from './src/services/voiceService';
 import { initGlobalHandlers } from './src/utils/globalDebugger';
-import { Dimensions } from 'react-native';
 import * as Linking from 'expo-linking';
 import * as Font from 'expo-font';
 import Animated, { useSharedValue, withTiming, Easing, runOnJS, useAnimatedStyle } from 'react-native-reanimated';
 import { CookieConsent } from './src/components/common/CookieConsent';
-
-const { height } = Dimensions.get('window');
 
 // Initialize Global Error Handlers immediately
 initGlobalHandlers();
@@ -56,6 +54,7 @@ const queryClient = new QueryClient({
 import { validateTheme } from './src/constants/theme';
 
 function AppContent() {
+  const { width, height } = useWindowDimensions();
   const { theme, isDark, themeType } = useTheme();
   const { initialize, isLoading, initialized } = useAuthStore();
   const { notificationsEnabled } = useNotifications();
@@ -143,9 +142,11 @@ export default function App() {
         >
           <GlobalErrorBoundary>
             <ThemeProvider>
-              <ToastProvider>
-                <AppContent />
-              </ToastProvider>
+              <PerformanceProvider>
+                <ToastProvider>
+                  <AppContent />
+                </ToastProvider>
+              </PerformanceProvider>
             </ThemeProvider>
           </GlobalErrorBoundary>
         </PersistQueryClientProvider>

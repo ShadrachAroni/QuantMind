@@ -30,10 +30,10 @@ def optimize_portfolio(assets: List[Asset], params: OptimizationParams) -> Dict[
         # Simple MVO: Maximize (w'r - 0.5 * gamma * w'Cov w)
         # weight = (1/gamma) * inv(Cov) * r
         # We'll use a simpler approach: Equal Risk Contribution or a fixed risk aversion for this demo
-        gamma = 2.0 / (params.risk_tolerance or 0.5) # Risk aversion
+        gamma = 2.0 / (params.risk_tolerance or 0.5)  # Risk aversion
         
         try:
-            inv_cov = np.linalg.inv(cov + np.eye(n) * 1e-6) # Regularization
+            inv_cov = np.linalg.inv(cov + np.eye(n) * 1e-6)  # Regularization
             weights = (1/gamma) * inv_cov @ returns
             
             # Normalize and apply constraints

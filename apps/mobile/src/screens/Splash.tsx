@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, StyleSheet, Dimensions } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -30,7 +30,8 @@ import Animated, {
   SharedValue,
 } from 'react-native-reanimated';
 
-const { width, height } = Dimensions.get('window');
+import { useResponsive } from '../hooks/useResponsive';
+import { usePerformance } from '../context/PerformanceContext';
 
 // Constants for the 4-second sequence
 const SPIN_DURATION = 1500;
@@ -131,6 +132,9 @@ const Character = ({ char, index, total, shimmerProgress }: { char: string, inde
 };
 
 export const SplashScreen = ({ onAnimationComplete }: SplashScreenProps) => {
+  const { width, height, isLandscape } = useResponsive();
+  const { isLowEnd, particleCount, enableGlows } = usePerformance();
+  
   const rotation = useSharedValue(0);
   const logoScale = useSharedValue(0);
   const rippleRadius = useSharedValue(0);
@@ -140,13 +144,13 @@ export const SplashScreen = ({ onAnimationComplete }: SplashScreenProps) => {
 
   // Starfield logic
   const stars = useMemo(() => {
-    return Array.from({ length: 80 }).map(() => ({
+    return Array.from({ length: particleCount }).map(() => ({
       x: Math.random() * width,
       y: Math.random() * height,
       size: Math.random() * 1.5 + 0.5,
       phase: Math.random() * Math.PI * 2,
     }));
-  }, []);
+  }, [width, height, particleCount]);
 
   const starOpacity = useSharedValue(0.3);
   const driftX = useSharedValue(0);
@@ -245,7 +249,7 @@ export const SplashScreen = ({ onAnimationComplete }: SplashScreenProps) => {
       <Canvas style={StyleSheet.absoluteFill}>
         <Fill color="transparent" />
         <Group transform={driftTransform}>
-          {stars.map((star, i) => (
+          {stars.map((star: any, i: number) => (
             <Circle
               key={i}
               cx={star.x}
@@ -254,7 +258,7 @@ export const SplashScreen = ({ onAnimationComplete }: SplashScreenProps) => {
               color="white"
               opacity={starOpacity}
             >
-              <BlurMask blur={1} style="normal" />
+              {enableGlows && <BlurMask blur={1} style="normal" />}
             </Circle>
           ))}
         </Group>
@@ -268,7 +272,7 @@ export const SplashScreen = ({ onAnimationComplete }: SplashScreenProps) => {
             opacity={rippleOpacity}
             color="#00F5FF"
           >
-            <BlurMask blur={10} style="normal" />
+            {enableGlows && <BlurMask blur={10} style="normal" />}
           </Circle>
         </Group>
       </Canvas>

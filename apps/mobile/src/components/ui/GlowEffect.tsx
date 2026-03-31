@@ -9,6 +9,7 @@ import Animated, {
   Easing
 } from 'react-native-reanimated';
 import { useTheme } from '../../context/ThemeContext';
+import { usePerformance } from '../../context/PerformanceContext';
 
 interface GlowEffectProps {
   children?: React.ReactNode;
@@ -32,12 +33,13 @@ export function GlowEffect({
   opacity: initialOpacity = 0.4
 }: GlowEffectProps) {
   const { theme } = useTheme();
+  const { isLowEnd, enableGlows } = usePerformance();
   const activeColor = color || theme.primary;
   const opacity = useSharedValue(initialOpacity);
   const scale = useSharedValue(1);
 
   useEffect(() => {
-    if (type === 'pulse') {
+    if (type === 'pulse' && !isLowEnd) {
       opacity.value = withRepeat(
         withSequence(
           withTiming(0.8, { duration: duration / 2, easing: Easing.inOut(Easing.ease) }),
@@ -59,6 +61,8 @@ export function GlowEffect({
   }, [type, duration]);
 
   const animatedStyle = useAnimatedStyle(() => {
+    if (!enableGlows) return { display: 'none' };
+
     const style: any = {
       opacity: opacity.value,
       transform: [{ scale: scale.value }],
