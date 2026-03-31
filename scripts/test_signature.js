@@ -65,9 +65,14 @@ const payload = {
 // Since the user provided a JSON representation, we will try to Stringify it, but this often fails 
 // if whitespace or key density is different than what GitHub sent.
 
-const RAW_PAYLOAD_STRING = JSON.stringify(payload); // This is likely NOT the raw string GitHub sent
-const SECRET = "7yP2vR9nK5m8W4xL3Qj1f0Z6bA9cN7dX";
-const GITHUB_SIG_HEADER = "sha256=94593e3ea2869888a800b6f40b0707ec3cb6d1306e2223b417e9d6dd2ab01dfb";
+const RAW_PAYLOAD_STRING = process.env.PAYLOAD_STRING || JSON.stringify(payload); 
+const SECRET = process.env.QUANTMIND_GH_SECRET; 
+const GITHUB_SIG_HEADER = process.env.GITHUB_SIG_HEADER || "sha256=94593e3ea2869888a800b6f40b0707ec3cb6d1306e2223b417e9d6dd2ab01dfb";
+
+if (!SECRET) {
+  console.error("❌ Error: QUANTMIND_GH_SECRET environment variable is not set.");
+  process.exit(1);
+}
 
 function calculateSignature(payloadStr, secret) {
   return "sha256=" + crypto.createHmac('sha256', secret).update(payloadStr).digest('hex');
