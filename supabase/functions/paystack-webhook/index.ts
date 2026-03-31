@@ -20,7 +20,11 @@ async function verifySignature(payload: string, signature: string, secret: strin
   const hashArray = Array.from(new Uint8Array(signatureBuffer));
   const hex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   
-  return hex === signature;
+  const isValid = hex === signature.toLowerCase();
+  if (!isValid) {
+    console.error(`[Webhook_Signature_Error] Hash mismatch. Computed: ${hex}, Received: ${signature}`);
+  }
+  return isValid;
 }
 
 serve(async (req: Request) => {
@@ -28,8 +32,14 @@ serve(async (req: Request) => {
     const signature = req.headers.get('x-paystack-signature');
     const secret = Deno.env.get('PAYSTACK_SECRET_KEY');
 
-    if (!signature || !secret) {
-      return new Response('Missing signature or secret', { status: 400 });
+    if (!signature) {
+      console.error('[Webhook_Error] Missing x-paystack-signature header');
+      return new Response('Missing signature', { status: 400 });
+    }
+
+    if (!secret) {
+      console.error('[Webhook_Error] PAYSTACK_SECRET_KEY not set in Supabase environment');
+      return new Response('Configuration missing', { status: 400 });
     }
 
     const payloadText = await req.text();
@@ -39,7 +49,13 @@ serve(async (req: Request) => {
       return new Response('Invalid signature', { status: 400 });
     }
 
-    const event = JSON.parse(payloadText);
+    let event;
+    try {
+      event = JSON.parse(payloadText);
+    } catch (e) {
+      console.error('[Webhook_Error] Malformed JSON payload:', e);
+      return new Response('Malformed JSON', { status: 400 });
+    }
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
