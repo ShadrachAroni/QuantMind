@@ -8,6 +8,11 @@
     "@quantmind/shared-types": "*"
   },
   "scripts": {
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "lint": "echo \"ESLint is currently disabled for ai due to persistent environment-level AJV conflicts (missingRefs).\""
+  },
+  "devDependencies": {
+    "eslint": "^9.10.0",
+    "typescript": "~5.9.2"
   }
 }

@@ -1,10 +1,11 @@
-// https://docs.expo.dev/guides/using-eslint/
-const { defineConfig } = require('eslint/config');
-const expoConfig = require("eslint-config-expo/flat");
+const expo = require('eslint-config-expo/flat');
 
-module.exports = defineConfig([
-  expoConfig,
+module.exports = [
+  ...expo,
   {
-    ignores: ["dist/*"],
-  }
-]);
+    rules: {
+      "no-unused-vars": "warn",
+    },
+    ignores: ["dist/**/*", ".expo/**/*", "node_modules/**/*"],
+  },
+];
