@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "lib": [
       "dom",
@@ -27,6 +28,7 @@
         "./src/*"
       ]
     },
+    "types": ["node"],
     "target": "ES2017"
   },
   "include": [

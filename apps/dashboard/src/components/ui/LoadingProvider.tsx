@@ -24,8 +24,8 @@ export function LoadingProvider({ children }: { children: ReactNode }) {
   const [phase, setPhase] = useState('INITIALIZING_SYSTEMS...');
   const [isMuted, setIsMuted] = useState(true); // Start muted by default to respect autoplay limits
 
-  const timerRef = useRef<NodeJS.Timeout>();
-  const progressIntervalRef = useRef<NodeJS.Timeout>();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(null as any);
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval>>(null as any);
 
   const toggleMute = () => {
     const nextMuted = !isMuted;

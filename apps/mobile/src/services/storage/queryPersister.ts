@@ -10,11 +10,11 @@ export const queryPersister: Persister = {
     storage.set('react-query-cache', JSON.stringify(client));
   },
   restoreClient: async () => {
-    const cache = storage.getString('react-query-cache');
+    const cache = await storage.getItemAsync('react-query-cache');
     if (!cache) return undefined;
     return JSON.parse(cache) as PersistedClient;
   },
   removeClient: async () => {
-    storage.remove('react-query-cache');
+    storage.delete('react-query-cache');
   },
 };

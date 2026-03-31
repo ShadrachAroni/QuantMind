@@ -89,9 +89,12 @@ export interface SimulationResult {
     user_id: string;
     portfolio_id: string;
     params: SimulationParams;
+    status: 'pending' | 'running' | 'completed' | 'failed';
     metrics: RiskMetrics;
     percentile_paths: PercentilePaths;
     terminal_values?: number[];
+    error_message?: string;
+    duration_ms?: number;
     created_at: string;
     is_cached?: boolean;
     cached_from?: string;
