@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet, ViewStyle, StyleProp } from 'react-native';
+import { View, StyleSheet, ViewStyle, StyleProp, Platform } from 'react-native';
 import Animated, { 
   useSharedValue, 
   useAnimatedStyle, 
@@ -58,13 +58,22 @@ export function GlowEffect({
     }
   }, [type, duration]);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ scale: scale.value }],
-    shadowColor: activeColor,
-    shadowRadius: glowRadius,
-    backgroundColor: activeColor,
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    const style: any = {
+      opacity: opacity.value,
+      transform: [{ scale: scale.value }],
+      backgroundColor: activeColor,
+    };
+
+    if (Platform.OS === 'web') {
+      style.boxShadow = `0 0 ${glowRadius}px ${activeColor}`;
+    } else {
+      style.shadowColor = activeColor;
+      style.shadowRadius = glowRadius;
+    }
+
+    return style;
+  });
 
   return (
     <View style={[styles.container, style]}>
@@ -85,8 +94,13 @@ const styles = StyleSheet.create({
   },
   glow: {
     position: 'absolute',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 1,
-    elevation: 10,
+    ...Platform.select({
+      web: {},
+      default: {
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 1,
+        elevation: 10,
+      }
+    }),
   },
 });

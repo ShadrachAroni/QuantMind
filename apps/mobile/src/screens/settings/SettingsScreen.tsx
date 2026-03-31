@@ -3,6 +3,7 @@ import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Dimensions, Moda
 import { useNavigation } from '@react-navigation/native';
 import { Typography } from '../../components/ui/Typography';
 import { useAuthStore } from '../../store/authStore';
+import { useTranslation } from '../../lib/i18n';
 import { TIER_ENTITLEMENTS, SubscriptionTier } from '@quantmind/shared-types';
 import { 
   LogOut, 
@@ -47,6 +48,7 @@ export function SettingsScreen() {
   const { theme, themeType, setThemeType, isDark } = useTheme();
   const { showToast } = useToast();
   const navigation = useNavigation<any>();
+  const t = useTranslation(interfaceLanguage);
 
   const [selModal, setSelModal] = React.useState<{ visible: boolean, type: 'lang' | 'region' }>({ visible: false, type: 'lang' });
   
@@ -64,11 +66,11 @@ export function SettingsScreen() {
 
   const handleSignOut = async () => {
     Alert.alert(
-      'TERMINATE_SESSION',
-      'Are you sure you want to de-authenticate from the terminal?',
+      t('TERMINATE_SESSION'),
+      t('Log_Out_Confirm'),
       [
-        { text: 'CANCEL', style: 'cancel' },
-        { text: 'TERMINATE', onPress: signOut, style: 'destructive' }
+        { text: t('CANCEL'), style: 'cancel' },
+        { text: t('TERMINATE'), onPress: signOut, style: 'destructive' }
       ]
     );
   };
@@ -140,8 +142,8 @@ export function SettingsScreen() {
     <View style={[dynamicStyles.container, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={dynamicStyles.scroll} showsVerticalScrollIndicator={false}>
         <View style={dynamicStyles.header}>
-          <Typography variant="mono" style={[dynamicStyles.subHeader, { color: theme.textTertiary }]}>USER_MANAGEMENT_STATION</Typography>
-          <Typography variant="h2" style={[dynamicStyles.title, { color: theme.textPrimary }]}>PREFERENCES</Typography>
+          <Typography variant="mono" style={[dynamicStyles.subHeader, { color: theme.textTertiary }]}>{t('USER_MANAGEMENT_STATION')}</Typography>
+          <Typography variant="h2" style={[dynamicStyles.title, { color: theme.textPrimary }]}>{t('PREFERENCES')}</Typography>
         </View>
         
         <GlassCard intensity="high" style={dynamicStyles.profileCard}>
@@ -156,71 +158,82 @@ export function SettingsScreen() {
               <Typography variant="monoBold" style={[dynamicStyles.emailText, { color: theme.textPrimary }]}>{user?.email?.toUpperCase()}</Typography>
               <View style={[dynamicStyles.tierBadge, { backgroundColor: isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)' }]}>
                 <CpuIcon size={10} color={theme.primary} />
-                <Typography variant="mono" style={[dynamicStyles.tierText, { color: theme.primary }]}>OPERATOR_LEVEL: {tier.toUpperCase()}</Typography>
+                <Typography variant="mono" style={[dynamicStyles.tierText, { color: theme.primary }]}>{t('CURRENT_LEVEL', { level: tier.toUpperCase() })}</Typography>
               </View>
             </View>
           </View>
           
           <View style={[dynamicStyles.systemStats, { borderTopColor: theme.border }]}>
             <View style={dynamicStyles.statItem}>
-              <Typography variant="mono" style={[dynamicStyles.statLabel, { color: theme.textTertiary }]}>SESSION_STATUS</Typography>
+              <Typography variant="mono" style={[dynamicStyles.statLabel, { color: theme.textTertiary }]}>{t('SESSION_STATUS')}</Typography>
               <View style={dynamicStyles.statusBadge}>
                 <GlowEffect color={theme.primary} size={4} glowRadius={4} />
-                <Typography variant="mono" style={[dynamicStyles.statusText, { color: theme.primary }]}>ACTIVE</Typography>
+                <Typography variant="mono" style={[dynamicStyles.statusText, { color: theme.primary }]}>{t('ACTIVE')}</Typography>
               </View>
             </View>
             <View style={[dynamicStyles.statDivider, { backgroundColor: theme.border }]} />
             <View style={dynamicStyles.statItem}>
-              <Typography variant="mono" style={[dynamicStyles.statLabel, { color: theme.textTertiary }]}>UPTIME_SEC</Typography>
+              <Typography variant="mono" style={[dynamicStyles.statLabel, { color: theme.textTertiary }]}>{t('UPTIME_SEC')}</Typography>
               <Typography variant="mono" style={[dynamicStyles.statValue, { color: theme.textSecondary }]}>12,492.3</Typography>
             </View>
           </View>
         </GlassCard>
 
-        <Typography variant="mono" style={[dynamicStyles.sectionHeader, { color: theme.textSecondary }]}>// TERMINAL_INTERFACE</Typography>
+        <Typography variant="mono" style={[dynamicStyles.sectionHeader, { color: theme.textSecondary }]}>// {t('TERMINAL_INTERFACE')}</Typography>
         <GlassCard style={dynamicStyles.section}>
           <View style={dynamicStyles.themeGrid}>
-            <ThemeOption type="dark" label="DARK_DEFAULT" color="#00D4FF" />
-            <ThemeOption type="light" label="LIGHT_MINIMAL" color="#2563EB" />
-            <ThemeOption type="binance" label="BINANCE_TERMINAL" color="#FCD535" />
-            <ThemeOption type="terminal" label="CYBER_MATRIX" color="#00FF41" />
+            <ThemeOption type="dark" label={t('DARK_DEFAULT')} color="#00D4FF" />
+            <ThemeOption type="light" label={t('LIGHT_MINIMAL')} color="#2563EB" />
+            <ThemeOption type="binance" label={t('BINANCE_TERMINAL')} color="#FCD535" />
+            <ThemeOption type="terminal" label={t('CYBER_MATRIX')} color="#00FF41" />
           </View>
         </GlassCard>
 
-        <Typography variant="mono" style={[dynamicStyles.sectionHeader, { color: theme.textSecondary }]}>// TERMINAL_LOCALIZATION</Typography>
+        <Typography variant="mono" style={[dynamicStyles.sectionHeader, { color: theme.textSecondary }]}>// {t('TERMINAL_LOCALIZATION')}</Typography>
         <GlassCard style={dynamicStyles.section}>
           <SettingRow 
             icon={GlobeIcon} 
-            title="Interface Language" 
-            subtitle={interfaceLanguage === 'ENGLISH_INTL' ? 'ENGLISH (INTERNATIONAL)' : 'DEUTSCH (EUROPA)'} 
+            title={t('Interface_Language')} 
+            subtitle={
+              interfaceLanguage === 'ENGLISH_INTL' ? t('ENGLISH_INTERNATIONAL') : 
+              interfaceLanguage === 'DEUTSCH_EU' ? t('GERMAN_EUROPE') :
+              interfaceLanguage === 'FRENCH_EU' ? t('FRENCH_EUROPE') : t('SPANISH_EUROPE')
+            } 
             onPress={() => setSelModal({ visible: true, type: 'lang' })}
           />
           <SettingRow 
             icon={MapPinIcon} 
-            title="Computing Region" 
-            subtitle={region === 'US_EAST_NY' ? 'US_EAST (NEW_YORK)' : region === 'EU_WEST_LDN' ? 'EU_WEST (LONDON)' : 'AF_WEST (LAGOS)'} 
+            title={t('Computing_Region')} 
+            subtitle={region === 'US_EAST_NY' ? t('REGION_US') : region === 'EU_WEST_LDN' ? t('REGION_EU') : t('REGION_AF')} 
             onPress={() => setSelModal({ visible: true, type: 'region' })}
           />
         </GlassCard>
 
-        <Typography variant="mono" style={[dynamicStyles.sectionHeader, { color: theme.textSecondary }]}>// BILLING_&_CLEARANCE</Typography>
+        <Typography variant="mono" style={[dynamicStyles.sectionHeader, { color: theme.textSecondary }]}>// {t('BILLING_CLEARANCE')}</Typography>
         <GlassCard style={dynamicStyles.section}>
           <SettingRow 
             icon={Activity} 
-            title="Subscription" 
+            title={t('Subscription')} 
             subtitle={`Current Level: ${tier.toUpperCase()}`} 
             onPress={() => navigation.navigate('Subscription')}
             color={tier === 'free' ? theme.textTertiary : theme.primary}
           />
+          <SettingRow 
+            icon={History} 
+            title={t('Billing_History')} 
+            subtitle={t('BILLING_HISTORY_SUB')} 
+            onPress={() => navigation.navigate('BillingHistory')}
+            color={theme.primary}
+          />
         </GlassCard>
 
-        <Typography variant="mono" style={[dynamicStyles.sectionHeader, { color: theme.textSecondary }]}>// SECURITY_&_ENCRYPTION</Typography>
+        <Typography variant="mono" style={[dynamicStyles.sectionHeader, { color: theme.textSecondary }]}>// {t('SECURITY_ENCRYPTION')}</Typography>
         <GlassCard style={dynamicStyles.section}>
           {isBiometricSupported && (
             <SettingToggle 
               icon={FingerprintIcon} 
-              title={biometricType === BiometricType.FACE_ID ? 'Face ID Access' : 'Biometric Access'}
-              subtitle={isBiometricEnabled ? 'ENABLED_SECURE_LAYER' : 'DISABLED_FALLBACK_ONLY'}
+              title={biometricType === BiometricType.FACE_ID ? t('FACE_ID_ACCESS') : t('BIOMETRIC_ACCESS')}
+              subtitle={isBiometricEnabled ? t('ENABLED_SECURE_LAYER') : t('DISABLED_FALLBACK_ONLY')}
               value={isBiometricEnabled}
               onValueChange={async (val: boolean) => {
                 if (val) {
@@ -235,79 +248,79 @@ export function SettingsScreen() {
           )}
           <SettingRow 
             icon={Shield} 
-            title="Multi-Factor Auth" 
-            subtitle={!entitlements.allow_advanced_models && tier === 'free' ? 'ACCESS_DENIED (PLUS_ONLY)' : 'TOTP_CONFIGURATION'} 
-            onPress={() => !entitlements.allow_advanced_models && tier === 'free' ? showToast('ACCESS_RESTRICTED: Upgrade required for MFA.', 'error') : navigation.navigate('MFA')}
+            title={t('MFA_TITLE')} 
+            subtitle={!entitlements.allow_advanced_models && tier === 'free' ? t('ACCESS_DENIED_PLUS') : t('TOTP_CONFIGURATION')} 
+            onPress={() => !entitlements.allow_advanced_models && tier === 'free' ? showToast(t('MFA_UPGRADE_REQUIRED'), 'error') : navigation.navigate('MFA')}
             color={!entitlements.allow_advanced_models && tier === 'free' ? theme.textTertiary : theme.primary}
           />
           <SettingRow 
             icon={Key} 
-            title="Active Keys" 
-            subtitle="View and rotate session keys" 
+            title={t('ACTIVE_KEYS')} 
+            subtitle={t('ACTIVE_KEYS_SUB')} 
             onPress={() => navigation.navigate('ActiveSessions')}
           />
           <SettingRow 
             icon={Lock} 
-            title="Rotate Passphrase" 
-            subtitle="Update security credentials" 
+            title={t('ROTATE_PASSPHRASE')} 
+            subtitle={t('ROTATE_PASSPHRASE_SUB')} 
             onPress={() => navigation.navigate('ChangePassword')}
           />
           <SettingRow 
             icon={FileText} 
-            title="Methodology" 
-            subtitle="Risk model whitepaper" 
+            title={t('METHODOLOGY')} 
+            subtitle={t('METHODOLOGY_SUB')} 
             onPress={() => navigation.navigate('ModelMethodology')}
           />
-          <SettingRow icon={Bell} title="Alert Hub" subtitle="Real-time notification routing" />
+          <SettingRow icon={Bell} title={t('ALERT_HUB')} subtitle={t('ALERT_HUB_SUB')} />
         </GlassCard>
 
-        <Typography variant="mono" style={[dynamicStyles.sectionHeader, { color: theme.textSecondary }]}>// AI_KERNEL_CONFIG</Typography>
+        <Typography variant="mono" style={[dynamicStyles.sectionHeader, { color: theme.textSecondary }]}>// {t('AI_KERNEL_CONFIG')}</Typography>
         <GlassCard style={dynamicStyles.section}>
           <SettingRow
             icon={!entitlements.allow_ai_tuning ? Lock : BrainCircuit}
-            title="AI Preferences"
-            subtitle={!entitlements.allow_ai_tuning ? 'ACCESS_DENIED (PLUS_ONLY)' : `PERSONA: ${aiPersona.replace('_', ' ')}`}
-            onPress={() => !entitlements.allow_ai_tuning ? showToast('ACCESS_RESTRICTED: Upgrade required for AI tuning.', 'error') : navigation.navigate('AIPreferences')}
+            title={t('AI_PREFERENCES')}
+            subtitle={!entitlements.allow_ai_tuning ? t('ACCESS_DENIED_PLUS') : t('AI_PERSONA_LABEL', { persona: aiPersona.replace('_', ' ') })}
+            onPress={() => !entitlements.allow_ai_tuning ? showToast(t('AI_TUNING_UPGRADE_REQUIRED'), 'error') : navigation.navigate('AIPreferences')}
             color={!entitlements.allow_ai_tuning ? theme.textTertiary : theme.secondary}
           />
           <SettingRow
             icon={!entitlements.allow_ai_tuning ? Lock : Shield}
-            title="Custom AI Models"
-            subtitle={!entitlements.allow_ai_tuning ? 'ACCESS_DENIED (PLUS_ONLY)' : 'Connect your own API keys'}
-            onPress={() => !entitlements.allow_ai_tuning ? showToast('ACCESS_RESTRICTED: Upgrade required for custom AI.', 'error') : navigation.navigate('CustomAIIntegrations')}
+            title={t('CUSTOM_AI_MODELS')}
+            subtitle={!entitlements.allow_ai_tuning ? t('ACCESS_DENIED_PLUS') : t('CUSTOM_AI_MODELS_SUB')}
+            onPress={() => !entitlements.allow_ai_tuning ? showToast(t('CUSTOM_AI_UPGRADE_REQUIRED'), 'error') : navigation.navigate('CustomAIIntegrations')}
             color={!entitlements.allow_ai_tuning ? theme.textTertiary : theme.primary}
           />
         </GlassCard>
 
-        <Typography variant="mono" style={[dynamicStyles.sectionHeader, { color: theme.textSecondary }]}>// DATA_STORAGE_&_RULES</Typography>
+        <Typography variant="mono" style={[dynamicStyles.sectionHeader, { color: theme.textSecondary }]}>// {t('DATA_STORAGE_RULES')}</Typography>
         <GlassCard style={dynamicStyles.section}>
           <SettingRow 
             icon={Database} 
-            title="Data Extraction" 
-            subtitle="Portfolio export (JSON/CSV)" 
+            title={t('DATA_EXTRACTION')} 
+            subtitle={t('DATA_EXTRACTION_SUB')} 
             onPress={() => navigation.navigate('DataManagement')}
           />
           <SettingRow 
             icon={FileText} 
-            title="Policy Docs" 
-            subtitle="Terms and privacy compliance" 
+            title={t('POLICY_DOCS')} 
+            subtitle={t('POLICY_DOCS_SUB')} 
             onPress={() => navigation.navigate('PrivacyPolicy')}
           />
         </GlassCard>
 
-        <Typography variant="mono" style={[dynamicStyles.sectionHeader, { color: theme.textSecondary }]}>// EXTERNAL_LINKS</Typography>
+        <Typography variant="mono" style={[dynamicStyles.sectionHeader, { color: theme.textSecondary }]}>// {t('EXTERNAL_LINKS')}</Typography>
         <GlassCard style={dynamicStyles.section}>
           <SettingRow 
             icon={LifeBuoy} 
-            title="Support Bridge" 
-            subtitle="Open channel to QuantMind HQ" 
+            title={t('SUPPORT_BRIDGE')} 
+            subtitle={t('SUPPORT_BRIDGE_SUB')} 
             onPress={() => navigation.navigate('Support')}
             color="#10B981"
           />
           <SettingRow 
             icon={History} 
-            title="What's New" 
-            subtitle="View system update logs" 
+            title={t('WHATS_NEW')} 
+            subtitle={t('WHATS_NEW_SUB')} 
             onPress={() => navigation.navigate('Changelog')}
             color={theme.primary}
           />
@@ -319,7 +332,7 @@ export function SettingsScreen() {
         >
           <View style={dynamicStyles.logoutContent}>
             <LogOutIcon size={18} color={theme.error} />
-            <Typography variant="monoBold" style={[dynamicStyles.logoutText, { color: theme.error }]}>KILL_SESSION</Typography>
+            <Typography variant="monoBold" style={[dynamicStyles.logoutText, { color: theme.error }]}>{t('KILL_SESSION')}</Typography>
           </View>
         </TouchableOpacity>
 
@@ -343,7 +356,7 @@ export function SettingsScreen() {
         >
           <GlassCard intensity="high" style={dynamicStyles.modalContent}>
             <Typography variant="monoBold" style={[dynamicStyles.modalTitle, { color: theme.textPrimary }]}>
-              {selModal.type === 'lang' ? 'SELECT_INTERFACE_LANGUAGE' : 'SELECT_COMPUTING_REGION'}
+              {selModal.type === 'lang' ? t('SELECT_INTERFACE_LANGUAGE') : t('SELECT_COMPUTING_REGION')}
             </Typography>
             
             {selModal.type === 'lang' ? (
@@ -353,7 +366,7 @@ export function SettingsScreen() {
                   onPress={async () => {
                     await updateInterfaceLanguage('ENGLISH_INTL');
                     setSelModal({ ...selModal, visible: false });
-                    showToast('LANGUAGE_UPDATED', 'success');
+                    showToast(t('LANGUAGE_UPDATED'), 'success');
                   }}
                 >
                   <Typography variant="mono" style={{ color: interfaceLanguage === 'ENGLISH_INTL' ? theme.primary : theme.textSecondary }}>
@@ -365,11 +378,35 @@ export function SettingsScreen() {
                   onPress={async () => {
                     await updateInterfaceLanguage('DEUTSCH_EU');
                     setSelModal({ ...selModal, visible: false });
-                    showToast('LANGUAGE_UPDATED', 'success');
+                    showToast(t('LANGUAGE_UPDATED'), 'success');
                   }}
                 >
                   <Typography variant="mono" style={{ color: interfaceLanguage === 'DEUTSCH_EU' ? theme.primary : theme.textSecondary }}>
                     DEUTSCH_EU {interfaceLanguage === 'DEUTSCH_EU' && '// ACTIVE'}
+                  </Typography>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={dynamicStyles.modalOption} 
+                  onPress={async () => {
+                    await updateInterfaceLanguage('FRENCH_EU');
+                    setSelModal({ ...selModal, visible: false });
+                    showToast(t('LANGUAGE_UPDATED'), 'success');
+                  }}
+                >
+                  <Typography variant="mono" style={{ color: interfaceLanguage === 'FRENCH_EU' ? theme.primary : theme.textSecondary }}>
+                    FRENCH_EU {interfaceLanguage === 'FRENCH_EU' && '// ACTIVE'}
+                  </Typography>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={dynamicStyles.modalOption} 
+                  onPress={async () => {
+                    await updateInterfaceLanguage('ESPANOL_EU');
+                    setSelModal({ ...selModal, visible: false });
+                    showToast(t('LANGUAGE_UPDATED'), 'success');
+                  }}
+                >
+                  <Typography variant="mono" style={{ color: interfaceLanguage === 'ESPANOL_EU' ? theme.primary : theme.textSecondary }}>
+                    ESPANOL_EU {interfaceLanguage === 'ESPANOL_EU' && '// ACTIVE'}
                   </Typography>
                 </TouchableOpacity>
               </>
@@ -380,7 +417,7 @@ export function SettingsScreen() {
                   onPress={async () => {
                     await updateRegion('US_EAST_NY');
                     setSelModal({ ...selModal, visible: false });
-                    showToast('REGION_UPDATED', 'success');
+                    showToast(t('REGION_UPDATED'), 'success');
                   }}
                 >
                   <Typography variant="mono" style={{ color: region === 'US_EAST_NY' ? theme.primary : theme.textSecondary }}>
@@ -392,7 +429,7 @@ export function SettingsScreen() {
                   onPress={async () => {
                     await updateRegion('EU_WEST_LDN');
                     setSelModal({ ...selModal, visible: false });
-                    showToast('REGION_UPDATED', 'success');
+                    showToast(t('REGION_UPDATED'), 'success');
                   }}
                 >
                   <Typography variant="mono" style={{ color: region === 'EU_WEST_LDN' ? theme.primary : theme.textSecondary }}>
@@ -404,7 +441,7 @@ export function SettingsScreen() {
                   onPress={async () => {
                     await updateRegion('AF_WEST_LOS');
                     setSelModal({ ...selModal, visible: false });
-                    showToast('REGION_UPDATED', 'success');
+                    showToast(t('REGION_UPDATED'), 'success');
                   }}
                 >
                   <Typography variant="mono" style={{ color: region === 'AF_WEST_LOS' ? theme.primary : theme.textSecondary }}>
@@ -418,7 +455,7 @@ export function SettingsScreen() {
               style={[dynamicStyles.closeModalBtn, { borderColor: theme.border }]}
               onPress={() => setSelModal({ ...selModal, visible: false })}
             >
-              <Typography variant="mono" style={{ color: theme.textTertiary }}>CLOSE</Typography>
+              <Typography variant="mono" style={{ color: theme.textTertiary }}>{t('CANCEL')}</Typography>
             </TouchableOpacity>
           </GlassCard>
         </Pressable>

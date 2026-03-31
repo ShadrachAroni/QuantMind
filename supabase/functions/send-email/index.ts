@@ -7,7 +7,8 @@ import {
   getQuantMindSubscriptionTemplate, 
   getQuantMindPasswordReminderTemplate, 
   getQuantMindOTPTemplate,
-  getQuantMindTemplate
+  getQuantMindTemplate,
+  getQuantMindReceiptTemplate
 } from '../_shared/email.ts';
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
@@ -56,6 +57,9 @@ serve(async (req: Request) => {
         "Node Access Expired"
       );
       finalSubject = subject || `[TERM_ALERT] Node Subscription Token Expired - Reverted to Standard`;
+    } else if (type === 'payment_receipt') {
+      html = getQuantMindReceiptTemplate(details);
+      finalSubject = subject || `[RECEIPT] QuantMind Terminal Allocation: ${details.reference}`;
     } else {
       // Fallback/Generic
       html = getQuantMindTemplate(

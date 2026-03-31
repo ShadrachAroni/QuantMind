@@ -1,18 +1,46 @@
-import React, { useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, Platform, Appearance, TouchableOpacity, Text } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { queryPersister } from './src/services/storage/queryPersister';
 import AppNavigator from './src/navigation/AppNavigator';
 import { useAuthStore } from './src/store/authStore';
 import { theme } from './src/constants/theme';
-import { LoadingOverlay } from './src/components/ui/LoadingOverlay';
-import { ThemeProvider } from './src/context/ThemeContext';
+import { SplashScreen as CustomSplashScreen } from './src/screens/Splash';
+import { terminalDebugger } from './src/utils/terminalDebugger';
+import { GlobalErrorBoundary } from './src/components/debug/GlobalErrorBoundary';
+import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { ToastProvider } from './src/context/ToastContext';
+import { DraggableDebugFAB } from './src/components/debug/DraggableDebugFAB';
 import { useNotifications } from './src/hooks/useNotifications';
 import { voiceService } from './src/services/voiceService';
+import { initGlobalHandlers } from './src/utils/globalDebugger';
+import { Dimensions } from 'react-native';
 import * as Linking from 'expo-linking';
+import * as Font from 'expo-font';
+import Animated, { useSharedValue, withTiming, Easing, runOnJS, useAnimatedStyle } from 'react-native-reanimated';
+import { CookieConsent } from './src/components/common/CookieConsent';
+
+const { height } = Dimensions.get('window');
+
+// Initialize Global Error Handlers immediately
+initGlobalHandlers();
+
+import * as SplashScreen from 'expo-splash-screen';
+
+// Diagnostic: Log system color scheme during splash phase
+const colorScheme = Appearance.getColorScheme();
+console.log(`🚀 [APPEARANCE_DEBUG] Detected system theme: ${colorScheme?.toUpperCase() || 'UNKNOWN'}`);
+
+// Keep the splash screen visible while we fetch resources
+SplashScreen.preventAutoHideAsync().then(() => {
+  console.log('✅ [SPLASH_DEBUG] preventAutoHideAsync success');
+}).catch((err) => {
+  console.warn('⚠️  [SPLASH_DEBUG] preventAutoHideAsync failed:', err);
+});
 
 // Create QueryClient instance
 const queryClient = new QueryClient({
@@ -20,49 +48,107 @@ const queryClient = new QueryClient({
     queries: {
       retry: 2,
       staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 1000 * 60 * 60 * 24 * 7, // 1 week retention
     },
   },
 });
 
+import { validateTheme } from './src/constants/theme';
+
 function AppContent() {
+  const { theme, isDark, themeType } = useTheme();
   const { initialize, isLoading, initialized } = useAuthStore();
-  useNotifications();
+  const { notificationsEnabled } = useNotifications();
+  const splashTranslateY = useSharedValue(0);
+  const [isAnimationFinished, setIsAnimationFinished] = useState(false);
+  const [splashMounted, setSplashMounted] = useState(true);
 
   useEffect(() => {
-    initialize();
-    voiceService.registerShortcuts();
-
-    const subscription = Linking.addEventListener('url', (event) => {
-      voiceService.handleVoiceIntent(event.url);
-    });
-
-    return () => subscription.remove();
+    async function prepare() {
+      try {
+        await SplashScreen.hideAsync();
+        await initialize();
+        await voiceService.registerShortcuts();
+      } catch (e) {
+        terminalDebugger.logError('APP_PREPARE_FAILURE', e);
+      }
+    }
+    prepare();
   }, [initialize]);
 
-  if (!initialized || isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <StatusBar style="light" />
-        <LoadingOverlay visible={true} message="Initializing secure session..." />
-      </View>
-    );
-  }
+  // Handle the transition when BOTH initialization and animation are done
+  useEffect(() => {
+    if (initialized && isAnimationFinished) {
+      splashTranslateY.value = withTiming(height, {
+        duration: 1000,
+        easing: Easing.inOut(Easing.quad),
+      }, (finished) => {
+        if (finished) {
+          runOnJS(setSplashMounted)(false);
+        }
+      });
+    }
+  }, [initialized, isAnimationFinished]);
 
-  return <AppNavigator />;
+  const handleSplashComplete = () => {
+    setIsAnimationFinished(true);
+  };
+
+  const animatedSplashStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: splashTranslateY.value }],
+  }));
+
+  return (
+    <View style={{ flex: 1 }}>
+      <StatusBar style="light" translucent={true} />
+      
+      {/* Real app content remains rendered behind splash for zero delay */}
+      {initialized && <AppNavigator />}
+
+      {/* Futuristic Splash Overlay */}
+      {splashMounted && (
+        <Animated.View style={[StyleSheet.absoluteFill, styles.splashOverlay, animatedSplashStyle]}>
+          <CustomSplashScreen onAnimationComplete={handleSplashComplete} />
+        </Animated.View>
+      )}
+
+      {/* Web-only Cookie Consent */}
+      <CookieConsent />
+    </View>
+  );
 }
 
 export default function App() {
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      import('@shopify/react-native-skia/lib/module/web').then(({ LoadSkiaWeb }) => {
+        LoadSkiaWeb().then(() => {
+          console.log('[Skia] Graphics engine initialized for web');
+        }).catch(err => {
+          console.error('[Skia] Failed to initialize for web:', err);
+        });
+      });
+    }
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
-          <ThemeProvider>
-            <ToastProvider>
-              <StatusBar style="light" />
-              <AppContent />
-            </ToastProvider>
-          </ThemeProvider>
-        </QueryClientProvider>
+        <PersistQueryClientProvider 
+          client={queryClient} 
+          persistOptions={{ 
+            persister: queryPersister,
+            maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days
+          }}
+        >
+          <GlobalErrorBoundary>
+            <ThemeProvider>
+              <ToastProvider>
+                <AppContent />
+              </ToastProvider>
+            </ThemeProvider>
+          </GlobalErrorBoundary>
+        </PersistQueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
@@ -71,6 +157,11 @@ export default function App() {
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
-    backgroundColor: theme.colors.background,
+  },
+  splashOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9998,
+    elevation: 9998,
+    backgroundColor: '#060B1A',
   },
 });

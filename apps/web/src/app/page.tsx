@@ -474,9 +474,9 @@ export default function HomePage() {
             <div className="pricing-grid">
               {[
                 { name: 'Free — Explorer', price: '$0', kesPrice: 'KES 0', tagline: '"Wow, this is eye-opening."', features: ['2 Institutional Portfolios', '2,000 Simulation Paths', 'Basic Risk Metrics'], btn: 'Get Started' },
-                { name: 'Plus — Investor', price: isYearly ? '$99' : '$9.99', kesPrice: isYearly ? 'KES 14,850' : 'KES 1,499', tagline: '"Invest smarter. institutional data for all."', features: ['Unlimited Portfolios', '10,000 Sim Paths', 'Diversification Score', 'Standard AI Access'], btn: 'Upgrade' },
-                { name: 'Quantmind Pro', price: isYearly ? '$229' : '$24.99', kesPrice: isYearly ? 'KES 34,350' : 'KES 3,749', tagline: '"A serious serious tool for the heavy hitters."', features: ['Unlimited Portfolios', '10,000+ Sim Paths', 'AI Portfolio Doctor (LLM)', 'Fat-Tail (Levy) Engines'], btn: 'Go Pro Now', featured: true },
-                { name: 'Student / Academic', price: '$5', kesPrice: 'KES 750', tagline: '"Powerful learning. Restricted access."', features: ['Verified Student Only', '10,000 Sim Paths / Mo', 'Exportable Reports', 'Same as Plus tier'], btn: 'Verify ID', comingSoon: true }
+                { name: 'Plus — Investor', price: isYearly ? '$99' : '$9.99', kesPrice: isYearly ? 'KES 14,850' : 'KES 1,499', tagline: '"Invest smarter. institutional data for all."', features: ['Unlimited Portfolios', '10,000 Sim Paths', 'Diversification Score', 'Standard AI Access'], btn: 'Upgrade', save: '17.5% OFF' },
+                { name: 'Quantmind Pro', price: isYearly ? '$229' : '$24.99', kesPrice: isYearly ? 'KES 34,350' : 'KES 3,749', tagline: '"A serious serious tool for the heavy hitters."', features: ['Unlimited Portfolios', '10,000+ Sim Paths', 'AI Portfolio Doctor (LLM)', 'Fat-Tail (Levy) Engines'], btn: 'Go Pro Now', featured: true, save: '23.6% OFF' },
+                { name: 'Student / Academic', price: isYearly ? '$49' : '$5', kesPrice: isYearly ? 'KES 7,350' : 'KES 750', tagline: '"Powerful learning. Restricted access."', features: ['Verified Student Only', '10,000 Sim Paths / Mo', 'Exportable Reports', 'Same as Plus tier'], btn: 'Verify ID', comingSoon: true, save: '18.3% OFF' }
               ].map((p, i) => (
                 <div
                   key={i}
@@ -485,6 +485,7 @@ export default function HomePage() {
                   onMouseLeave={p.comingSoon ? undefined : resetCardTilt}
                 >
                   {p.featured && <div className="pro-badge shimmer">Pro Choice</div>}
+                  {isYearly && p.save && <div className="save-corner-badge">{p.save}</div>}
                   <span className={`plan-name ${p.featured ? 'pro-label' : ''}`}>{p.name}</span>
                   <div className={`plan-price ${p.featured ? 'pro-val text-glow' : ''}`}>
                     {p.price}<span>/{isYearly ? 'yr' : 'mo'}</span>
@@ -505,8 +506,8 @@ export default function HomePage() {
                       const planSlug = p.name.toLowerCase().includes('plus') ? 'plus' :
                         p.name.toLowerCase().includes('pro') ? 'pro' : 'free';
 
-                      // For institutional grade UX, redirect straight to signup with plan context
-                      window.location.href = `/auth/signup?plan=${planSlug}`;
+                      // Synchronize billing context for institutional-grade onboarding
+                      window.location.href = `/auth/signup?plan=${planSlug}&billing=${isYearly ? 'yearly' : 'monthly'}`;
                     }}
                     className={`plan-btn ${p.featured ? 'pro-btn shimmer' : ''} ${p.comingSoon ? 'disabled-btn' : ''}`}
                   >
@@ -1825,6 +1826,23 @@ export default function HomePage() {
           padding: 3px 8px;
           border-radius: 4px;
           text-transform: uppercase;
+          z-index: 10;
+        }
+
+        .save-corner-badge {
+          position: absolute;
+          top: 1.25rem;
+          left: 1.25rem;
+          background: #D4A017;
+          color: #080810;
+          font-size: 0.6rem;
+          font-weight: 900;
+          padding: 3px 8px;
+          border-radius: 4px;
+          text-transform: uppercase;
+          box-shadow: 0 0 15px rgba(212, 160, 23, 0.4);
+          z-index: 10;
+          letter-spacing: 0.05em;
         }
 
         .plan-name {

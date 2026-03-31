@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "uvicorn app.main:app --reload",
     "start": "uvicorn app.main:app",
+    "lint": "flake8 app",
     "test": "pytest"
   }
 }

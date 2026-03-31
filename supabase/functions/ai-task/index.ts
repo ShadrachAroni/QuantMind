@@ -83,12 +83,12 @@ serve(async (req: Request) => {
       result = { explanation: data.content[0].text };
     }
 
-    // Log to ai_sessions
-    await supabase.from('ai_sessions').insert({
-      user_id: user.id,
-      model_id: user.tier === 'pro' ? 'opus' : 'sonnet',
-      task_type,
-      // tokens stats...
+    // Log to ai_sessions and increment quota using system RPC
+    await supabase.rpc('log_ai_session_with_quota', {
+      user_id_val: user.id,
+      model_id_val: user.tier === 'pro' ? MODELS.opus : MODELS.sonnet,
+      tokens_in_val: data.usage?.input_tokens || 0,
+      tokens_out_val: data.usage?.output_tokens || 0,
     });
 
     return new Response(JSON.stringify(result), {

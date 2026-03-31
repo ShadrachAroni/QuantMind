@@ -1,7 +1,7 @@
 module.exports = function (api) {
     api.cache(true);
     return {
-        presets: ['babel-preset-expo'],
+        presets: ['babel-preset-expo', 'nativewind/babel'],
         plugins: [
             [
                 'module-resolver',
@@ -15,6 +15,19 @@ module.exports = function (api) {
                     },
                 },
             ],
+            // Custom plugin to transpile import.meta.env
+            function () {
+                return {
+                    name: 'transform-import-meta',
+                    visitor: {
+                        MetaProperty(path) {
+                            if (path.node.meta.name === 'import' && path.node.property.name === 'meta') {
+                                path.replaceWithSourceString('({ env: process.env })');
+                            }
+                        },
+                    },
+                };
+            },
             'react-native-reanimated/plugin',
         ],
     };

@@ -232,6 +232,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { href: '/admin/notifications', label: 'Alerts', icon: Bell },
     { href: '/admin/logs', label: 'Audit Logs', icon: Terminal },
     { href: '/admin/monitoring', label: 'Health', icon: Activity },
+    { href: '/admin/quota', label: 'AI Quota', icon: Cpu },
     { href: '/admin/portfolios', label: 'Portfolios', icon: Wallet },
     { href: '/admin/compliance', label: 'Compliance', icon: ShieldCheck },
     { href: '/admin/simulations', label: 'Simulations', icon: Zap },

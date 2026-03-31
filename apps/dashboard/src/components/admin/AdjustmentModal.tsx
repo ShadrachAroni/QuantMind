@@ -110,20 +110,20 @@ export function AdjustmentModal({ user, onClose, onUpdate }: AdjustmentModalProp
               </div>
 
               <div className="space-y-4">
-                 <label className="mono text-[10px] text-gray-500 uppercase flex items-center gap-2">
-                    <Cpu size={12} className="text-purple-500" />
-                    AI_Token_Quota
-                 </label>
-                 <div className="relative">
-                    <input 
-                       type="number"
-                       value={aiTokenQuota}
-                       onChange={(e) => setAiTokenQuota(parseInt(e.target.value) || 0)}
-                       className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-xs mono text-purple-400 focus:outline-none focus:border-purple-500/50"
-                    />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] mono text-gray-700">KB</span>
-                 </div>
-                 <p className="text-[9px] mono text-gray-600 leading-tight">Override monthly compute allocation.</p>
+                  <label className="mono text-[10px] text-gray-500 uppercase flex items-center gap-2">
+                     <Cpu size={12} className="text-purple-500" />
+                     Neural_Bandwidth_Cap
+                  </label>
+                  <div className="relative">
+                     <input 
+                        type="number"
+                        value={aiTokenQuota}
+                        onChange={(e) => setAiTokenQuota(parseInt(e.target.value) || 0)}
+                        className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3 text-xs mono text-purple-400 focus:outline-none focus:border-purple-500/50"
+                     />
+                     <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] mono text-gray-700">REQ</span>
+                  </div>
+                  <p className="text-[9px] mono text-gray-600 leading-tight">Daily request limit. 0 for tier defaults.</p>
               </div>
            </div>
 

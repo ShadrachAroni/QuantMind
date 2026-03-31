@@ -21,21 +21,21 @@ export interface ThemeColors {
 }
 
 export const DARK_THEME: ThemeColors = {
-  primary: '#00D4FF',
+  primary: '#00F5FF', // More vibrant, electric cyan
   secondary: '#7B5FFF',
-  background: '#080810',
-  surface: '#0D0D1A',
-  surfaceLight: 'rgba(17, 18, 30, 0.72)',
-  border: 'rgba(0, 212, 255, 0.12)',
-  borderSubtle: 'rgba(255, 255, 255, 0.05)',
+  background: '#060B14', // Refined cyan-tinted charcoal
+  surface: '#0A1622', // Deeper cyan-tinted surface
+  surfaceLight: 'rgba(16, 28, 45, 0.7)', // Harmonized semi-transparent surface
+  border: 'rgba(0, 245, 255, 0.15)', // Subtle cyan border
+  borderSubtle: 'rgba(0, 245, 255, 0.05)',
   textPrimary: '#FFFFFF',
-  textSecondary: '#94A3B8',
+  textSecondary: '#8E9AAF', // Muted cyan-tinted text
   textTertiary: '#475569',
   error: '#FF453A',
-  success: '#00D4FF',
+  success: '#00E5FF',
   warning: '#C49010',
-  accent: '#00D4FF',
-  glow: 'rgba(0, 212, 255, 0.4)',
+  accent: '#00F5FF',
+  glow: 'rgba(0, 245, 255, 0.45)', // Enhanced glow
 };
 
 export const LIGHT_THEME: ThemeColors = {
@@ -138,7 +138,32 @@ export const sharedTheme = {
   },
 };
 
-export const theme = {
-  ...sharedTheme,
-  colors: DARK_THEME, // Default
+export type Theme = typeof sharedTheme & {
+  colors: ThemeColors;
+} & ThemeColors;
+
+export const getTheme = (type: ThemeType): Theme => {
+  const colors = THEMES[type] || THEMES.dark;
+  return {
+    ...sharedTheme,
+    colors,
+    ...colors,
+    typography: {
+      ...sharedTheme.typography,
+      fonts: { ...sharedTheme.typography.fonts },
+      sizes: { ...sharedTheme.typography.sizes },
+    },
+  } as Theme;
 };
+
+/**
+ * Validates the integrity of a theme object
+ */
+export const validateTheme = (theme: any): boolean => {
+  if (!theme) return false;
+  const hasColors = !!theme.primary && !!theme.background && !!theme.textPrimary;
+  const hasTypography = !!theme.typography?.fonts?.regular && !!theme.typography?.sizes?.md;
+  return hasColors && hasTypography;
+};
+
+export const theme = getTheme('dark');

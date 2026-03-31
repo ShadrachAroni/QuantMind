@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Typography } from '../../components/ui/Typography';
 import { useAuthStore } from '../../store/authStore';
+import { useTranslation } from '../../lib/i18n';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { GlowEffect } from '../../components/ui/GlowEffect';
 import { 
@@ -107,9 +108,10 @@ const EXPERTISE_LEVELS: AIExpertise[] = ['beginner', 'intermediate', 'advanced']
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function AIPreferencesScreen({ navigation }: any) {
-  const { aiPrefs, aiPersona, aiRiskSensitivity, updateAIPreferences, updateAIPersona, updateAIRiskSensitivity } = useAuthStore();
+  const { aiPrefs, aiPersona, aiRiskSensitivity, updateAIPreferences, updateAIPersona, updateAIRiskSensitivity, interfaceLanguage } = useAuthStore();
   const { theme, isDark } = useTheme();
   const { showToast } = useToast();
+  const t = useTranslation(interfaceLanguage);
 
   const [localPrefs, setLocalPrefs] = useState({
     ai_model: aiPrefs?.ai_model ?? 'sonnet',
@@ -144,7 +146,7 @@ export function AIPreferencesScreen({ navigation }: any) {
       await updateAIPreferences(localPrefs as any);
       await updateAIPersona(localPersona);
       await updateAIRiskSensitivity(localRisk);
-      showToast('AI_KERNEL_STABILIZED: Cognitive patterns synced.', 'success');
+      showToast(t('AI_KERNEL_STABILIZED'), 'success');
       navigation.goBack();
     } catch (err: any) {
       showToast(err.message.toUpperCase(), 'error');
@@ -159,12 +161,12 @@ export function AIPreferencesScreen({ navigation }: any) {
         <TouchableOpacity onPress={() => navigation.goBack()} style={[dynamicStyles.backButton, { borderColor: theme.border, backgroundColor: isDark ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)' }]}>
           <BackIcon size={24} color={theme.textSecondary} />
         </TouchableOpacity>
-        <Typography variant="h1" style={[dynamicStyles.headerTitle, { color: theme.textPrimary }]}>AI_KERNEL_GUI</Typography>
+        <Typography variant="h1" style={[dynamicStyles.headerTitle, { color: theme.textPrimary }]}>{t('AI_Kernel_GUI')}</Typography>
       </View>
 
       <ScrollView contentContainerStyle={dynamicStyles.scroll} showsVerticalScrollIndicator={false}>
         
-        <Typography variant="h3" style={[dynamicStyles.sectionLabel, { color: theme.textTertiary }]}>PHASE_1: COGNITIVE_PERSONA</Typography>
+        <Typography variant="h3" style={[dynamicStyles.sectionLabel, { color: theme.textTertiary }]}>{t('PHASE_1_PERSONA')}</Typography>
         <View style={dynamicStyles.personaGrid}>
           {(['DEFAULT', 'AGGRESSIVE', 'CONSERVATIVE', 'INSTITUTIONAL'] as AIPersona[]).map((p) => {
             const info = PERSONA_INFO[p];
@@ -187,8 +189,8 @@ export function AIPreferencesScreen({ navigation }: any) {
                   <View style={[dynamicStyles.personaIconBox, { backgroundColor: active ? info.color + '22' : theme.background + '44' }]}>
                     <Icon size={20} color={active ? info.color : theme.textTertiary} />
                   </View>
-                  <Typography variant="monoBold" style={[dynamicStyles.personaTitle, { color: active ? theme.textPrimary : theme.textSecondary }]}>{info.title}</Typography>
-                  <Typography variant="mono" style={[dynamicStyles.personaSubtitle, { color: active ? info.color : theme.textTertiary }]}>{info.subtitle}</Typography>
+                  <Typography variant="monoBold" style={[dynamicStyles.personaTitle, { color: active ? theme.textPrimary : theme.textSecondary }]}>{t(info.title)}</Typography>
+                  <Typography variant="mono" style={[dynamicStyles.personaSubtitle, { color: active ? info.color : theme.textTertiary }]}>{t(info.subtitle)}</Typography>
                 </GlassCard>
               </TouchableOpacity>
             );
@@ -197,14 +199,14 @@ export function AIPreferencesScreen({ navigation }: any) {
 
         <GlassCard intensity="low" style={dynamicStyles.personaDescBox}>
           <Typography variant="caption" style={{ color: PERSONA_INFO[localPersona].color, fontFamily: sharedTheme.typography.fonts.mono }}>
-            PERSONA_INTELLIGENCE: {PERSONA_INFO[localPersona].description}
+            {t('PERSONA_INTELLIGENCE')}: {t(`PERSONA_${localPersona}_DESC`)}
           </Typography>
         </GlassCard>
 
-        <Typography variant="h3" style={[dynamicStyles.sectionLabel, { color: theme.textTertiary, marginTop: 12 }]}>PHASE_2: RISK_SENSITIVITY_THRESHOLD</Typography>
+        <Typography variant="h3" style={[dynamicStyles.sectionLabel, { color: theme.textTertiary, marginTop: 12 }]}>{t('PHASE_2_RISK')}</Typography>
         <GlassCard style={dynamicStyles.controlCard}>
           <View style={dynamicStyles.controlHeader}>
-            <Typography variant="mono" style={[dynamicStyles.controlMeta, { color: theme.textTertiary }]}>SENSITIVITY_INDEX</Typography>
+            <Typography variant="mono" style={[dynamicStyles.controlMeta, { color: theme.textTertiary }]}>{t('SENSITIVITY_INDEX')}</Typography>
             <Typography variant="monoBold" style={{ color: localRisk > 70 ? theme.error : localRisk > 40 ? theme.primary : theme.secondary }}>
               {localRisk.toString().padStart(3, '0')}%
             </Typography>
@@ -221,10 +223,10 @@ export function AIPreferencesScreen({ navigation }: any) {
             />
             <View style={[dynamicStyles.sliderThumb, { left: riskPct as any, borderColor: localRisk > 70 ? theme.error : theme.primary }]} />
           </View>
-          <Typography variant="caption" style={{ color: theme.textTertiary, textAlign: 'center', fontSize: 8 }}>ADJUST SLIDER TO CALIBRATE COGNITIVE RISK FILTER</Typography>
+          <Typography variant="caption" style={{ color: theme.textTertiary, textAlign: 'center', fontSize: 8 }}>{t('ADJUST_SLIDER_RISK')}</Typography>
         </GlassCard>
 
-        <Typography variant="h3" style={[dynamicStyles.sectionLabel, { color: theme.textTertiary }]}>PHASE_3: CORE_LOGIC_SYNTHESIS</Typography>
+        <Typography variant="h3" style={[dynamicStyles.sectionLabel, { color: theme.textTertiary }]}>{t('PHASE_3_LOGIC')}</Typography>
         <GlassCard style={dynamicStyles.modelGrid}>
           <View style={[dynamicStyles.modelTabRow, { backgroundColor: theme.border + '22' }]}>
             {MODELS.map((m) => {
@@ -256,27 +258,27 @@ export function AIPreferencesScreen({ navigation }: any) {
                <Zap size={24} color={selectedModel.color} />
             </View>
             <View style={{ flex: 1 }}>
-              <Typography variant="h2" style={[dynamicStyles.modelTitle, { color: theme.textPrimary }]}>{selectedModel.title.toUpperCase()}</Typography>
-              <Typography variant="caption" style={[dynamicStyles.modelDesc, { color: theme.textTertiary }]}>{selectedModel.description}</Typography>
+              <Typography variant="h2" style={[dynamicStyles.modelTitle, { color: theme.textPrimary }]}>{t(`MODEL_${localPrefs.ai_model.toUpperCase()}_TITLE`).toUpperCase()}</Typography>
+              <Typography variant="caption" style={[dynamicStyles.modelDesc, { color: theme.textTertiary }]}>{t(`MODEL_${localPrefs.ai_model.toUpperCase()}_DESC`)}</Typography>
             </View>
           </View>
 
           <View style={dynamicStyles.statsRow}>
             <GlassCard intensity="low" style={dynamicStyles.statTile}>
-              <Typography variant="mono" style={[dynamicStyles.statLabel, { color: selectedModel.color }]}>LATENCY</Typography>
+              <Typography variant="mono" style={[dynamicStyles.statLabel, { color: selectedModel.color }]}>{t('LATENCY')}</Typography>
               <Typography variant="body" style={[dynamicStyles.statValue, { color: theme.textPrimary }]}>{selectedModel.latency}</Typography>
             </GlassCard>
             <GlassCard intensity="low" style={dynamicStyles.statTile}>
-              <Typography variant="mono" style={[dynamicStyles.statLabel, { color: selectedModel.color }]}>COGNITION</Typography>
+              <Typography variant="mono" style={[dynamicStyles.statLabel, { color: selectedModel.color }]}>{t('COGNITION')}</Typography>
               <Typography variant="body" style={[dynamicStyles.statValue, { color: theme.textPrimary }]}>{selectedModel.cognition}</Typography>
             </GlassCard>
           </View>
         </GlassCard>
 
-        <Typography variant="h3" style={[dynamicStyles.sectionLabel, { color: theme.textTertiary }]}>PHASE_4: VERBOSITY_TUNING</Typography>
+        <Typography variant="h3" style={[dynamicStyles.sectionLabel, { color: theme.textTertiary }]}>{t('PHASE_4_VERBOSITY')}</Typography>
         <GlassCard style={dynamicStyles.expertiseCard}>
           <View style={dynamicStyles.expertiseHeader}>
-            <Typography variant="mono" style={[dynamicStyles.expertiseMeta, { color: theme.textTertiary }]}>LINGUISTIC_DENSITY</Typography>
+            <Typography variant="mono" style={[dynamicStyles.expertiseMeta, { color: theme.textTertiary }]}>{t('LINGUISTIC_DENSITY')}</Typography>
             <Typography variant="mono" style={{ color: theme.primary }}>{localPrefs.ai_expertise.toUpperCase()}</Typography>
           </View>
           <View style={[dynamicStyles.sliderTrack, { backgroundColor: theme.border + '33' }]}>
@@ -299,12 +301,12 @@ export function AIPreferencesScreen({ navigation }: any) {
           </View>
         </GlassCard>
 
-        <Typography variant="h3" style={[dynamicStyles.sectionLabel, { color: theme.textTertiary }]}>PHASE_5: COGNITIVE_LAYERS</Typography>
+        <Typography variant="h3" style={[dynamicStyles.sectionLabel, { color: theme.textTertiary }]}>{t('PHASE_5_LAYERS')}</Typography>
         
         <ToggleRow
           Icon={ActivityIcon}
-          title="PORTFOLIO DOCTOR"
-          subtitle="ACTIVE RISK HEALING"
+          title={t('PORTFOLIO_DOCTOR')}
+          subtitle={t('ACTIVE_RISK_HEALING')}
           activeColor={theme.secondary}
           value={localPrefs.ai_portfolio_doctor}
           onValueChange={(v: boolean) => setLocalPrefs(p => ({ ...p, ai_portfolio_doctor: v }))}
@@ -313,8 +315,8 @@ export function AIPreferencesScreen({ navigation }: any) {
 
         <ToggleRow
           Icon={MicIcon}
-          title="VOICE SYNTHESIS"
-          subtitle="NEURAL AUDITORY KERNEL"
+          title={t('VOICE_SYNTHESIS')}
+          subtitle={t('NEURAL_AUDITORY_KERNEL')}
           activeColor={theme.primary}
           value={localPrefs.ai_voice_synthesis}
           onValueChange={(v: boolean) => setLocalPrefs(p => ({ ...p, ai_voice_synthesis: v }))}
@@ -323,8 +325,8 @@ export function AIPreferencesScreen({ navigation }: any) {
 
         <ToggleRow
           Icon={AlertIcon}
-          title="HAWK-EYE ALERTS"
-          subtitle="MAX RISK SENSITIVITY"
+          title={t('HAWK_EYE_ALERTS')}
+          subtitle={t('MAX_RISK_SENSITIVITY')}
           activeColor={theme.error}
           value={localPrefs.ai_risk_alerts}
           onValueChange={(v: boolean) => setLocalPrefs(p => ({ ...p, ai_risk_alerts: v }))}
@@ -342,7 +344,7 @@ export function AIPreferencesScreen({ navigation }: any) {
           ) : (
             <>
               <BrainIcon size={20} color={theme.background} />
-              <Typography variant="button" style={[dynamicStyles.saveButtonText, { color: theme.background }]}>SYNCHRONIZE_LOGIC_KERNEL</Typography>
+              <Typography variant="button" style={[dynamicStyles.saveButtonText, { color: theme.background }]}>{t('Synchronize_Kernel')}</Typography>
             </>
           )}
         </TouchableOpacity>

@@ -17,9 +17,11 @@ import {
   ShieldCheck,
   Zap,
   Lock,
-  Globe
+  Globe,
+  Trash2
 } from 'lucide-react';
 import { GlassCard } from '@/components/ui/GlassCard';
+import { DeletionWizard } from '@/components/ui/DeletionWizard';
 import { createClient } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -335,7 +337,7 @@ function ProfileSection() {
 }
 
 function SecuritySection({ router }: { router: any }) {
-  const { profile } = useUser();
+  const { profile, refreshProfile } = useUser();
   const t = useTranslation(profile?.interface_language || 'ENGLISH_INTL');
   const supabase = createClient();
   const [mfaFactors, setMfaFactors] = useState<any[]>([]);
@@ -344,6 +346,7 @@ function SecuritySection({ router }: { router: any }) {
   const [verificationCode, setVerificationCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
    const lastChangeAt = profile?.last_credential_change_at ? new Date(profile.last_credential_change_at) : new Date(0);
    const nextAllowedChange = new Date(lastChangeAt.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -394,6 +397,7 @@ function SecuritySection({ router }: { router: any }) {
       setIsEnrolling(false);
       setEnrollmentData(null);
       setVerificationCode('');
+      await refreshProfile();
       fetchMfaStatus();
     } catch (err: any) {
       setMessage({ type: 'error', text: t('Verification_Error') });
@@ -407,6 +411,7 @@ function SecuritySection({ router }: { router: any }) {
     if (error) {
        setMessage({ type: 'error', text: t('Error_Sync') });
     } else {
+       await refreshProfile();
        fetchMfaStatus();
        setMessage({ type: 'success', text: 'MFA_DEACTIVATED' });
     }
@@ -423,6 +428,7 @@ function SecuritySection({ router }: { router: any }) {
         .eq('id', profile.id);
       
       if (error) throw error;
+      await refreshProfile();
       setMessage({ type: 'success', text: newState ? 'EMAIL_MFA_ENABLED' : 'EMAIL_MFA_DISABLED' });
     } catch (err: any) {
       setMessage({ type: 'error', text: t('Error_Sync') });
@@ -448,6 +454,7 @@ function SecuritySection({ router }: { router: any }) {
 
       if (profileError) throw profileError;
       
+      await refreshProfile();
       setMessage({ type: 'success', text: 'PASSKEY_ENROLLED' });
       fetchMfaStatus();
     } catch (err: any) {
@@ -617,10 +624,35 @@ function SecuritySection({ router }: { router: any }) {
                     {t('Change_Credentials')}
                  </button>
               </div>
-           </GlassCard>
-       </div>
+            </GlassCard>
+        </div>
 
-       {/* TOTP Enrollment Modal */}
+        {/* Danger Zone */}
+        <div className="mt-12 pt-12 border-t border-[#FF453A]/20">
+           <div className="flex flex-col md:flex-row items-center justify-between gap-6 p-8 bg-[#FF453A]/5 border border-[#FF453A]/10 rounded-2xl relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#FF453A]/30 to-transparent" />
+              <div className="space-y-2 text-center md:text-left">
+                 <h3 className="text-xs font-bold text-[#FF453A] uppercase font-mono tracking-[0.2em]">Purge_Protocol_Node</h3>
+                 <p className="text-[11px] text-[#848D97] uppercase font-mono leading-relaxed max-w-lg">
+                    Initialize irreversible account termination. All institutional credentials, portfolio nodes, and simulation history will be purged from the QuantMind cluster.
+                 </p>
+              </div>
+              <button 
+                onClick={() => setIsDeleting(true)}
+                className="whitespace-nowrap px-8 py-3 bg-transparent border border-[#FF453A]/30 text-[#FF453A] hover:bg-[#FF453A] hover:text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all font-mono"
+              >
+                 Terminate Account
+              </button>
+           </div>
+        </div>
+
+        <DeletionWizard 
+          isOpen={isDeleting} 
+          onClose={() => setIsDeleting(false)} 
+          userEmail={profile?.email || ''} 
+        />
+
+        {/* TOTP Enrollment Modal */}
        {isEnrolling && enrollmentData && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#05070A]/80 backdrop-blur-md">
              <GlassCard className="w-full max-w-md p-10 space-y-8 border-[#00D9FF]/30 shadow-[0_0_50px_rgba(0,217,255,0.1)]" intensity="high">
@@ -935,12 +967,34 @@ function BillingSection({ router }: { router: any }) {
   const { profile, refreshProfile } = useUser();
   const t = useTranslation(profile?.interface_language || 'ENGLISH_INTL');
   const supabase = createClient();
+  const searchParams = useSearchParams();
   
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [loading, setLoading] = useState(true);
   const [isManaging, setIsManaging] = useState(false);
   const [isDecommissioning, setIsDecommissioning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastAttemptedPlan, setLastAttemptedPlan] = useState<string | null>(null);
+
+  useEffect(() => {
+    const savedPlan = localStorage.getItem('last_attempted_plan');
+    if (savedPlan) setLastAttemptedPlan(savedPlan);
+  }, []);
+
+  useEffect(() => {
+    const status = searchParams.get('status');
+    const ref = searchParams.get('ref');
+    
+    if (status === 'success') {
+      setError(null);
+      // Small delay to ensure profile has synced via webhook
+      setTimeout(() => refreshProfile(), 2000);
+    } else if (status === 'failed') {
+      setError('TRANSACTION_FAILED_BY_GATEWAY');
+    } else if (status === 'error') {
+      setError(searchParams.get('message') || 'TRANSACTION_TERMINATED');
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchSubscription = async () => {
@@ -1008,6 +1062,14 @@ function BillingSection({ router }: { router: any }) {
     }
   };
 
+  const handleRetry = () => {
+    if (lastAttemptedPlan) {
+      router.push(`/dashboard/subscription?plan=${lastAttemptedPlan.toLowerCase()}`);
+    } else {
+      router.push('/dashboard/subscription');
+    }
+  };
+
   const getTierFeatures = (tier: string = 'free') => {
     switch (tier.toLowerCase()) {
       case 'pro':
@@ -1021,9 +1083,24 @@ function BillingSection({ router }: { router: any }) {
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in slide-in-from-right-4 duration-500">
-       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <h2 className="text-lg md:text-xl font-bold text-white uppercase font-mono tracking-tight">{t('Subscription_Ledger')}</h2>
-          {error && <span className="text-[10px] text-[#FF453A] font-mono uppercase font-bold">{error}</span>}
+          {searchParams.get('status') === 'success' && (
+            <span className="text-[10px] text-[#32D74B] font-mono uppercase font-bold animate-pulse">
+              [SUCCESS]::CREDENTIALS_UPDATED_REF_{searchParams.get('ref')?.substring(0, 8)}
+            </span>
+          )}
+          {error && (
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] text-[#FF453A] font-mono uppercase font-bold">{error}</span>
+              <button 
+                onClick={handleRetry}
+                className="px-2 py-0.5 bg-[#00D9FF]/10 border border-[#00D9FF]/30 text-[#00D9FF] text-[8px] font-bold rounded uppercase font-mono hover:bg-[#00D9FF]/20 transition-all"
+              >
+                [RETRY_INITIALIZATION]
+              </button>
+            </div>
+          )}
        </div>
        
        <GlassCard className="p-6 md:p-8 overflow-hidden relative" intensity="low">

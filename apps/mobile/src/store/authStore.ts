@@ -3,11 +3,11 @@ import { supabase } from '../services/supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { User } from '@quantmind/shared-types';
 import { biometricService, BiometricType } from '../services/biometric';
-import * as SecureStore from 'expo-secure-store';
+import { storage } from '../utils/storage';
 import { CONFIG } from '../constants/config';
+import { SecureKeys } from '../constants/keys';
 import { usePortfolioStore } from './portfolioStore';
 
-const ACTIVITY_KEY = 'quantmind_last_activity';
 const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 Hours in ms
 const CACHE_TTL = 5 * 60 * 1000; // 5 Minutes in ms
 
@@ -42,7 +42,7 @@ export interface ChangelogEntry {
   created_at: string;
 }
 
-export type SubscriptionTier = 'free' | 'plus' | 'basic' | 'pro' | 'institution' | 'student';
+export type SubscriptionTier = 'free' | 'plus' | 'pro' | 'student';
 
 export interface TierEntitlements {
   maxPaths: number;
@@ -64,8 +64,11 @@ interface AuthState {
   aiRiskSensitivity: number;
   region: string;
   interfaceLanguage: string;
+  mfaEnabled: boolean;
   mfaEmailEnabled: boolean;
   mfaPasskeyEnabled: boolean;
+  mfaFactors: any[];
+  aal: 'aal1' | 'aal2';
   aiConfigs: AIConfig[];
   changelog: ChangelogEntry[];
   initialized: boolean;
@@ -119,6 +122,8 @@ interface AuthState {
   updateInterfaceLanguage: (lang: string) => Promise<void>;
   updateMFAEmail: (enabled: boolean) => Promise<void>;
   updateMFAPasskey: (enabled: boolean) => Promise<void>;
+  onboardingCompleted: boolean;
+  setOnboardingCompleted: (completed: boolean) => void;
 }
 
 const DEFAULT_AI_PREFS: AIPrefs = {
@@ -159,8 +164,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   aiRiskSensitivity: 50,
   region: 'US_EAST_NY',
   interfaceLanguage: 'ENGLISH_INTL',
+  mfaEnabled: false,
   mfaEmailEnabled: false,
   mfaPasskeyEnabled: false,
+  mfaFactors: [],
+  aal: 'aal1',
   aiConfigs: [],
   changelog: [],
   initialized: false,
@@ -183,6 +191,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   trialEndsAt: null,
   isPasswordExpired: false,
   passwordLastChangedAt: null,
+  onboardingCompleted: false,
   profileSubscription: null,
 
   refreshPasswordExpiry: () => {
@@ -192,10 +201,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   setUser: (user: User | null) => set({ user }),
   setTier: (tier: string) => set({ tier }),
+  setOnboardingCompleted: (completed: boolean) => set({ onboardingCompleted: completed }),
 
   initialize: async () => {
     try {
-      const storedActivity = await SecureStore.getItemAsync(ACTIVITY_KEY);
+      const storedActivity = await storage.getItemAsync(SecureKeys.AUTH.LAST_ACTIVITY);
       const lastActivity = storedActivity ? parseInt(storedActivity, 10) : null;
       set({ lastActivityAt: lastActivity });
 
@@ -207,6 +217,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await get().fetchSystemEvents();
 
       if (session?.user) {
+        // Fetch AAL level
+        const { data: aalData, error: aalError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (!aalError && aalData) {
+          set({ aal: aalData.currentLevel as 'aal1' | 'aal2' });
+        }
+
+        // List factors
+        const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+        if (!factorsError && factors) {
+          set({ 
+            mfaFactors: factors.all,
+            mfaEnabled: factors.all.some(f => f.status === 'verified')
+          });
+        }
+
         const data = await fetchProfile(session.user.id);
         if (data) {
           set({
@@ -228,22 +253,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             hasUsedTrial: !!data.has_used_trial,
             trialEndsAt: data.trial_ends_at ?? null,
             passwordLastChangedAt: data.password_last_changed_at ?? null,
+            onboardingCompleted: !!data.onboarding_completed,
           });
 
           usePortfolioStore.getState().subscribeToChanges(session.user.id);
 
           const today = new Date().toISOString().split('T')[0];
-          const lastReset = await SecureStore.getItemAsync('quantmind_powershift_reset');
+          const lastReset = await storage.getItemAsync(SecureKeys.SIM.POWERSHIFT_RESET);
           if (lastReset !== today) {
             const tier = data.tier ?? 'free';
             const configs = get().tierConfigs;
             const entitlements = configs[tier as SubscriptionTier] || configs.free;
             const shifts = entitlements.dailyPowerShifts;
             set({ powerShifts: shifts, lastPowerShiftReset: today });
-            await SecureStore.setItemAsync('quantmind_powershift_reset', today);
-            await SecureStore.setItemAsync('quantmind_powershifts', shifts.toString());
+            await storage.setItemAsync(SecureKeys.SIM.POWERSHIFT_RESET, today);
+            await storage.setItemAsync(SecureKeys.SIM.POWERSHIFT_COUNT, shifts.toString());
           } else {
-            const savedShifts = await SecureStore.getItemAsync('quantmind_powershifts');
+            const savedShifts = await storage.getItemAsync(SecureKeys.SIM.POWERSHIFT_COUNT);
             set({ powerShifts: savedShifts ? parseInt(savedShifts, 10) : 0, lastPowerShiftReset: today });
           }
         }
@@ -269,6 +295,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     supabase.auth.onAuthStateChange(async (_event, session) => {
       set({ user: mapSupabaseUser(session?.user) });
       if (session?.user) {
+        const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (aalData) set({ aal: aalData.currentLevel as 'aal1' | 'aal2' });
+        
+        const { data: factors } = await supabase.auth.mfa.listFactors();
+        if (factors) {
+          set({ 
+            mfaFactors: factors.all,
+            mfaEnabled: factors.all.some(f => f.status === 'verified')
+          });
+        }
+
         const data = await fetchProfile(session.user.id);
         if (data) {
           set({
@@ -287,6 +324,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             interfaceLanguage: data.interface_language ?? 'ENGLISH_INTL',
             mfaEmailEnabled: !!data.mfa_email_enabled,
             mfaPasskeyEnabled: !!data.mfa_passkey_enabled,
+            onboardingCompleted: !!data.onboarding_completed,
           });
         }
       }
@@ -356,8 +394,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signOut: async () => {
+    const { profileSubscription } = get();
+    if (profileSubscription) profileSubscription.unsubscribe();
+    
+    usePortfolioStore.getState().unsubscribeFromChanges();
+    
     await supabase.auth.signOut();
-    set({ user: null, tier: 'free', aiPrefs: null, initialized: false });
+    set({ user: null, tier: 'free', aiPrefs: null, initialized: false, profileSubscription: null });
   },
 
   completeOnboarding: async () => {
@@ -405,7 +448,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   recordActivity: async () => {
     const now = Date.now();
     set({ lastActivityAt: now });
-    await SecureStore.setItemAsync(ACTIVITY_KEY, now.toString());
+    await storage.setItemAsync(SecureKeys.AUTH.LAST_ACTIVITY, now.toString());
   },
 
   checkSessionExpiry: async () => {
@@ -423,7 +466,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (powerShifts > 0) {
       const newShifts = powerShifts - 1;
       set({ powerShifts: newShifts });
-      SecureStore.setItemAsync('quantmind_powershifts', newShifts.toString());
+      storage.setItemAsync(SecureKeys.SIM.POWERSHIFT_COUNT, newShifts.toString());
       return true;
     }
     return false;

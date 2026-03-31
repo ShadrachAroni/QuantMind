@@ -11,16 +11,12 @@ import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { sharedTheme } from '../../constants/theme';
 import { SentimentIndicator } from '../../components/ui/SentimentIndicator';
+import { useChatHistory, Message } from '../../hooks/queries/useChat';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing } from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
 
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp?: string;
-}
+// Message interface moved to useChat.ts
 
 export function AIChatScreen({ route, navigation }: any) {
   const { portfolioId, simulationResultId, workflow, initialMessage } = route.params || {};
@@ -28,18 +24,11 @@ export function AIChatScreen({ route, navigation }: any) {
   const { theme, isDark } = useTheme();
   const { showToast } = useToast();
   
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: workflow === 'portfolio_doctor' 
-        ? 'PORTFOLIO_DOCTOR_V1.0 // DIAGNOSTIC_MODE_ACTIVE\n\nI have accessed your simulation parameters and risk metrics. Analyzing for structural vulnerabilities...'
-        : 'QUANTMIND_ORACLE_V2.4 // SESSION_INITIALIZED\n\nI am ready to convolve your risk parameters. What modeling objectives should we prioritize for this session?'
-    }
-  ]);
+  const [localMessages, setLocalMessages] = useState<Message[]>([]);
+  const { data: history = [], isLoading: isHistLoading } = useChatHistory(user?.id);
+  
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isHistLoading, setIsHistLoading] = useState(true);
   const flatListRef = useRef<FlatList>(null);
 
   const SendIcon = Send as any;
@@ -50,38 +39,17 @@ export function AIChatScreen({ route, navigation }: any) {
   const LockIcon = Lock as any;
   const TrashIcon = Trash2 as any;
 
-  const fetchHistory = useCallback(async () => {
-    if (!user) return;
-    setIsHistLoading(true);
-
-    try {
-      const eightHoursAgo = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString();
-      
-      const { data, error } = await supabase
-        .from('oracle_chat_messages')
-        .select('*')
-        .eq('user_id', user.id)
-        .gt('created_at', eightHoursAgo)
-        .order('created_at', { ascending: true });
-
-      if (data && data.length > 0) {
-        setMessages(data.map(m => ({
-          id: m.id || m.created_at,
-          role: m.role as 'user' | 'assistant',
-          content: m.content,
-          timestamp: m.created_at
-        })));
-      }
-    } catch (err) {
-      console.error('HISTORY_SYNC_ERROR:', err);
-    } finally {
-      setIsHistLoading(false);
-    }
-  }, [user]);
-
-  useEffect(() => {
-    fetchHistory();
-  }, [fetchHistory]);
+  // Messages are combined from history and local session state
+  const messages = history.length > 0 ? history : [
+    {
+      id: 'welcome',
+      role: 'assistant',
+      content: workflow === 'portfolio_doctor' 
+        ? 'PORTFOLIO_DOCTOR_V1.0 // DIAGNOSTIC_MODE_ACTIVE\n\nI have accessed your simulation parameters and risk metrics. Analyzing for structural vulnerabilities...'
+        : 'QUANTMIND_ORACLE_V2.4 // SESSION_INITIALIZED\n\nI am ready to convolve your risk parameters. What modeling objectives should we prioritize for this session?'
+    } as Message,
+    ...localMessages
+  ];
 
   useEffect(() => {
     if (!isHistLoading && initialMessage && messages.length <= 1) {
@@ -116,14 +84,14 @@ export function AIChatScreen({ route, navigation }: any) {
     const textToSend = overrideInput || input;
     if (!textToSend.trim() || !user) return;
 
-    const userMessage: Message = { 
+    const userMsg: Message = { 
       id: Date.now().toString(), 
       role: 'user', 
       content: textToSend.trim(),
       timestamp: new Date().toISOString()
     };
     
-    setMessages(prev => [...prev, userMessage]);
+    setLocalMessages(prev => [...prev, userMsg]);
     if (!overrideInput) setInput('');
     setIsLoading(true);
 
@@ -132,11 +100,11 @@ export function AIChatScreen({ route, navigation }: any) {
       await supabase.from('oracle_chat_messages').insert({
         user_id: user.id,
         role: 'user',
-        content: userMessage.content
+        content: userMsg.content
       });
 
       // 2. Call AI relay
-      const response = await api.aiChat(userMessage.content, { 
+      const response = await api.aiChat(userMsg.content, { 
         portfolioId, 
         simulation_result_id: simulationResultId,
         aiPrefs,
@@ -152,19 +120,19 @@ export function AIChatScreen({ route, navigation }: any) {
         content: aiContent
       });
 
-      const aiMessage: Message = {
+      const aiMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: aiContent,
         timestamp: new Date().toISOString()
       };
       
-      setMessages(prev => [...prev, aiMessage]);
+      setLocalMessages(prev => [...prev, aiMsg]);
     } catch (e: any) {
       const errorMsg = e.message?.includes('limit') ? 'QUOTA_EXHAUSTED' : 'KERNEL_COMM_FAILURE';
       showToast(errorMsg, 'error');
       
-      setMessages(prev => [...prev, {
+      setLocalMessages(prev => [...prev, {
         id: 'err-' + Date.now(),
         role: 'assistant',
         content: `ERROR: ${errorMsg}. Deep cognitive relay interrupted.`
@@ -189,11 +157,7 @@ export function AIChatScreen({ route, navigation }: any) {
             setIsLoading(true);
             try {
               await supabase.from('oracle_chat_messages').delete().eq('user_id', user.id);
-              setMessages([{
-                id: 'welcome',
-                role: 'assistant',
-                content: 'NEURAL_BUFFER_WIPED // SESSION_RESTARTED'
-              }]);
+              setLocalMessages([]);
               showToast('BUFFER_CLEARED', 'success');
             } catch (err) {
               showToast('WIPE_FAILURE', 'error');

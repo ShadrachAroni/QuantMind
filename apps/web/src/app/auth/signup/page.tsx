@@ -12,6 +12,7 @@ function SignupForm() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [tosChecked, setTosChecked] = useState(false);
@@ -54,6 +55,7 @@ function SignupForm() {
           data: {
             first_name: firstName.trim(),
             last_name: lastName.trim(),
+            phone_number: phone.trim() || null,
             plan_preference: plan || 'free',
           },
           emailRedirectTo: `${window.location.origin}/auth/callback`,
@@ -103,18 +105,18 @@ function SignupForm() {
             <input
               type="text"
               required
-              placeholder="John"
+              placeholder="JOHN"
               className="w-full bg-[#12121A] border border-white/5 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00D9FF]/50 transition-colors placeholder:text-white/10"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
             />
           </div>
           <div className="space-y-2">
-            <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">Last Name</label>
+            <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">Second Name</label>
             <input
               type="text"
               required
-              placeholder="Doe"
+              placeholder="DOE"
               className="w-full bg-[#12121A] border border-white/5 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00D9FF]/50 transition-colors placeholder:text-white/10"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
@@ -127,7 +129,7 @@ function SignupForm() {
           <input
             type="email"
             required
-            placeholder="name@institution.com"
+            placeholder="operator@quantmind.io"
             className="w-full bg-[#12121A] border border-white/5 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00D9FF]/50 transition-all placeholder:text-white/10"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -169,6 +171,18 @@ function SignupForm() {
         </div>
 
         <PasswordStrengthMeter password={password} />
+
+        <div className="space-y-2">
+          <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">Communication Link (Optional)</label>
+          <input
+            type="tel"
+            placeholder="+1 (555) 000-0000"
+            className="w-full bg-[#12121A] border border-white/5 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00D9FF]/50 transition-all placeholder:text-white/10"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+          <p className="text-[10px] text-[#848D97] px-1">Used for mission-critical alerts. Can be updated in settings.</p>
+        </div>
 
         <div className="flex items-start gap-3 pt-2">
           <input

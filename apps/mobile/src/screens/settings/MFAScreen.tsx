@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, ActivityIndicator, Switch } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView, TextInput, Alert, ActivityIndicator, Switch, Image } from 'react-native';
 import { supabase } from '../../services/supabase';
 import { Typography } from '../../components/ui/Typography';
 import { useAuthStore } from '../../store/authStore';
@@ -25,7 +25,15 @@ import { sharedTheme } from '../../constants/theme';
 export function MFAScreen({ navigation }: any) {
   const { theme, isDark } = useTheme();
   const { showToast } = useToast();
-  const { mfaEmailEnabled, mfaPasskeyEnabled, updateMFAEmail, updateMFAPasskey } = useAuthStore();
+  const { 
+    mfaEmailEnabled, 
+    mfaPasskeyEnabled, 
+    updateMFAEmail, 
+    updateMFAPasskey,
+    isBiometricSupported,
+    isBiometricEnabled,
+    enrollBiometrics
+  } = useAuthStore();
   
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState(false);
@@ -128,6 +136,29 @@ export function MFAScreen({ navigation }: any) {
     await Clipboard.setStringAsync(text);
     showToast('SECRET_COPIED_TO_BUFFER', 'success');
   };
+  
+  const handleTogglePasskey = async (enabled: boolean) => {
+    if (enabled) {
+      const success = await enrollBiometrics();
+      if (success) {
+        try {
+          await updateMFAPasskey(true);
+          showToast('BIOMETRIC_PASSKEY_REINFORCED', 'success');
+        } catch (err) {
+          showToast('PROFILE_SYNC_FAILURE', 'error');
+        }
+      } else {
+        showToast('BIOMETRIC_ENROLLMENT_CANCELLED', 'info');
+      }
+    } else {
+      try {
+        await updateMFAPasskey(false);
+        showToast('BIOMETRIC_PASSKEY_DEACTIVATED', 'info');
+      } catch (err) {
+        showToast('PROFILE_SYNC_FAILURE', 'error');
+      }
+    }
+  };
 
   const isMFAActive = factors.length > 0 || mfaEmailEnabled || mfaPasskeyEnabled;
 
@@ -157,7 +188,7 @@ export function MFAScreen({ navigation }: any) {
           </View>
         </View>
 
-        <Typography variant="mono" style={styles.sectionLabel}>// AUTHENTICATION_PILLARS</Typography>
+        <Typography variant="mono" style={[styles.sectionLabel, { color: theme.textTertiary }]}>// AUTHENTICATION_PILLARS</Typography>
         
         <GlassCard style={styles.pillarCard}>
           <MFAOption 
@@ -182,18 +213,20 @@ export function MFAScreen({ navigation }: any) {
           />
           <View style={[styles.divider, { backgroundColor: theme.border + '22' }]} />
           <MFAOptionToggle 
-            icon={FingerprintIcon}
+            imageSource={require('../../../assets/biometrics.png')}
             title="Biometric Passkey"
-            subtitle="WebAuthn hardware keys"
+            subtitle="Secure enclave verification"
             value={mfaPasskeyEnabled}
-            onValueChange={updateMFAPasskey}
+            onValueChange={handleTogglePasskey}
             theme={theme}
+            disabled={!isBiometricSupported}
+            statusLabel={!isBiometricSupported ? '[INCOMPATIBLE_HARDWARE]' : (!isBiometricEnabled ? '[NO_BIOMETRICS_ENROLLED]' : undefined)}
           />
         </GlassCard>
 
         {factors.length > 0 && (
           <>
-            <Typography variant="mono" style={styles.sectionLabel}>// ACTIVE_HARDWARE_TOKENS</Typography>
+            <Typography variant="mono" style={[styles.sectionLabel, { color: theme.textTertiary }]}>// ACTIVE_HARDWARE_TOKENS</Typography>
             {factors.map(f => (
               <GlassCard key={f.id} style={styles.factorCard}>
                 <View style={styles.factorInfo}>
@@ -231,7 +264,7 @@ export function MFAScreen({ navigation }: any) {
             </View>
 
             <View style={styles.verifySection}>
-              <Typography variant="mono" style={styles.sectionLabel}>CHALLENGE_VERIFICATION</Typography>
+              <Typography variant="mono" style={[styles.sectionLabel, { color: theme.textTertiary }]}>CHALLENGE_VERIFICATION</Typography>
               <TextInput
                 style={[styles.otpInput, { backgroundColor: theme.background, color: theme.textPrimary, borderColor: theme.border }]}
                 placeholder="6-DIGIT_OTP"
@@ -263,7 +296,7 @@ export function MFAScreen({ navigation }: any) {
 function MFAOption({ icon: Icon, title, subtitle, active, onPress, theme }: any) {
   return (
     <TouchableOpacity style={styles.mfaOption} onPress={onPress}>
-      <View style={[styles.optionIcon, { backgroundColor: active ? theme.primary + '22' : theme.background + '44' }]}>
+      <View style={[styles.optionIcon, { backgroundColor: active ? theme.primary + '22' : theme.background + '44', borderColor: theme.border }]}>
         <Icon size={18} color={active ? theme.primary : theme.textTertiary} />
       </View>
       <View style={{ flex: 1 }}>
@@ -277,19 +310,27 @@ function MFAOption({ icon: Icon, title, subtitle, active, onPress, theme }: any)
   );
 }
 
-function MFAOptionToggle({ icon: Icon, title, subtitle, value, onValueChange, theme }: any) {
+function MFAOptionToggle({ icon: Icon, imageSource, title, subtitle, value, onValueChange, theme, disabled, statusLabel }: any) {
   return (
-    <View style={styles.mfaOption}>
-      <View style={[styles.optionIcon, { backgroundColor: value ? theme.primary + '22' : theme.background + '44' }]}>
-        <Icon size={18} color={value ? theme.primary : theme.textTertiary} />
+    <View style={[styles.mfaOption, disabled && { opacity: 0.5 }]}>
+      <View style={[styles.optionIcon, { backgroundColor: value ? theme.primary + '22' : theme.background + '44', borderColor: theme.border }]}>
+        {imageSource ? (
+          <Image source={imageSource} style={{ width: 18, height: 18 }} resizeMode="contain" />
+        ) : (
+          <Icon size={18} color={value ? theme.primary : theme.textTertiary} />
+        )}
       </View>
       <View style={{ flex: 1 }}>
         <Typography variant="monoBold" style={{ fontSize: 12, color: theme.textPrimary }}>{title.toUpperCase()}</Typography>
         <Typography variant="caption" style={{ fontSize: 9, color: theme.textTertiary }}>{subtitle}</Typography>
+        {statusLabel && (
+          <Typography variant="mono" style={{ fontSize: 8, color: theme.error, marginTop: 4 }}>{statusLabel}</Typography>
+        )}
       </View>
       <Switch
         value={value}
         onValueChange={onValueChange}
+        disabled={disabled}
         trackColor={{ false: theme.border, true: theme.primary }}
         thumbColor={value ? '#FFF' : '#475569'}
         ios_backgroundColor={theme.border}
@@ -305,10 +346,10 @@ const styles = StyleSheet.create({
   backBtn: { width: 40, height: 40, borderRadius: 12, borderWidth: 1, justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
   statusBanner: { flexDirection: 'row', padding: 18, borderRadius: 20, borderWidth: 1, alignItems: 'center', gap: 16, marginBottom: 32 },
   bannerText: { flex: 1, gap: 2 },
-  sectionLabel: { fontSize: 9, letterSpacing: 2, marginBottom: 16, marginLeft: 4, color: 'rgba(255,255,255,0.4)' },
+  sectionLabel: { fontSize: 9, letterSpacing: 2, marginBottom: 16, marginLeft: 4 },
   pillarCard: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 24, marginBottom: 32 },
   mfaOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, gap: 16 },
-  optionIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  optionIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   activeStatus: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1 },
   divider: { height: 1, width: '100%' },
   factorCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 16, marginBottom: 12 },

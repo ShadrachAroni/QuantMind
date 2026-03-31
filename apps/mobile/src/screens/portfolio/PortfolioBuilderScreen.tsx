@@ -6,6 +6,7 @@ import { GlassCard } from '../../components/ui/GlassCard';
 import { GlowEffect } from '../../components/ui/GlowEffect';
 import { usePortfolioStore } from '../../store/portfolioStore';
 import { api } from '../../services/api';
+import { useAssetSearch } from '../../hooks/queries/useAssets';
 import { Search, Plus, X, ChevronLeft, Cpu, Activity, Zap, Layers, Target, Sparkles } from 'lucide-react-native';
 import { Asset } from '@quantmind/shared-types';
 import { useTheme } from '../../context/ThemeContext';
@@ -46,8 +47,7 @@ export function PortfolioBuilderScreen({ navigation }: any) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
+  const { data: searchResults = [], isLoading: isSearching } = useAssetSearch(searchQuery);
   const [selectedAssets, setSelectedAssets] = useState<Asset[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isManualMode, setIsManualMode] = useState(false);
@@ -77,27 +77,10 @@ export function PortfolioBuilderScreen({ navigation }: any) {
 
   const dynamicStyles = getStyles(theme, isDark);
 
-  const handleSearch = async () => {
-    if (!searchQuery) return;
-    setIsSearching(true);
-    try {
-      const results = await api.searchAssets(searchQuery);
-      setSearchResults(results);
-    } catch (e: any) {
-      showToast(e.message.toUpperCase(), 'error');
-    } finally {
-      setIsSearching(false);
-    }
-  };
+  // Search is now handled automatically by useAssetSearch
 
   const addAsset = async (assetData: any) => {
-    if (selectedAssets.find(a => a.ticker === assetData.ticker)) {
-      setSearchResults([]);
-      setSearchQuery('');
-      return;
-    }
-
-    setIsSearching(true);
+    // Manual state management removed in favor of React Query
     try {
       const features = await api.getAssetHistory(assetData.ticker);
       
@@ -112,18 +95,14 @@ export function PortfolioBuilderScreen({ navigation }: any) {
       };
       
       setSelectedAssets([...selectedAssets, newAsset]);
-      setSearchResults([]);
       setSearchQuery('');
     } catch (e: any) {
       showToast(e.message.toUpperCase(), 'error');
-    } finally {
-      setIsSearching(false);
     }
   };
 
   const analyzePortfolio = async () => {
     if (selectedAssets.length === 0) return;
-    setIsSearching(true);
     try {
       // Create a context summary for the AI
       const ctx = {
@@ -136,14 +115,7 @@ export function PortfolioBuilderScreen({ navigation }: any) {
         }))
       };
       
-      const response = await api.aiChat(
-        "Analyze my current portfolio selection and provide 3 brief strategic insights. Focus on diversification and risk-adjusted return potential.",
-        { assets_context: ctx },
-        'portfolio_doctor'
-      );
-      
-      // Navigate to AI Chat with the response or show it as an alert
-      // For responsiveness, we'll navigate to the chat screen with this context
+      // Navigation to AI Chat
       navigation.navigate('AI', { 
         screen: 'AIChat', 
         params: { 
@@ -154,8 +126,6 @@ export function PortfolioBuilderScreen({ navigation }: any) {
       });
     } catch (e: any) {
       showToast('AI_BRIDGE_FAILURE: System overloaded.', 'error');
-    } finally {
-      setIsSearching(false);
     }
   };
 
@@ -308,7 +278,7 @@ export function PortfolioBuilderScreen({ navigation }: any) {
               value={searchQuery}
               onChangeText={setSearchQuery}
               autoCapitalize="characters"
-              onSubmitEditing={handleSearch}
+              onSubmitEditing={() => {}}
             />
             {isSearching && <GlowEffect color={theme.primary} size={4} glowRadius={8} />}
           </View>
@@ -384,10 +354,13 @@ export function PortfolioBuilderScreen({ navigation }: any) {
           </GlassCard>
         )}
 
-        {searchResults.length > 0 && (
           <GlassCard style={dynamicStyles.searchResults}>
-            {searchResults.map((res: any, idx) => (
-              <TouchableOpacity key={`${res.ticker}-${idx}`} style={[dynamicStyles.resultItem, { borderBottomColor: theme.border }]} onPress={() => addAsset(res)}>
+            {searchResults.map((res: any, idx: number) => (
+              <TouchableOpacity 
+                key={`${res.ticker}-${idx}`} 
+                style={[dynamicStyles.resultItem, { borderBottomColor: theme.border }]} 
+                onPress={() => addAsset(res)}
+              >
                 <View style={dynamicStyles.resultInfo}>
                   <View style={[dynamicStyles.resultTickerBox, { backgroundColor: theme.primary + '10' }]}>
                     <Typography variant="monoBold" style={[dynamicStyles.resultTicker, { color: theme.primary }]}>{res.ticker}</Typography>
@@ -398,7 +371,6 @@ export function PortfolioBuilderScreen({ navigation }: any) {
               </TouchableOpacity>
             ))}
           </GlassCard>
-        )}
 
         {/* Selected Assets List */}
         {selectedAssets.length > 0 && (

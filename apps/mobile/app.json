@@ -6,24 +6,49 @@
         "orientation": "portrait",
         "icon": "./assets/icon.png",
         "scheme": "quantmind",
-        "userInterfaceStyle": "automatic",
+        "userInterfaceStyle": "dark",
+        "backgroundColor": "#05070a",
         "splash": {
             "image": "./assets/splash.png",
-            "resizeMode": "contain",
-            "backgroundColor": "#0A0E17"
+            "resizeMode": "cover",
+            "backgroundColor": "#05070a",
+            "dark": {
+                "image": "./assets/splash.png",
+                "backgroundColor": "#05070a"
+            }
         },
         "ios": {
             "supportsTablet": true,
             "bundleIdentifier": "com.quantmind.app",
+            "userInterfaceStyle": "dark",
+            "splash": {
+                "image": "./assets/splash.png",
+                "resizeMode": "cover",
+                "backgroundColor": "#05070a",
+                "dark": {
+                    "image": "./assets/splash.png",
+                    "backgroundColor": "#05070a"
+                }
+            },
             "infoPlist": {
                 "NSCameraUsageDescription": "Quantmind needs camera access for document scanning",
                 "NSFaceIDUsageDescription": "Quantmind uses Face ID for secure authentication"
             }
         },
         "android": {
+            "userInterfaceStyle": "dark",
             "adaptiveIcon": {
                 "foregroundImage": "./assets/adaptive-icon.png",
-                "backgroundColor": "#0A0E17"
+                "backgroundColor": "#05070a"
+            },
+            "splash": {
+                "image": "./assets/splash.png",
+                "resizeMode": "cover",
+                "backgroundColor": "#05070a",
+                "dark": {
+                    "image": "./assets/splash.png",
+                    "backgroundColor": "#05070a"
+                }
             },
             "package": "com.quantmind.app",
             "permissions": [
@@ -34,13 +59,23 @@
         },
         "web": {
             "bundler": "metro",
-            "output": "static",
+            "output": "single",
             "favicon": "./assets/favicon.png"
         },
         "plugins": [
-            "expo-router",
             "expo-secure-store",
             "expo-notifications",
+            [
+                "expo-splash-screen",
+                {
+                    "image": "./assets/splash.png",
+                    "backgroundColor": "#05070a",
+                    "dark": {
+                        "image": "./assets/splash.png",
+                        "backgroundColor": "#05070a"
+                    }
+                }
+            ],
             "./plugins/withWidgets",
             [
                 "expo-updates",
@@ -50,7 +85,7 @@
             ]
         ],
         "experiments": {
-            "typedRoutes": true
+            "autolinkingModuleResolution": true
         },
         "extra": {
             "eas": {

@@ -1,125 +1,126 @@
-import React, { useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
-import Svg, { Path, Circle, G, Text as SvgText } from 'react-native-svg';
-import Animated, { useSharedValue, useAnimatedProps, withTiming, Easing } from 'react-native-reanimated';
+import Svg, { Path, Circle, Text as SvgText, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Animated, { useAnimatedProps, useDerivedValue, withSpring } from 'react-native-reanimated';
+import { useTheme } from '../../context/ThemeContext';
 import { Typography } from '../ui/Typography';
-import { theme } from '../../constants/theme';
-
-const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 interface RiskGaugeProps {
-  score: number; // 0 to 100
+  value: number;
   size?: number;
   label?: string;
 }
 
-export function RiskGauge({ score, size = 160, label = 'Risk Score' }: RiskGaugeProps) {
-  const animatedScore = useSharedValue(0);
-  
-  const strokeWidth = 12;
-  const radius = (size - strokeWidth) / 2;
-  const cx = size / 2;
-  const cy = size / 2;
-  
-  // Semicircle calculations
-  const circumference = Math.PI * radius;
-  
-  useEffect(() => {
-    animatedScore.value = withTiming(score, { 
-      duration: 1500, 
-      easing: Easing.bezier(0.25, 0.1, 0.25, 1) 
-    });
-  }, [score]);
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
-  const getColorForScore = (val: number) => {
-    if (val <= 30) return theme.colors.success;      // Low risk (Green)
-    if (val <= 60) return theme.colors.warning;      // Medium risk (Yellow/Orange)
-    if (val <= 80) return '#F97316';                 // High risk (Orange)
-    return theme.colors.error;                       // Severe risk (Red)
+export const RiskGauge = ({ value, size = 200, label = 'Risk Score' }: RiskGaugeProps) => {
+  const { theme } = useTheme();
+  const radius = size * 0.4;
+  const center = size / 2;
+  const strokeWidth = size * 0.08;
+  const circumference = 2 * Math.PI * radius;
+  const halfCircumference = circumference / 2;
+  
+  // Risk level colors and labels
+  const getRiskInfo = (val: number) => {
+    if (val <= 30) return { color: theme.success, label: 'Low' };
+    if (val <= 60) return { color: theme.warning, label: 'Moderate' };
+    if (val <= 85) return { color: theme.secondary, label: 'High' };
+    return { color: theme.error, label: 'Extreme' };
   };
 
-  const animatedProps = useAnimatedProps(() => {
-    const progress = Math.max(0, Math.min(100, animatedScore.value)) / 100;
-    const strokeDashoffset = circumference - (progress * circumference);
+  const riskInfo = useMemo(() => getRiskInfo(value), [value, theme]);
+
+  const animatedValue = useDerivedValue(() => {
+    return withSpring(value / 100);
+  });
+
+  const progressProps = useAnimatedProps(() => {
     return {
-      strokeDashoffset,
+      strokeDashoffset: halfCircumference * (1 - animatedValue.value),
     };
   });
 
-  const activeColor = getColorForScore(score);
-
   return (
-    <View style={[styles.container, { width: size, height: size / 2 + 20 }]}>
-      <Svg width={size} height={size}>
-        <G rotation="-180" origin={`${cx}, ${cy}`}>
-          {/* Background Track */}
-          <Path
-            d={`M ${strokeWidth/2} ${cy} A ${radius} ${radius} 0 0 1 ${size - strokeWidth/2} ${cy}`}
-            stroke={theme.colors.border}
-            strokeWidth={strokeWidth}
-            fill="none"
-            strokeLinecap="round"
-          />
-          {/* Animated Value Track */}
-          <AnimatedPath
-            d={`M ${strokeWidth/2} ${cy} A ${radius} ${radius} 0 0 1 ${size - strokeWidth/2} ${cy}`}
-            stroke={activeColor}
-            strokeWidth={strokeWidth}
-            fill="none"
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            animatedProps={animatedProps}
-          />
-        </G>
-        
-        {/* Ticks for segments (Optional, but adds institutional feel) */}
-        <Path d={`M ${size*0.2} ${cy - size*0.4} L ${size*0.22} ${cy - size*0.38}`} stroke={theme.colors.textTertiary} strokeWidth={2} />
-        <Path d={`M ${cx} ${strokeWidth + 2} L ${cx} ${strokeWidth + 8}`} stroke={theme.colors.textTertiary} strokeWidth={2} />
-        <Path d={`M ${size*0.8} ${cy - size*0.4} L ${size*0.78} ${cy - size*0.38}`} stroke={theme.colors.textTertiary} strokeWidth={2} />
-        
-        {/* Score Text in Center */}
+    <View style={[styles.container, { width: size, height: size * 0.6 }]}>
+      <Svg width={size} height={size * 0.8} viewBox={`0 0 ${size} ${size * 0.8}`}>
+        <Defs>
+          <LinearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <Stop offset="0%" stopColor={theme.success} />
+            <Stop offset="40%" stopColor={theme.warning} />
+            <Stop offset="70%" stopColor={theme.secondary} />
+            <Stop offset="100%" stopColor={theme.error} />
+          </LinearGradient>
+        </Defs>
+
+        {/* Background Track */}
+        <Path
+          d={`M ${center - radius} ${center} A ${radius} ${radius} 0 0 1 ${center + radius} ${center}`}
+          stroke={theme.border}
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeLinecap="round"
+        />
+
+        {/* Progress Fill */}
+        <AnimatedCircle
+          cx={center}
+          cy={center}
+          r={radius}
+          stroke="url(#gaugeGradient)"
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeDasharray={`${halfCircumference} ${circumference}`}
+          strokeLinecap="round"
+          transform={`rotate(180, ${center}, ${center})`}
+          animatedProps={progressProps}
+        />
+
+        {/* Value Text */}
         <SvgText
-          x={cx}
-          y={cy - 10}
-          fontSize="36"
+          x={center}
+          y={center - 10}
+          textAnchor="middle"
+          fontSize={size * 0.18}
           fontWeight="bold"
-          fontFamily={theme.typography.fonts.mono}
-          fill={activeColor}
-          textAnchor="middle"
-          alignmentBaseline="middle"
+          fill={theme.textPrimary}
+          fontFamily={theme.typography.fonts.bold}
         >
-          {score.toFixed(0)}
+          {Math.round(value)}
         </SvgText>
-        
+
+        {/* Label Text */}
         <SvgText
-          x={cx}
-          y={cy + 15}
-          fontSize="12"
-          fontFamily={theme.typography.fonts.regular}
-          fill={theme.colors.textSecondary}
+          x={center}
+          y={center + 15}
           textAnchor="middle"
-          alignmentBaseline="baseline"
+          fontSize={size * 0.06}
+          fill={theme.textSecondary}
+          fontFamily={theme.typography.fonts.medium}
         >
-          / 100
+          {label.toUpperCase()}
+        </SvgText>
+
+        {/* Risk Level Text */}
+        <SvgText
+          x={center}
+          y={center + 35}
+          textAnchor="middle"
+          fontSize={size * 0.08}
+          fontWeight="600"
+          fill={riskInfo.color}
+          fontFamily={theme.typography.fonts.semiBold}
+        >
+          {riskInfo.label}
         </SvgText>
       </Svg>
-      
-      <Typography variant="caption" style={styles.label}>{label}</Typography>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'flex-start',
-  },
-  label: {
-    position: 'absolute',
-    bottom: 0,
-    color: theme.colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    fontSize: 10,
   },
 });

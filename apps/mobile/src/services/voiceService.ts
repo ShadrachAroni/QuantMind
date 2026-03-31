@@ -12,19 +12,35 @@ export const VOICE_INTENTS = {
   GET_SENTIMENT: 'quantmind://get-sentiment',
 };
 
+let isInitialized = false;
+
 export const voiceService = {
   /**
    * Register available shortcuts with the OS
    * On iOS, this would typically involve setting up NSUserActivity
    */
   registerShortcuts: async () => {
-    if (Platform.OS === 'ios') {
-      console.log('VOICE_ENGINE: Registering Siri Shortcuts handlers...');
-      // Logic for registering user activities would go here in a prebuild/native context
-    } else {
-      console.log('VOICE_ENGINE: Registering Android App Actions...');
+    if (isInitialized) {
+      console.log('VOICE_ENGINE: Already initialized, skipping registration.');
+      return true;
+    }
+
+    try {
+      if (Platform.OS === 'ios') {
+        console.log('VOICE_ENGINE: Registering Siri Shortcuts handlers... (Race condition mitigated)');
+        // Logic for registering user activities would go here in a prebuild/native context
+      } else {
+        console.log('VOICE_ENGINE: Registering Android App Actions...');
+      }
+      isInitialized = true;
+      return true;
+    } catch (e) {
+      console.error('VOICE_ENGINE_INIT_ERROR:', e);
+      return false;
     }
   },
+
+  isReady: () => isInitialized,
 
   /**
    * Handles incoming voice-triggered deep links

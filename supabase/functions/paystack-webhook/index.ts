@@ -46,9 +46,27 @@ serve(async (req: Request) => {
     );
 
     const getTierFromPlan = (planCode: string): string => {
-      if (planCode === Deno.env.get('PAYSTACK_PLAN_PRO') || planCode === 'PLN_pro_456') return 'pro';
-      if (planCode === Deno.env.get('PAYSTACK_PLAN_PLUS') || planCode === 'PLN_plus_123') return 'plus';
-      if (planCode === Deno.env.get('PAYSTACK_PLAN_STUDENT') || planCode === 'PLN_student_789') return 'student';
+      if (
+        planCode === Deno.env.get('PAYSTACK_PLAN_PRO') || 
+        planCode === Deno.env.get('PAYSTACK_PLAN_PRO_YEARLY') ||
+        planCode === 'PLN_yktxo3jqz0dk2s0' || 
+        planCode === 'PLN_riwa9c82qn37uvs'
+      ) return 'pro';
+
+      if (
+        planCode === Deno.env.get('PAYSTACK_PLAN_PLUS') || 
+        planCode === Deno.env.get('PAYSTACK_PLAN_PLUS_YEARLY') ||
+        planCode === 'PLN_emm71vstqcgpvbw' || 
+        planCode === 'PLN_n3eqcfdmmwrjryi'
+      ) return 'plus';
+
+      if (
+        planCode === Deno.env.get('PAYSTACK_PLAN_STUDENT') || 
+        planCode === Deno.env.get('PAYSTACK_PLAN_STUDENT_YEARLY') ||
+        planCode === 'PLN_f09gf986tgcf5mu' || 
+        planCode === 'PLN_bhsxacwwti5xw8p'
+      ) return 'student';
+
       return 'free';
     };
 
@@ -123,7 +141,7 @@ serve(async (req: Request) => {
         }
         break;
       }
-      
+
       case 'charge.success': {
         const data = event.data;
         const supabaseUserId = data.metadata?.supabase_user_id || data.customer?.metadata?.supabase_user_id;
@@ -146,6 +164,35 @@ serve(async (req: Request) => {
                 .from('user_profiles')
                 .update({ subscription_status: 'active' })
                 .eq('id', supabaseUserId);
+            }
+
+            // 3. Trigger Automated Receipt Email
+            const tierLabel = data.plan?.name || getTierFromPlan(data.plan?.plan_code);
+            try {
+              await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-email`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  to: data.customer.email,
+                  type: 'payment_receipt',
+                  details: {
+                    reference: data.reference,
+                    amount: (data.amount / 100).toFixed(2),
+                    currency: data.currency,
+                    tier: tierLabel,
+                    date: new Date(data.paid_at || Date.now()).toLocaleDateString('en-GB', { 
+                      day: '2-digit', month: 'short', year: 'numeric' 
+                    }).toUpperCase(),
+                    method: data.channel
+                  }
+                })
+              });
+              console.log(`[RECEIPT_SENT] Automated receipt dispatched to ${data.customer.email}`);
+            } catch (emailErr) {
+              console.error('[RECEIPT_FAILURE] Failed to dispatch automated receipt:', emailErr);
             }
         }
         break;
@@ -227,3 +274,13 @@ serve(async (req: Request) => {
     return new Response('Webhook handler failed', { status: 500 });
   }
 });
+
+function getTierFromPlan(planCode?: string) {
+  if (!planCode) return 'Terminal Standard (Free)';
+  
+  if (planCode.includes('plus')) return 'Terminal Plus';
+  if (planCode.includes('pro')) return 'Terminal Pro';
+  if (planCode.includes('student')) return 'Terminal Student';
+  
+  return 'Terminal Institutional';
+}

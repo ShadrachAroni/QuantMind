@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { decrypt } from '@/lib/encryption';
+import { checkAIQuota, logAIUsage } from '@/lib/ai/quota';
 
 const ENCRYPTION_SECRET = process.env.ENCRYPTION_SECRET;
 
@@ -31,25 +32,12 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: 'PROFILE_NOT_FOUND' }), { status: 404 });
     }
 
-    // 2. Quota Check (Only if NOT using a custom cognitive node)
+    // 2. Quota Check
     let isUsingCustomNode = !!(customConfig && customConfig.encrypted_api_key && ENCRYPTION_SECRET);
+    const quotaStatus = await checkAIQuota(supabase, user.id, isUsingCustomNode);
     
-    if (!isUsingCustomNode) {
-      // Platform Quota Enforcement
-      const quotaLimit = profile.ai_token_quota_override || (profile.tier === 'pro' ? 100 : profile.tier === 'plus' ? 50 : 10);
-      let currentUsage = profile.ai_daily_usage_count || 0;
-      const lastUsageDate = profile.ai_last_usage_at ? new Date(profile.ai_last_usage_at).toDateString() : null;
-      const todayDate = new Date().toDateString();
-
-      // Reset quota if it's a new day
-      if (lastUsageDate !== todayDate) {
-        currentUsage = 0;
-        await supabase.from('user_profiles').update({ ai_daily_usage_count: 0, ai_last_usage_at: new Date().toISOString() }).eq('id', user.id);
-      }
-
-      if (currentUsage >= quotaLimit) {
-        return new Response(JSON.stringify({ error: 'QUOTA_EXCEEDED' }), { status: 429 });
-      }
+    if (!quotaStatus.allowed) {
+      return new Response(JSON.stringify({ error: 'QUOTA_EXCEEDED' }), { status: 429 });
     }
 
     // 3. Determine Provider and API Key
@@ -121,9 +109,11 @@ export async function POST(req: Request) {
         return new Response(JSON.stringify({ error: 'COGNITIVE_RELAY_FAILURE' }), { status: 500 });
       }
 
-      // Proxy results and increment quota on start if not custom
+      // 5. Proxy results and increment quota on start if not custom
       if (!isUsingCustomNode) {
-        await supabase.rpc('increment_ai_usage', { user_id_val: user.id });
+        // Estimate token count very roughly
+        const estTokensIn = JSON.stringify(messages).length / 4;
+        await logAIUsage(supabase, user.id, modelId, Math.floor(estTokensIn));
       }
 
       const encoder = new TextEncoder();

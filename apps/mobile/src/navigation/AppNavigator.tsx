@@ -15,6 +15,8 @@ import { LoginScreen } from '../screens/auth/LoginScreen';
 import { SignUpScreen } from '../screens/auth/SignUpScreen';
 import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
 import { OnboardingScreen } from '../screens/auth/OnboardingScreen';
+import { ProfileSetupScreen } from '../screens/auth/ProfileSetupScreen';
+import { PreAuthScreen } from '../screens/auth/PreAuthScreen';
 import { PortfolioListScreen } from '../screens/portfolio/PortfolioListScreen';
 import { PortfolioBuilderScreen } from '../screens/portfolio/PortfolioBuilderScreen';
 import { AssetManagementScreen } from '../screens/portfolio/AssetManagementScreen';
@@ -36,6 +38,7 @@ import { DataManagementScreen } from '../screens/settings/DataManagementScreen';
 import { ModelMethodologyScreen } from '../screens/settings/ModelMethodologyScreen';
 import { CustomAIIntegrationsScreen } from '../screens/settings/CustomAIIntegrationsScreen';
 import { ChangelogScreen } from '../screens/settings/ChangelogScreen';
+import { BillingHistoryScreen } from '../screens/settings/BillingHistoryScreen';
 import { PasswordExpiredScreen } from '../screens/auth/PasswordExpiredScreen';
 import { SessionWarningModal } from '../components/auth/SessionWarningModal';
 import { MaintenanceScene } from '../screens/MaintenanceScene';
@@ -129,6 +132,7 @@ function SettingsNavigator() {
         {(props) => <TierRestrictedScreen {...props} component={CustomAIIntegrationsScreen} requirement="allow_ai_tuning" />}
       </SettingsStack.Screen>
       <SettingsStack.Screen name="Changelog" component={ChangelogScreen} />
+      <SettingsStack.Screen name="BillingHistory" component={BillingHistoryScreen} />
     </SettingsStack.Navigator>
   );
 }
@@ -227,6 +231,7 @@ const linking = {
             screens: {
               SettingsMain: 'settings',
               Subscription: 'billing',
+              BillingHistory: 'history',
             },
           },
         },
@@ -236,7 +241,7 @@ const linking = {
 };
 
 export default function AppNavigator() {
-  const { user, lastActivityAt, recordActivity, checkSessionExpiry, isPasswordExpired } = useAuthStore();
+  const { user, lastActivityAt, recordActivity, checkSessionExpiry, isPasswordExpired, onboardingCompleted } = useAuthStore();
   const { isOnline } = useRealtimeSync(user?.id);
   const { isMaintenanceMode } = useSyncStore();
   const { theme, isDark } = useTheme();
@@ -310,7 +315,30 @@ export default function AppNavigator() {
     <View style={{ flex: 1 }} {...panResponder.panHandlers}>
       <NavigationContainer
         linking={linking}
-        theme={{ dark: isDark, colors: { ...theme, text: theme.textPrimary } as any }}
+        theme={{ 
+          dark: isDark, 
+          colors: { 
+            ...theme, 
+            text: theme.textPrimary,
+            card: theme.surface,
+            border: theme.border,
+            notification: theme.primary,
+          } as any,
+          fonts: Platform.select({
+            web: {
+              regular: { fontFamily: 'sans-serif', fontWeight: '400' },
+              medium: { fontFamily: 'sans-serif', fontWeight: '500' },
+              bold: { fontFamily: 'sans-serif', fontWeight: '700' },
+              heavy: { fontFamily: 'sans-serif', fontWeight: '900' },
+            },
+            default: {
+              regular: { fontFamily: 'System', fontWeight: '400' },
+              medium: { fontFamily: 'System', fontWeight: '500' },
+              bold: { fontFamily: 'System', fontWeight: '700' },
+              heavy: { fontFamily: 'System', fontWeight: '900' },
+            }
+          }) as any
+        }}
       >
         {user ? (
           isPasswordExpired ? (
@@ -318,18 +346,26 @@ export default function AppNavigator() {
               <AuthStack.Screen name="PasswordExpired" component={PasswordExpiredScreen} />
               <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
             </AuthStack.Navigator>
-          ) : user.metadata?.onboarding_completed ? (
+          ) : onboardingCompleted ? (
             <MainTabNavigator />
           ) : (
             <AuthStack.Navigator screenOptions={{ headerShown: false }}>
-              <AuthStack.Screen name="Onboarding" component={OnboardingScreen} />
+              <AuthStack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
             </AuthStack.Navigator>
           )
         ) : (
-          <AuthStack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
+          <AuthStack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+            <AuthStack.Screen name="Onboarding" component={OnboardingScreen} />
+            <AuthStack.Screen 
+              name="PreAuth" 
+              component={PreAuthScreen} 
+              options={{ animation: 'slide_from_bottom' }}
+            />
             <AuthStack.Screen name="Login" component={LoginScreen} />
             <AuthStack.Screen name="SignUp" component={SignUpScreen} />
             <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+            <AuthStack.Screen name="TermsOfService" component={TermsOfServiceScreen} />
+            <AuthStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
           </AuthStack.Navigator>
         )}
       </NavigationContainer>

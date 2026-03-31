@@ -32,9 +32,10 @@ export function SubscriptionScreen({ navigation }: any) {
   const { tier, isStudentVerified, subscriptionPlans } = useAuthStore();
   const { theme, isDark } = useTheme();
   const { showToast } = useToast();
-  const [isVerifying, setIsVerifying] = useState(false);
+  const [isYearly, setIsYearly] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<any>(null);
   const [billingVisible, setBillingVisible] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const handlePlanSelection = (plan: any) => {
     setSelectedPlan(plan);
@@ -49,11 +50,13 @@ export function SubscriptionScreen({ navigation }: any) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('AUTH_SESSION_EXPIRED');
 
+      // Determine the correct Paystack Plan Code based on selected plan from store
+      const planCode = selectedPlan.paystack_plan_code;
+      if (!planCode) throw new Error('PLAN_CONFIGURATION_ERROR');
+
       // Call Edge Function
       const { data, error } = await supabase.functions.invoke('paystack-checkout', {
-        body: {
-          planCode: selectedPlan.id === 'plus' ? process.env.EXPO_PUBLIC_PAYSTACK_PLAN_PLUS : selectedPlan.id === 'student' ? process.env.EXPO_PUBLIC_PAYSTACK_PLAN_STUDENT : process.env.EXPO_PUBLIC_PAYSTACK_PLAN_PRO
-        },
+        body: { planCode },
         method: 'POST'
       });
 
@@ -111,7 +114,7 @@ export function SubscriptionScreen({ navigation }: any) {
     }, 2500);
   };
 
-  const PlanCard = ({ name, id, price, multiplier, features, color, active, locked, comingSoon, onAction }: any) => {
+  const PlanCard = ({ name, id, price, multiplier, features, color, active, locked, comingSoon, save, onAction }: any) => {
     const isPro = id === 'pro';
     const isStudent = id === 'student';
     
@@ -207,9 +210,15 @@ export function SubscriptionScreen({ navigation }: any) {
             <Typography variant="monoBold" style={[styles.actionBtnText, { color: locked ? theme.textTertiary : '#FFFFFF' }]}>
               {active ? STRINGS.CURRENT_LEVEL : locked ? 'LOCKED_VERIF_REQ' : isPro ? 'UNLOCK VIP ACCESS' : STRINGS.UPGRADE_NOW}
             </Typography>
-            {!active && !locked && <ArrowIcon size={14} color="#FFFFFF" style={{ marginLeft: 8 }} />}
-            {isPro && !active && <CrownIcon size={14} color="#FFFFFF" style={{ marginLeft: 8, opacity: 0.8 }} />}
+            {!active && !locked && <ArrowRight size={14} color="#FFFFFF" style={{ marginLeft: 8 }} />}
+            {isPro && !active && <Crown size={14} color="#FFFFFF" style={{ marginLeft: 8, opacity: 0.8 }} />}
           </TouchableOpacity>
+
+          {save && (
+            <View style={[styles.saveCornerBadge, { backgroundColor: '#D4A017' }]}>
+              <Typography variant="monoBold" style={styles.saveBadgeTextSmall}>{save}</Typography>
+            </View>
+          )}
         </GlassCard>
       </View>
     );
@@ -228,29 +237,55 @@ export function SubscriptionScreen({ navigation }: any) {
 
         {/* Removed PromotionTicker */}
 
-        {subscriptionPlans.map((plan: any) => {
-          const color = plan.id === 'plus' ? theme.secondary : plan.id === 'pro' ? theme.primary : '#8B5CF6';
-          const usdPrice = plan.id === 'plus' ? '9.99' : plan.id === 'pro' ? '24.99' : '199';
-          const featMap: Record<string, string[]> = {
-            plus: ['10k Simulation Paths', 'Unlimited Portfolios', 'Diversification Score', 'Basic AI Models'],
-            pro: ['100k Simulation Paths', 'Fat-Tail (Levy) Engines', 'Claude 3 Opus Oracle', 'Custom Scenarios'],
-            institution: ['Infinite Batch Compute', 'Dedicated H100 GPU Nodes', 'Direct Exchange Proxy', 'Raw API Data Stream']
-          };
+        {/* Billing Cycle Toggle */}
+        <View style={styles.toggleContainer}>
+          <Typography variant="mono" style={{ color: !isYearly ? theme.primary : theme.textTertiary, fontSize: 10 }}>MONTHLY</Typography>
+          <TouchableOpacity 
+            activeOpacity={0.8}
+            onPress={() => setIsYearly(!isYearly)}
+            style={[styles.toggleBg, { backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}
+          >
+            <View style={[styles.toggleDot, { 
+              backgroundColor: theme.primary, 
+              alignSelf: isYearly ? 'flex-end' : 'flex-start',
+              shadowColor: theme.primary,
+              shadowOpacity: 0.5,
+              shadowRadius: 5
+            }]} />
+          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Typography variant="mono" style={{ color: isYearly ? theme.primary : theme.textTertiary, fontSize: 10 }}>YEARLY</Typography>
+            <View style={styles.saveBadge}>
+              <Typography variant="monoBold" style={styles.saveBadgeText}>SAVE 23%</Typography>
+            </View>
+          </View>
+        </View>
 
-          return (
-            <PlanCard 
-              key={plan.id}
-              id={plan.id}
-              name={plan.id} 
-              price={usdPrice} 
-              multiplier={plan.multiplier}
-              color={color}
-              active={tier === plan.id}
-              features={featMap[plan.id] || []}
-              onAction={() => handlePlanSelection(plan)}
-            />
-          );
-        })}
+        {subscriptionPlans
+          .filter((p: any) => p.tier !== 'free' && p.tier !== 'student' && p.interval === (isYearly ? 'yearly' : 'monthly'))
+          .map((plan: any) => {
+            const color = plan.tier === 'plus' ? theme.secondary : plan.tier === 'pro' ? theme.primary : '#8D5CF6';
+            
+            const savingsMap: Record<string, string> = {
+              plus: '17.5% OFF',
+              pro: '23.6% OFF',
+            };
+
+            return (
+              <PlanCard 
+                key={plan.id}
+                id={plan.tier}
+                name={plan.tier === 'plus' ? 'Plus' : 'Pro'} 
+                price={plan.price} 
+                multiplier={plan.multiplier}
+                color={color}
+                active={tier === plan.tier}
+                features={plan.features || []}
+                save={isYearly ? savingsMap[plan.tier] : null}
+                onAction={() => handlePlanSelection(plan)}
+              />
+            );
+          })}
 
         <View style={styles.divider} />
 
@@ -268,17 +303,27 @@ export function SubscriptionScreen({ navigation }: any) {
           </View>
         </GlassCard>
 
-        <PlanCard 
-          id="student"
-          name="Student" 
-          price="5.00" 
-          color="#10B981"
-          active={false}
-          locked={true}
-          comingSoon={true}
-          features={['10k Sim Paths', 'MFA Enabled', 'Same as Plus tier', 'Requires .edu validation']}
-          onAction={() => {}}
-        />
+        {(() => {
+          const studentPlan = subscriptionPlans.find((p: any) => 
+            p.tier === 'student' && p.interval === (isYearly ? 'yearly' : 'monthly')
+          );
+          
+          if (!studentPlan) return null;
+
+          return (
+            <PlanCard 
+              id="student"
+              name="Student" 
+              price={studentPlan.price} 
+              color="#10B981"
+              active={tier === 'student'}
+              locked={!isStudentVerified}
+              comingSoon={true}
+              features={studentPlan.features || []}
+              onAction={() => handlePlanSelection(studentPlan)}
+            />
+          );
+        })()}
 
         <View style={styles.divider} />
 
@@ -441,5 +486,58 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.05)',
     alignItems: 'center',
     marginVertical: 12,
+  },
+  toggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    marginBottom: 32,
+    paddingVertical: 12,
+  },
+  toggleBg: {
+    width: 60,
+    height: 32,
+    borderRadius: 16,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  toggleDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  saveBadge: {
+    backgroundColor: 'rgba(212, 160, 23, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(212, 160, 23, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  saveBadgeText: {
+    color: '#D4A017',
+    fontSize: 8,
+    letterSpacing: 1,
+  },
+  saveCornerBadge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    zIndex: 10,
+    shadowColor: '#D4A017',
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  saveBadgeTextSmall: {
+    color: '#080810',
+    fontSize: 7,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   }
 });

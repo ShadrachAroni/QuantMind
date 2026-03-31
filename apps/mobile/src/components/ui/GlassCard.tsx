@@ -60,6 +60,9 @@ const styles = StyleSheet.create({
       android: {
         elevation: 4,
       },
+      web: {
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+      },
     }),
   },
 });

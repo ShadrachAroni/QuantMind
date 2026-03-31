@@ -13,7 +13,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { sharedTheme } from '../../constants/theme';
 import { STRINGS } from '../../constants/strings';
-// Removed TickerTape
+import { useAssetSearch, useAssetHistory } from '../../hooks/queries/useAssets';
 
 const { width } = Dimensions.get('window');
 
@@ -24,9 +24,7 @@ export function AssetManagementScreen({ navigation }: any) {
   const { showToast } = useToast();
   
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [watchlistDetails, setWatchlistDetails] = useState<any[]>([]);
+  const { data: searchResults = [], isLoading: isSearching } = useAssetSearch(searchQuery);
 
   const SearchIcon = Search as any;
   const PlusIcon = Plus as any;
@@ -50,42 +48,13 @@ export function AssetManagementScreen({ navigation }: any) {
     }
   }, []);
 
-  useEffect(() => {
-    const loadDetails = async () => {
-      if (watchlist.length > 0) {
-        const details = await Promise.all(watchlist.map(async (ticker) => {
-          try {
-            const data = await api.getAssetHistory(ticker);
-            return { ticker, ...data };
-          } catch (e) {
-            return { ticker, error: true };
-          }
-        }));
-        setWatchlistDetails(details);
-      } else {
-        setWatchlistDetails([]);
-      }
-    };
-    loadDetails();
-  }, [watchlist]);
+  // Watchlist details are now handled by individual AssetCard components using useAssetHistory
 
-  const handleSearch = async () => {
-    if (!searchQuery) return;
-    setIsSearching(true);
-    try {
-      const results = await api.searchAssets(searchQuery);
-      setSearchResults(results);
-    } catch (e: any) {
-      showToast(e.message.toUpperCase(), 'error');
-    } finally {
-      setIsSearching(false);
-    }
-  };
+  // Search is now handled automatically by useAssetSearch
 
   const addAsset = async (asset: any) => {
     await addToWatchlist(asset.ticker);
     showToast(`ASSET_ADDED: ${asset.ticker}`, 'success');
-    setSearchResults([]);
     setSearchQuery('');
   };
 
@@ -137,16 +106,23 @@ export function AssetManagementScreen({ navigation }: any) {
               value={searchQuery}
               onChangeText={setSearchQuery}
               autoCapitalize="characters"
-              onSubmitEditing={handleSearch}
+              onSubmitEditing={() => {}}
             />
             {isSearching && <GlowEffect color={theme.primary} size={4} glowRadius={8} />}
           </View>
         </View>
 
-        {searchResults.length > 0 && (
           <GlassCard style={dynamicStyles.searchResults}>
-            {searchResults.map((res: any, idx) => (
-              <TouchableOpacity key={`${res.ticker}-${idx}`} style={[dynamicStyles.resultItem, { borderBottomColor: theme.border }]} onPress={() => addAsset(res)}>
+            {searchResults.map((res: any, idx: number) => (
+              <TouchableOpacity 
+                key={`${res.ticker}-${idx}`} 
+                style={[dynamicStyles.resultItem, { borderBottomColor: theme.border }]} 
+                onPress={() => {
+                  addToWatchlist(res.ticker);
+                  showToast(`ASSET_ADDED: ${res.ticker}`, 'success');
+                  setSearchQuery('');
+                }}
+              >
                 <View style={dynamicStyles.resultInfo}>
                   <View style={[dynamicStyles.resultTickerBox, { backgroundColor: theme.primary + '10' }]}>
                     <Typography variant="monoBold" style={[dynamicStyles.resultTicker, { color: theme.primary }]}>{res.ticker}</Typography>
@@ -157,7 +133,6 @@ export function AssetManagementScreen({ navigation }: any) {
               </TouchableOpacity>
             ))}
           </GlassCard>
-        )}
 
         {/* Global Stats */}
         <View style={dynamicStyles.statsGrid}>
@@ -182,44 +157,23 @@ export function AssetManagementScreen({ navigation }: any) {
             <Typography variant="h3" style={[dynamicStyles.sectionTitle, { color: theme.textSecondary }]}>MONITORED_ASSETS</Typography>
           </View>
           
-          {watchlistDetails.length === 0 ? (
+          {watchlist.length === 0 ? (
             <GlassCard intensity="low" style={dynamicStyles.emptyWatchlist}>
               <ActivityIcon size={24} color={theme.textTertiary} style={{ marginBottom: 16 }} />
               <Typography variant="mono" style={[dynamicStyles.emptyText, { color: theme.textSecondary }]}>NO_ASSETS_IN_WATCHLIST</Typography>
               <Typography variant="caption" style={[dynamicStyles.emptySubtext, { color: theme.textTertiary }]}>Use the lookup station to add holdings.</Typography>
             </GlassCard>
           ) : (
-            watchlistDetails.map((asset) => (
-              <GlassCard key={asset.ticker} style={dynamicStyles.assetCard}>
-                <View style={dynamicStyles.assetHeader}>
-                   <View style={dynamicStyles.assetMeta}>
-                     <View style={[dynamicStyles.assetTickerBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', borderColor: theme.border }]}>
-                       <Typography variant="monoBold" style={[dynamicStyles.assetTicker, { color: theme.textPrimary }]}>{asset.ticker}</Typography>
-                     </View>
-                     <View>
-                        <Typography variant="mono" style={[dynamicStyles.assetReturn, { color: theme.primary }]}>μ: {((asset.expectedReturn || 0) * 100).toFixed(2)}%</Typography>
-                        <Typography variant="mono" style={[dynamicStyles.assetRisk, { color: theme.textTertiary }]}>σ: {((asset.volatility || 0) * 100).toFixed(2)}%</Typography>
-                     </View>
-                   </View>
-                   <TouchableOpacity 
-                     onPress={() => {
-                       removeFromWatchlist(asset.ticker);
-                       showToast(`ASSET_DEPROVISIONED: ${asset.ticker}`, 'info');
-                     }} 
-                     style={[dynamicStyles.removeBtn, { backgroundColor: theme.error + '05' }]}
-                   >
-                     <XIcon size={14} color={theme.error} />
-                   </TouchableOpacity>
-                </View>
-                
-                <View style={[dynamicStyles.assetFooter, { borderTopColor: theme.border }]}>
-                  <View style={dynamicStyles.dataTag}>
-                    <ChartIcon size={10} color={theme.primary} />
-                    <Typography variant="mono" style={[dynamicStyles.tagText, { color: theme.primary }]}>LIVE_DATA</Typography>
-                  </View>
-                  <Typography variant="mono" style={[dynamicStyles.priceText, { color: theme.textPrimary }]}>$1,242.03 <TrendIcon size={10} color={theme.primary} /></Typography>
-                </View>
-              </GlassCard>
+            watchlist.map((ticker) => (
+              <AssetCard 
+                key={ticker} 
+                ticker={ticker} 
+                theme={theme} 
+                isDark={isDark} 
+                dynamicStyles={dynamicStyles}
+                onRemove={() => removeFromWatchlist(ticker)}
+                showToast={showToast}
+              />
             ))
           )}
         </View>
@@ -229,6 +183,48 @@ export function AssetManagementScreen({ navigation }: any) {
 
       <LoadingOverlay visible={isStoreLoading} message="SYNCING_STATION..." />
     </KeyboardAvoidingView>
+  );
+}
+
+function AssetCard({ ticker, theme, isDark, dynamicStyles, onRemove, showToast }: any) {
+  const { data: asset, isLoading } = useAssetHistory(ticker);
+  const XIcon = X as any;
+  const ChartIcon = BarChart3 as any;
+  const TrendIcon = TrendingUp as any;
+
+  return (
+    <GlassCard style={dynamicStyles.assetCard}>
+      <View style={dynamicStyles.assetHeader}>
+          <View style={dynamicStyles.assetMeta}>
+            <View style={[dynamicStyles.assetTickerBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)', borderColor: theme.border }]}>
+              <Typography variant="monoBold" style={[dynamicStyles.assetTicker, { color: theme.textPrimary }]}>{ticker}</Typography>
+            </View>
+            <View>
+                <Typography variant="mono" style={[dynamicStyles.assetReturn, { color: theme.primary }]}>μ: {((asset?.expectedReturn || 0) * 100).toFixed(2)}%</Typography>
+                <Typography variant="mono" style={[dynamicStyles.assetRisk, { color: theme.textTertiary }]}>σ: {((asset?.volatility || 0) * 100).toFixed(2)}%</Typography>
+            </View>
+          </View>
+          <TouchableOpacity 
+            onPress={() => {
+              onRemove();
+              showToast(`ASSET_DEPROVISIONED: ${ticker}`, 'info');
+            }} 
+            style={[dynamicStyles.removeBtn, { backgroundColor: theme.error + '05' }]}
+          >
+            <XIcon size={14} color={theme.error} />
+          </TouchableOpacity>
+      </View>
+      
+      <View style={[dynamicStyles.assetFooter, { borderTopColor: theme.border }]}>
+        <View style={dynamicStyles.dataTag}>
+          <ChartIcon size={10} color={theme.primary} />
+          <Typography variant="mono" style={[dynamicStyles.tagText, { color: theme.primary }]}>{isLoading ? 'CACHING...' : 'LIVE_DATA'}</Typography>
+        </View>
+        <Typography variant="mono" style={[dynamicStyles.priceText, { color: theme.textPrimary }]}>
+          ${(asset?.price || 1242.03).toLocaleString()} <TrendIcon size={10} color={theme.primary} />
+        </Typography>
+      </View>
+    </GlassCard>
   );
 }
 

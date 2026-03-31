@@ -1,7 +1,8 @@
 import * as Crypto from 'expo-crypto';
 import * as LocalAuthentication from 'expo-local-authentication';
-import * as SecureStore from 'expo-secure-store';
+import { storage } from './storage';
 import { supabase } from '../services/supabase';
+import { SecureKeys } from '../constants/keys';
 
 export const hsmService = {
   /**
@@ -42,12 +43,19 @@ export const hsmService = {
       );
 
       // 3. Create "Institutional Signature" 
-      // In a real production HSM, this would be signed by a private key in the Secure Enclave.
-      // For this implementation, we combine the hash with a device-bound secret.
-      let deviceSecret = await SecureStore.getItemAsync('hsm_device_secret');
+      let deviceSecret = await storage.getItemAsync(SecureKeys.DEVICE.HSM_SECRET);
+      
+      // Migration logic
       if (!deviceSecret) {
-        deviceSecret = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, Math.random().toString());
-        await SecureStore.setItemAsync('hsm_device_secret', deviceSecret);
+        const legacySecret = await storage.getItemAsync('hsm_device_secret');
+        if (legacySecret) {
+          deviceSecret = legacySecret;
+          await storage.setItemAsync(SecureKeys.DEVICE.HSM_SECRET, legacySecret);
+          await storage.deleteItemAsync('hsm_device_secret');
+        } else {
+          deviceSecret = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, Math.random().toString());
+          await storage.setItemAsync(SecureKeys.DEVICE.HSM_SECRET, deviceSecret);
+        }
       }
 
       const signature = await Crypto.digestStringAsync(

@@ -15,7 +15,7 @@ export const PaystackHelper = {
       const response = await paystack.transaction.initialize({
         email,
         amount: (amount * 100).toString(), // Paystack uses kobo/cents
-        callback_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/paystack/callback`,
+        callback_url: `https://Quantmind.co.ke/api/paystack/callback?platform=web`,
         metadata: metadata,
         plan: plan,
         start_date: startDate

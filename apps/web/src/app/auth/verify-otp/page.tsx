@@ -89,11 +89,8 @@ function VerifyOtpForm() {
       if (verifyError) throw verifyError;
 
       // Success redirect
-      if (plan && plan !== 'free') {
-        router.push(`/dashboard/subscription?plan=${plan}`);
-      } else {
-        router.push('/dashboard');
-      }
+      const onboardingUrl = `/auth/onboarding${plan ? `?plan=${plan}` : ''}`;
+      router.push(onboardingUrl);
     } catch (err: any) {
       setError(err.message || 'Verification cipher rejected. Please check and retry.');
       setOtp(['', '', '', '', '', '']);

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { supabase } from '../services/supabase';
 import { useAuthStore } from '../store/authStore';
 
@@ -10,13 +11,15 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
 export function useNotifications() {
   const { user } = useAuthStore();
-  const notificationListener = useRef<any>();
-  const responseListener = useRef<any>();
+  const notificationListener = useRef<Notifications.Subscription | null>(null);
+  const responseListener = useRef<Notifications.Subscription | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -49,7 +52,6 @@ export function useNotifications() {
 
       if (actionIdentifier === 'EXECUTE_HEDGE' && data?.portfolioId) {
         // Navigate directly to hedging terminal or execute auto-hedge
-        // navigation.navigate('Sims', { screen: 'HedgingTerminal', params: { portfolioId: data.portfolioId } });
       }
 
       if (data?.type === 'SIMULATION_COMPLETE' && data?.portfolioId) {
@@ -58,10 +60,15 @@ export function useNotifications() {
     });
 
     return () => {
-      if (notificationListener.current) Notifications.removeNotificationSubscription(notificationListener.current);
-      if (responseListener.current) Notifications.removeNotificationSubscription(responseListener.current);
+      if (notificationListener.current) notificationListener.current.remove();
+      if (responseListener.current) responseListener.current.remove();
     };
   }, [user]);
+
+  return {
+    notificationsEnabled: Device.isDevice,
+    isExpoGo: Constants.appConfig?.extra?.expoGo ?? false,
+  };
 }
 
 async function saveTokenToDatabase(userId: string, token: string) {

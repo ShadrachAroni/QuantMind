@@ -1,8 +1,7 @@
 import * as LocalAuthentication from 'expo-local-authentication';
-import * as SecureStore from 'expo-secure-store';
-
-const BIOMETRIC_ENABLED_KEY = 'quantmind_biometric_enabled';
-const BIOMETRIC_PROMPTED_KEY = 'quantmind_biometric_prompted';
+import { Platform } from 'react-native';
+import { storage } from '../utils/storage';
+import { SecureKeys } from '../constants/keys';
 
 export enum BiometricType {
   NONE = 'NONE',
@@ -18,6 +17,7 @@ export const biometricService = {
    * Check if the device has biometric hardware and if the user has enrolled at least one biometric.
    */
   async isCompatible(): Promise<boolean> {
+    if (Platform.OS === 'web') return false;
     const hasHardware = await LocalAuthentication.hasHardwareAsync();
     const isEnrolled = await LocalAuthentication.isEnrolledAsync();
     return hasHardware && isEnrolled;
@@ -27,6 +27,7 @@ export const biometricService = {
    * Get the specific types of biometrics supported by the device.
    */
   async getSupportedTypes(): Promise<BiometricType> {
+    if (Platform.OS === 'web') return BiometricType.NONE;
     const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
     
     if (types.length === 0) return BiometricType.NONE;
@@ -48,6 +49,7 @@ export const biometricService = {
    * Prompt the user for biometric authentication.
    */
   async authenticate(reason: string = 'Authenticate to access your QuantMind terminal'): Promise<boolean> {
+    if (Platform.OS === 'web') return false;
     const result = await LocalAuthentication.authenticateAsync({
       promptMessage: reason,
       fallbackLabel: 'Use Passcode',
@@ -61,7 +63,8 @@ export const biometricService = {
    * Get the user's biometric preference.
    */
   async isEnabled(): Promise<boolean> {
-    const enabled = await SecureStore.getItemAsync(BIOMETRIC_ENABLED_KEY);
+    if (Platform.OS === 'web') return false;
+    const enabled = await storage.getItemAsync(SecureKeys.SETTINGS.BIOMETRIC_ENABLED);
     return enabled === 'true';
   },
 
@@ -69,14 +72,16 @@ export const biometricService = {
    * Set the user's biometric preference.
    */
   async setEnabled(enabled: boolean): Promise<void> {
-    await SecureStore.setItemAsync(BIOMETRIC_ENABLED_KEY, enabled ? 'true' : 'false');
+    if (Platform.OS === 'web') return;
+    await storage.setItemAsync(SecureKeys.SETTINGS.BIOMETRIC_ENABLED, enabled ? 'true' : 'false');
   },
 
   /**
    * Check if the user has already been prompted to enable biometrics.
    */
   async hasBeenPrompted(): Promise<boolean> {
-    const prompted = await SecureStore.getItemAsync(BIOMETRIC_PROMPTED_KEY);
+    if (Platform.OS === 'web') return true;
+    const prompted = await storage.getItemAsync(SecureKeys.SETTINGS.BIOMETRIC_PROMPTED);
     return prompted === 'true';
   },
 
@@ -84,6 +89,7 @@ export const biometricService = {
    * Mark that the user has been prompted for biometrics.
    */
   async setPrompted(prompted: boolean): Promise<void> {
-    await SecureStore.setItemAsync(BIOMETRIC_PROMPTED_KEY, prompted ? 'true' : 'false');
+    if (Platform.OS === 'web') return;
+    await storage.setItemAsync(SecureKeys.SETTINGS.BIOMETRIC_PROMPTED, prompted ? 'true' : 'false');
   },
 };

@@ -105,16 +105,17 @@ serve(async (req: Request) => {
     // Fetch full profile for persona and bandwidth tracking
     const { data: profile } = await supabase
       .from('user_profiles')
-      .select('ai_persona, ai_risk_sensitivity, ai_daily_usage_count, tier')
+      .select('ai_persona, ai_risk_sensitivity, ai_daily_usage_count, tier, ai_token_quota_override')
       .eq('id', user.id)
       .single();
 
     const userTier = profile?.tier || user.tier || 'free';
     const dailyLimit = TIER_AI_LIMITS[userTier] ?? 10;
-
-    // Daily AI message limit
+    // Daily AI message limit with override support
+    const quotaLimit = profile?.ai_token_quota_override || dailyLimit;
     const currentUsage = profile?.ai_daily_usage_count || 0;
-    if (dailyLimit !== -1 && currentUsage >= dailyLimit) {
+    
+    if (quotaLimit !== -1 && currentUsage >= quotaLimit) {
       const limit = await rateLimit(`ai-chat-daily:${user.id}`, dailyLimit, 86400);
       if (!limit.allowed) {
         return new Response(JSON.stringify({
@@ -319,9 +320,14 @@ Assets: ${JSON.stringify(portfolio.assets, null, 2)}`;
       totalTokens = data.usage?.output_tokens + data.usage?.input_tokens || 0;
     }
 
-    // Update usage count in DB using robust RPC with daily reset logic
+    // Update usage count and log session details using centralized system RPC
     if (responseText && responseText !== 'No response generated.') {
-      await supabase.rpc('increment_ai_usage', { user_id_val: user.id });
+      await supabase.rpc('log_ai_session_with_quota', {
+        user_id_val: user.id,
+        model_id_val: aiModel,
+        tokens_in_val: 0, // Provider specific token extraction could be improved
+        tokens_out_val: totalTokens || 0
+      });
     }
 
     return new Response(JSON.stringify({

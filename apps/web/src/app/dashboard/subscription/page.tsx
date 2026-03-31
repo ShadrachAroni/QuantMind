@@ -116,6 +116,9 @@ export default function SubscriptionPage() {
       const plan = SUBSCRIPTION_PLANS.find(p => p.id === planId);
       if (!plan) throw new Error('INVALID_PLAN_PROTOCOL');
 
+      // Persistence for Retry Protocol
+      localStorage.setItem('last_attempted_plan', plan.tier);
+
       const { data, error: funcError } = await supabase.functions.invoke('paystack-checkout', {
         body: { planCode: plan.paystack_plan_code }
       });

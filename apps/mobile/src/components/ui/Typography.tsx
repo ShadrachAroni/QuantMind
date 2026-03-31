@@ -4,97 +4,145 @@ import { sharedTheme } from '../../constants/theme';
 import { useTheme } from '../../context/ThemeContext';
 
 interface TypographyProps extends TextProps {
-  variant?: 'h0' | 'h1' | 'h2' | 'h3' | 'h4' | 'body' | 'caption' | 'button' | 'mono' | 'monoBold' | 'label';
-  color?: 'primary' | 'secondary' | 'error' | 'success' | 'white' | 'textPrimary' | 'textSecondary' | 'textTertiary';
+  variant?: 'h0' | 'h1' | 'h2' | 'h3' | 'h4' | 'body' | 'bodyBold' | 'caption' | 'button' | 'mono' | 'monoBold' | 'label';
+  color?: 'primary' | 'secondary' | 'error' | 'success' | 'white' | 'textPrimary' | 'textSecondary' | 'textTertiary' | 'warning' | 'accent';
 }
+
+const FALLBACK_FONTS = {
+  bold: 'System',
+  semiBold: 'System',
+  medium: 'System',
+  regular: 'System',
+  mono: 'System',
+  monoRegular: 'System',
+};
+
+const FALLBACK_SIZES = {
+  xs: 10,
+  sm: 12,
+  md: 14,
+  lg: 18,
+  xl: 24,
+  xxl: 32,
+  xxxl: 40,
+};
 
 export function Typography({ variant = 'body', color, style, children, ...props }: TypographyProps) {
   const { theme } = useTheme();
 
-  const getColor = (c: string) => {
-    switch (c) {
+  const getColor = (colorName: string) => {
+    if (!theme) return colorName;
+    switch (colorName) {
       case 'primary': return theme.primary;
       case 'secondary': return theme.secondary;
-      case 'error': return theme.error;
-      case 'success': return theme.success;
-      case 'white': return '#FFFFFF';
       case 'textPrimary': return theme.textPrimary;
       case 'textSecondary': return theme.textSecondary;
       case 'textTertiary': return theme.textTertiary;
-      default: return undefined;
+      case 'error': return theme.error;
+      case 'success': return theme.success;
+      case 'warning': return theme.warning;
+      case 'accent': return theme.accent;
+      case 'white': return '#FFFFFF';
+      default: return colorName;
+    }
+  };
+
+  const fonts = theme?.typography?.fonts || sharedTheme?.typography?.fonts || FALLBACK_FONTS;
+  const sizes = theme?.typography?.sizes || sharedTheme?.typography?.sizes || FALLBACK_SIZES;
+
+  const getFont = (weight: keyof typeof FALLBACK_FONTS) => {
+    try {
+      if (!fonts) return FALLBACK_FONTS[weight] || 'System';
+      
+      const fontName = fonts[weight];
+      if (!fontName) {
+        // High-visibility warning for the specific crash causing property
+        if (weight === 'regular') {
+          console.warn('🕵️ [TYPOGRAPHY_DEBUG] font "regular" is missing from current theme.');
+        }
+        return FALLBACK_FONTS[weight] || 'System';
+      }
+      return fontName;
+    } catch (e) {
+      return FALLBACK_FONTS[weight] || 'System';
     }
   };
 
   const dynamicStyles = StyleSheet.create({
     h0: {
-      fontFamily: sharedTheme.typography.fonts.bold,
-      fontSize: sharedTheme.typography.sizes.xxxl,
-      lineHeight: 48,
-      color: theme.textPrimary,
+      fontFamily: getFont('bold'),
+      fontSize: sizes?.xxxl || 40,
+      fontWeight: '700',
+      color: theme?.textPrimary || theme?.colors?.textPrimary || '#FFFFFF',
       letterSpacing: -1,
     },
     h1: {
-      fontFamily: sharedTheme.typography.fonts.bold,
-      fontSize: sharedTheme.typography.sizes.xxl,
-      lineHeight: 40,
-      color: theme.textPrimary,
+      fontFamily: getFont('bold'),
+      fontSize: sizes?.xxl || 32,
+      fontWeight: '700',
+      color: theme?.textPrimary || theme?.colors?.textPrimary || '#FFFFFF',
       letterSpacing: -0.5,
     },
     h2: {
-      fontFamily: sharedTheme.typography.fonts.semiBold,
-      fontSize: sharedTheme.typography.sizes.xl,
-      lineHeight: 32,
-      color: theme.textPrimary,
+      fontFamily: getFont('bold'),
+      fontSize: sizes?.xl || 24,
+      fontWeight: '600',
+      color: theme?.textPrimary || theme?.colors?.textPrimary || '#FFFFFF',
     },
     h3: {
-      fontFamily: sharedTheme.typography.fonts.medium,
-      fontSize: sharedTheme.typography.sizes.lg,
-      lineHeight: 28,
-      color: theme.textPrimary,
+      fontFamily: getFont('semiBold'),
+      fontSize: sizes?.lg || 18,
+      fontWeight: '600',
+      color: theme?.textPrimary || theme?.colors?.textPrimary || '#FFFFFF',
     },
     h4: {
-      fontFamily: sharedTheme.typography.fonts.medium,
-      fontSize: sharedTheme.typography.sizes.md,
-      lineHeight: 24,
-      color: theme.textPrimary,
+      fontFamily: getFont('semiBold'),
+      fontSize: sizes?.md || 14,
+      fontWeight: '600',
+      color: theme?.textPrimary || theme?.colors?.textPrimary || '#FFFFFF',
     },
     body: {
-      fontFamily: sharedTheme.typography.fonts.regular,
-      fontSize: sharedTheme.typography.sizes.md,
-      lineHeight: 24,
-      color: theme.textSecondary,
+      fontFamily: getFont('regular'),
+      fontSize: sizes?.md || 14,
+      color: theme?.textPrimary || theme?.colors?.textPrimary || '#FFFFFF',
+      lineHeight: 20,
+    },
+    bodyBold: {
+      fontFamily: getFont('bold'),
+      fontSize: sizes?.md || 14,
+      fontWeight: '700',
+      color: theme?.textPrimary || theme?.colors?.textPrimary || '#FFFFFF',
+      lineHeight: 20,
     },
     caption: {
-      fontFamily: sharedTheme.typography.fonts.regular,
-      fontSize: sharedTheme.typography.sizes.sm,
-      lineHeight: 20,
-      color: theme.textTertiary,
+      fontFamily: getFont('regular'),
+      fontSize: sizes?.sm || 12,
+      color: theme?.textSecondary || theme?.colors?.textSecondary || '#848D97',
     },
     button: {
-      fontFamily: sharedTheme.typography.fonts.semiBold,
-      fontSize: sharedTheme.typography.sizes.md,
-      color: theme.textPrimary,
+      fontFamily: getFont('semiBold'),
+      fontSize: sizes?.md || 14,
+      fontWeight: '600',
+      color: theme?.textPrimary || theme?.colors?.textPrimary || '#FFFFFF',
       textTransform: 'uppercase',
-      letterSpacing: 1,
     },
     mono: {
-      fontFamily: sharedTheme.typography.fonts.monoRegular,
-      fontSize: sharedTheme.typography.sizes.sm,
-      lineHeight: 18,
-      color: theme.primary,
+      fontFamily: getFont('mono'),
+      fontSize: sizes?.sm || 12,
+      color: theme?.textPrimary || theme?.colors?.textPrimary || '#FFFFFF',
     },
     monoBold: {
-      fontFamily: sharedTheme.typography.fonts.mono,
-      fontSize: sharedTheme.typography.sizes.md,
-      lineHeight: 22,
-      color: theme.primary,
+      fontFamily: getFont('mono'),
+      fontSize: sizes?.sm || 12,
+      fontWeight: '700',
+      color: theme?.textPrimary || theme?.colors?.textPrimary || '#FFFFFF',
     },
     label: {
-      fontFamily: sharedTheme.typography.fonts.mono,
-      fontSize: 10,
-      letterSpacing: 1.5,
-      color: theme.textTertiary,
+      fontFamily: getFont('medium'),
+      fontSize: sizes?.xs || 10,
+      color: theme?.textSecondary || theme?.colors?.textSecondary || '#848D97',
       textTransform: 'uppercase',
+      letterSpacing: 1,
     },
   });
 

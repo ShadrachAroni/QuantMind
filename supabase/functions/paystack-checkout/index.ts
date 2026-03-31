@@ -57,6 +57,9 @@ serve(async (req: Request) => {
     if (!PAYSTACK_SECRET_KEY) throw new Error('Server configuration error: missing Paystack API key');
 
     // Call Paystack Initialize Transaction API
+    const platform = req.headers.get('origin') ? 'web' : 'mobile';
+    const callbackUrl = `https://Quantmind.co.ke/api/paystack/callback?platform=${platform}`;
+
     const response = await fetch('https://api.paystack.co/transaction/initialize', {
       method: 'POST',
       headers: {
@@ -68,8 +71,8 @@ serve(async (req: Request) => {
         amount: 100, // Initial temp amount
         plan: planCode,
         start_date: startDate,
-        channels: ['card', 'mobile_money', 'apple_pay', 'bank_transfer'],
-        callback_url: `${req.headers.get('origin') || Deno.env.get('SITE_URL') || 'http://localhost:3000'}/dashboard/subscription?success=true`,
+        channels: ['card', 'mobile_money', 'apple_pay', 'google_pay', 'ussd', 'bank_transfer'],
+        callback_url: callbackUrl,
         metadata: {
            supabase_user_id: user.id,
            is_trial: !!startDate,

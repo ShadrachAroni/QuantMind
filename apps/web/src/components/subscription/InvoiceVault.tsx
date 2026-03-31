@@ -8,7 +8,9 @@ import {
   CheckCircle2, 
   XCircle, 
   Clock,
-  ArrowUpRight
+  ArrowUpRight,
+  Mail,
+  Loader2
 } from 'lucide-react';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { createClient } from '@/lib/supabase';
@@ -20,6 +22,7 @@ interface Transaction {
   amount: number;
   currency: string;
   status: string;
+  channel: string;
   created_at: string;
 }
 
@@ -53,6 +56,91 @@ export function InvoiceVault({ isOpen, onClose }: InvoiceVaultProps) {
       fetchTransactions();
     }
   }, [isOpen, supabase]);
+
+  const [processingId, setProcessingId] = useState<string | null>(null);
+
+  const handleResendEmail = async (tx: Transaction) => {
+    setProcessingId(tx.id);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) throw new Error("User email not found");
+
+      const { error } = await supabase.functions.invoke('send-email', {
+        body: {
+          to: user.email,
+          type: 'payment_receipt',
+          details: {
+            reference: tx.reference,
+            amount: (tx.amount).toFixed(2),
+            currency: tx.currency,
+            tier: 'INSTITUTIONAL', // We can improve this by fetching subscription tier
+            date: new Date(tx.created_at).toLocaleDateString('en-GB', { 
+              day: '2-digit', month: 'short', year: 'numeric' 
+            }).toUpperCase(),
+            method: tx.channel || 'Card'
+          }
+        }
+      });
+
+      if (error) throw error;
+      alert("SUCCESS: Institutional receipt dispatched to " + user.email);
+    } catch (err: any) {
+      console.error(err);
+      alert("ERROR: Failed to dispatch receipt.");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleDownload = (tx: Transaction) => {
+    // Basic Print Protocol for Institutional Receipts
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const date = new Date(tx.created_at).toLocaleDateString('en-GB', { 
+      day: '2-digit', month: 'short', year: 'numeric' 
+    }).toUpperCase();
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>QUANTMIND_RECEIPT_${tx.reference}</title>
+          <style>
+            body { font-family: 'Courier New', Courier, monospace; background: #fff; color: #000; padding: 40px; }
+            .header { border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 40px; }
+            .logo { font-size: 24px; font-weight: bold; }
+            .details { margin-bottom: 40px; }
+            .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dashed #ccc; }
+            .footer { margin-top: 60px; font-size: 10px; text-align: center; color: #666; }
+            @media print { .no-print { display: none; } }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="logo">QuantMind Systems</div>
+            <div style="font-size: 12px; margin-top: 4px;">OFFICIAL_TRANSACTION_RECORDS</div>
+          </div>
+          <div class="details">
+            <div class="row"><span>REFERENCE:</span> <span>${tx.reference}</span></div>
+            <div class="row"><span>DATE:</span> <span>${date}</span></div>
+            <div class="row"><span>AMOUNT:</span> <span>${tx.amount.toFixed(2)} ${tx.currency}</span></div>
+            <div class="row"><span>STATUS:</span> <span>${tx.status.toUpperCase()}</span></div>
+            <div class="row"><span>CHANNEL:</span> <span>${tx.channel || 'CREDIT_CARD'}</span></div>
+          </div>
+          <div style="margin-top: 40px; text-align: center;">
+            <p>Thank you for scaling with QuantMind.</p>
+          </div>
+          <div class="footer">
+            QUANTMIND_GLOBAL // SECURE_TRANSACTION_LEDGER
+          </div>
+          <script>
+            window.onload = () => { window.print(); window.close(); };
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
 
   if (!isOpen) return null;
 
@@ -119,8 +207,24 @@ export function InvoiceVault({ isOpen, onClose }: InvoiceVaultProps) {
                              {tx.status}
                           </span>
                        </div>
-                       <div className="flex justify-end">
-                          <button className="p-2 rounded-lg bg-white/5 text-[#848D97] hover:text-[#00D9FF] hover:bg-[#00D9FF]/10 transition-all active:scale-95 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest">
+                       <div className="flex justify-end gap-2">
+                          <button 
+                            onClick={() => handleResendEmail(tx)}
+                            disabled={processingId === tx.id || tx.status !== 'success'}
+                            className="p-2 rounded-lg bg-white/5 text-[#848D97] hover:text-[#7C3AED] hover:bg-[#7C3AED]/10 transition-all active:scale-95 disabled:opacity-50"
+                            title="Resend Email"
+                          >
+                             {processingId === tx.id ? (
+                               <Loader2 size={14} className="animate-spin" />
+                             ) : (
+                               <Mail size={14} />
+                             )}
+                          </button>
+                          <button 
+                            onClick={() => handleDownload(tx)}
+                            disabled={tx.status !== 'success'}
+                            className="p-2 rounded-lg bg-white/5 text-[#848D97] hover:text-[#00D9FF] hover:bg-[#00D9FF]/10 transition-all active:scale-95 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest disabled:opacity-50"
+                          >
                              <Download size={14} />
                              <span className="hidden sm:inline">PDF</span>
                           </button>

@@ -42,7 +42,7 @@ export default function AdminDashboard() {
         { data: allRevenueData }
       ] = await Promise.all([
         supabase.from('user_profiles').select('*', { count: 'exact', head: true }),
-        supabase.from('user_profiles').select('*', { count: 'exact', head: true }).eq('tier', 'pro'),
+        supabase.from('user_profiles').select('*', { count: 'exact', head: true }).in('tier', ['plus', 'pro', 'student']),
         supabase.from('simulations').select('*', { count: 'exact', head: true }).eq('status', 'running'),
         supabase.from('support_tickets').select('*', { count: 'exact', head: true }).eq('status', 'open'),
         supabase.from('portfolios').select('*', { count: 'exact', head: true }),
@@ -56,7 +56,7 @@ export default function AdminDashboard() {
 
       setStats({
         users: userCount || 0,
-        proUsers: proCount || 0,
+        proUsers: proCount || 0, // Now represents all premium tiers
         simulations: activeSimsCount || 0,
         tickets: openTicketsCount || 0,
         revenue: totalRevenue,
@@ -122,26 +122,29 @@ export default function AdminDashboard() {
               <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-purple-600/10 blur-[60px] rounded-full pointer-events-none" />
            </div>
 
-           <div className="summary-card glass-card group">
+            <div className="summary-card glass-card group">
               <div className="card-top">
-                 <span className="label mono italic text-cyan-400">Oracle Penetration</span>
-                 <div className="trend cyan">SENTIMENT_FLOW</div>
+                 <span className="label mono italic text-cyan-400">Premium Density</span>
+                 <div className="trend cyan flex items-center gap-1.5">
+                   <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                   INSTITUTIONAL
+                 </div>
               </div>
               <div className="amount font-black tabular-nums tracking-tighter neon-text-cyan flex items-baseline gap-2">
-                {loading ? '0' : stats.oracleMessages}
-                <span className="text-xl text-gray-500 font-medium font-sans">TX</span>
+                {loading ? '0' : stats.proUsers}
+                <span className="text-xl text-gray-500 font-medium font-sans">USERS</span>
               </div>
               <div className="card-stats-row border-white/5">
-                 <div className="mini-icon-box cyan shadow-[0_0_20px_rgba(34,211,238,0.4)]"><Activity size={14} /></div>
+                 <div className="mini-icon-box cyan shadow-[0_0_20px_rgba(34,211,238,0.4)]"><Users size={14} /></div>
                  <div className="mini-info">
-                    <strong className="mono italic text-[10px] text-cyan-300">AI_ORACLE_SESSIONS</strong>
-                    <p className="text-[10px] text-gray-500 leading-tight">Total sentiment analysis requests processed by AI.</p>
+                    <strong className="mono italic text-[10px] text-cyan-300">UPGRADE_CONVERSION</strong>
+                    <p className="text-[10px] text-gray-500 leading-tight">Total users on Plus, Pro, or Student tiers.</p>
                  </div>
               </div>
               <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-cyan-600/10 blur-[60px] rounded-full pointer-events-none" />
-           </div>
+            </div>
 
-           <div className="summary-card glass-card group">
+            <div className="summary-card glass-card group">
               <div className="card-top">
                  <span className="label mono italic text-pink-400">System Revenue (KES)</span>
                  <div className="trend pink">AGGREGATED</div>
@@ -157,8 +160,8 @@ export default function AdminDashboard() {
                  </div>
               </div>
               <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-pink-600/10 blur-[60px] rounded-full pointer-events-none" />
-           </div>
-        </div>
+            </div>
+          </div>
 
         {/* Main Operational View */}
         <div className="main-stats-grid">

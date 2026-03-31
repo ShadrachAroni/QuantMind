@@ -19,6 +19,7 @@ export function MfaGuardian({ children }: { children: React.ReactNode }) {
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [selectedFactorId, setSelectedFactorId] = useState<string | null>(null);
   
   // Custom Email OTP state
   const [emailOtpSent, setEmailOtpSent] = useState(false);
@@ -31,14 +32,17 @@ export function MfaGuardian({ children }: { children: React.ReactNode }) {
     const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     if (error) return;
 
-    setAal(data.currentLevel as any);
-    
     if (data.currentLevel === 'aal1' && data.nextLevel === 'aal2') {
       const factorsRes = await supabase.auth.mfa.listFactors();
       if (factorsRes.data) {
-        setFactors(factorsRes.data.all.filter(f => f.status === 'verified'));
+        const verifiedFactors = factorsRes.data.all.filter(f => f.status === 'verified');
+        setFactors(verifiedFactors);
+        if (verifiedFactors.length > 0) {
+          setSelectedFactorId(verifiedFactors[0].id);
+        }
       }
     }
+    setAal(data.currentLevel as any);
     setLoading(false);
   }
 
@@ -154,24 +158,27 @@ export function MfaGuardian({ children }: { children: React.ReactNode }) {
               {!emailOtpSent && (
                 <div className="grid grid-cols-1 gap-3">
                    {factors.map(f => (
-                      <button 
+                      <div 
                         key={f.id}
-                        disabled={isVerifying}
-                        onClick={() => { /* This would trigger an input field or direct challenge */ }}
-                        className="w-full flex items-center justify-between p-5 bg-white/5 border border-white/10 rounded-2xl hover:bg-[#00D9FF]/10 hover:border-[#00D9FF]/30 transition-all group"
+                        onClick={() => setSelectedFactorId(f.id)}
+                        className={cn(
+                          "w-full flex items-center justify-between p-5 bg-white/5 border rounded-2xl transition-all group cursor-pointer",
+                          selectedFactorId === f.id ? "border-[#00D9FF]/50 bg-[#00D9FF]/5" : "border-white/10 hover:bg-[#00D9FF]/10 hover:border-[#00D9FF]/30"
+                        )}
                       >
                          <div className="flex items-center gap-4">
-                            <Smartphone className="text-[#848D97] group-hover:text-[#00D9FF]" size={20} />
+                            <Smartphone className={cn("transition-colors", selectedFactorId === f.id ? "text-[#00D9FF]" : "text-[#848D97] group-hover:text-[#00D9FF]")} size={20} />
                             <div className="text-left">
                                <p className="text-[10px] font-bold text-white uppercase tracking-widest">{t('MFA_Method_App')}</p>
-                               <p className="text-[9px] text-[#848D97] font-mono uppercase mt-0.5">TOTP_PROTOCOL_NODE</p>
+                               <p className="text-[9px] text-[#848D97] font-mono uppercase mt-0.5">{f.friendly_name || 'TOTP_PROTOCOL_NODE'}</p>
                             </div>
                          </div>
-                         <button 
-                           onClick={(e) => { e.stopPropagation(); /* Logic for specific factor if multiple */ }} 
-                           className="text-[9px] font-bold text-[#00D9FF] uppercase tracking-widest"
-                         >Select</button>
-                      </button>
+                         {selectedFactorId === f.id ? (
+                            <div className="w-2 h-2 rounded-full bg-[#00D9FF] shadow-[0_0_10px_#00D9FF]" />
+                         ) : (
+                            <div className="text-[9px] font-bold text-[#848D97] uppercase tracking-widest group-hover:text-[#00D9FF]">Select</div>
+                         )}
+                      </div>
                    ))}
 
                    {profile?.mfa_email_enabled && (
@@ -227,8 +234,8 @@ export function MfaGuardian({ children }: { children: React.ReactNode }) {
                        />
                     </div>
                     <button 
-                      onClick={emailOtpSent ? handleVerifyEmailOtp : () => handleVerifyTotp(factors[0].id)}
-                      disabled={isVerifying || verificationCode.length < 6}
+                      onClick={emailOtpSent ? handleVerifyEmailOtp : () => selectedFactorId && handleVerifyTotp(selectedFactorId)}
+                      disabled={isVerifying || verificationCode.length < 6 || (!emailOtpSent && !selectedFactorId)}
                       className="w-full bg-[#00D9FF] text-[#05070A] py-4 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#00D9FF]/90 transition-all shadow-[0_4px_15px_rgba(0,217,255,0.3)] disabled:opacity-50"
                     >
                        {isVerifying ? 'Verifying_Node...' : 'Authorize_Session'}

@@ -28,7 +28,7 @@ export const SUBSCRIPTION_PLANS: Plan[] = [
     price: 9.99,
     interval: 'monthly',
     tier: 'plus',
-    paystack_plan_code: process.env.NEXT_PUBLIC_PAYSTACK_PLAN_PLUS || 'PLN_plus_123',
+    paystack_plan_code: process.env.NEXT_PUBLIC_PAYSTACK_PLAN_PLUS || 'PLN_emm71vstqcgpvbw',
     features: [
       '5 Institutional Portfolios',
       'Advanced Risk Metrics',
@@ -42,7 +42,7 @@ export const SUBSCRIPTION_PLANS: Plan[] = [
     price: 99,
     interval: 'yearly',
     tier: 'plus',
-    paystack_plan_code: process.env.NEXT_PUBLIC_PAYSTACK_PLAN_PLUS_YEARLY || 'PLN_plus_yearly_123',
+    paystack_plan_code: process.env.NEXT_PUBLIC_PAYSTACK_PLAN_PLUS_YEARLY || 'PLN_n3eqcfdmmwrjryi',
     features: [
       '5 Institutional Portfolios',
       'Advanced Risk Metrics',
@@ -57,7 +57,7 @@ export const SUBSCRIPTION_PLANS: Plan[] = [
     price: 24.99,
     interval: 'monthly',
     tier: 'pro',
-    paystack_plan_code: process.env.NEXT_PUBLIC_PAYSTACK_PLAN_PRO || 'PLN_pro_456',
+    paystack_plan_code: process.env.NEXT_PUBLIC_PAYSTACK_PLAN_PRO || 'PLN_yktxo3jqz0dk2s0',
     features: [
       'Unlimited Portfolios',
       'Oracle AI Full Integration',
@@ -71,7 +71,7 @@ export const SUBSCRIPTION_PLANS: Plan[] = [
     price: 229,
     interval: 'yearly',
     tier: 'pro',
-    paystack_plan_code: process.env.NEXT_PUBLIC_PAYSTACK_PLAN_PRO_YEARLY || 'PLN_pro_yearly_456',
+    paystack_plan_code: process.env.NEXT_PUBLIC_PAYSTACK_PLAN_PRO_YEARLY || 'PLN_riwa9c82qn37uvs',
     features: [
       'Unlimited Portfolios',
       'Oracle AI Full Integration',
@@ -86,12 +86,27 @@ export const SUBSCRIPTION_PLANS: Plan[] = [
     price: 5,
     interval: 'monthly',
     tier: 'student',
-    paystack_plan_code: process.env.NEXT_PUBLIC_PAYSTACK_PLAN_STUDENT || 'PLN_student_789',
+    paystack_plan_code: process.env.NEXT_PUBLIC_PAYSTACK_PLAN_STUDENT || 'PLN_f09gf986tgcf5mu',
     features: [
       '3 Institutional Portfolios',
       'Educational Resources',
       'Standard Simulations',
       'Student Verification Required'
+    ]
+  },
+  {
+    id: 'plan_student_yearly',
+    name: 'Academic (Yearly)',
+    price: 49,
+    interval: 'yearly',
+    tier: 'student',
+    paystack_plan_code: process.env.NEXT_PUBLIC_PAYSTACK_PLAN_STUDENT_YEARLY || 'PLN_bhsxacwwti5xw8p',
+    features: [
+      '3 Institutional Portfolios',
+      'Educational Resources',
+      'Standard Simulations',
+      'Student Verification Required',
+      'Save 18% overall'
     ]
   }
 ];

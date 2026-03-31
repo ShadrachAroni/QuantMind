@@ -3,19 +3,24 @@ import { Asset, Portfolio } from '@quantmind/shared-types';
 import { api } from '../services/api';
 import { supabase } from '../services/supabase';
 import { useSyncStore } from './syncStore';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 interface PortfolioState {
   isLoading: boolean;
   error: string | null;
+  portfolioSubscription: RealtimeChannel | null;
   fetchPortfolios: () => Promise<void>;
   createPortfolio: (name: string, description: string, assets: Asset[]) => Promise<any>;
   deletePortfolio: (id: string) => Promise<void>;
+  subscribeToChanges: (userId: string) => void;
+  unsubscribeFromChanges: () => void;
 }
 
 export const usePortfolioStore = create<PortfolioState>()(
   (set, get) => ({
     isLoading: false,
     error: null,
+    portfolioSubscription: null,
 
     fetchPortfolios: async () => {
       const { setPortfolios } = useSyncStore.getState();
@@ -90,6 +95,40 @@ export const usePortfolioStore = create<PortfolioState>()(
         await supabase.from('portfolios').delete().eq('id', id);
       } catch (e: any) {
         console.error('Failed to delete portfolio:', e);
+      }
+    },
+
+    subscribeToChanges: (userId: string) => {
+      const { portfolioSubscription } = get();
+      if (portfolioSubscription) portfolioSubscription.unsubscribe();
+
+      console.log(`[PortfolioStore] Subscribing to portfolio changes for user: ${userId}`);
+      const channel = supabase
+        .channel(`portfolios-user-${userId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'portfolios',
+            filter: `user_id=eq.${userId}`,
+          },
+          async (payload) => {
+            console.log('[PortfolioStore] Realtime update received:', payload.eventType);
+            // Refresh portfolios on any change
+            await get().fetchPortfolios();
+          }
+        )
+        .subscribe();
+
+      set({ portfolioSubscription: channel });
+    },
+
+    unsubscribeFromChanges: () => {
+      const { portfolioSubscription } = get();
+      if (portfolioSubscription) {
+        portfolioSubscription.unsubscribe();
+        set({ portfolioSubscription: null });
       }
     }
   })

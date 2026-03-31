@@ -13,9 +13,7 @@ export const CONFIG = {
   DEFAULT_TIER_CONFIG: {
     free: { maxPaths: 1000, dailyPowerShifts: 3, model: 'Monte Carlo', oracle: 'GPT-4o Mini', allowAdvancedModels: false, allowAIOracle: false },
     plus: { maxPaths: 10000, dailyPowerShifts: 5, model: 'Optimized GBM', oracle: 'Claude 3.5 Sonnet', allowAdvancedModels: false, allowAIOracle: false },
-    basic: { maxPaths: 10000, dailyPowerShifts: 5, model: 'Optimized GBM', oracle: 'Claude 3.5 Sonnet', allowAdvancedModels: false, allowAIOracle: false },
     pro: { maxPaths: 100000, dailyPowerShifts: 15, model: 'Fat-Tail (Levy)', oracle: 'Claude 3 Opus', allowAdvancedModels: true, allowAIOracle: true },
-    institution: { maxPaths: 1000000, dailyPowerShifts: 100, model: 'H100 GPU Cluster', oracle: 'Custom LLM', allowAdvancedModels: true, allowAIOracle: true },
     student: { maxPaths: 10000, dailyPowerShifts: 5, model: 'Optimized GBM', oracle: 'Claude 3.5 Sonnet', allowAdvancedModels: false, allowAIOracle: false }
   },
   

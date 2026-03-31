@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { zustandMMKVStorage } from '../services/storage/mmkv';
 import { Portfolio, SimulationResult } from '@quantmind/shared-types';
 
 interface SyncOperation {
@@ -99,7 +99,7 @@ export const useSyncStore = create<SyncState>()(
     }),
     {
       name: 'quantmind-mobile-sync-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => zustandMMKVStorage),
       partialize: (state) => ({
         profile: state.profile,
         portfolios: state.portfolios,

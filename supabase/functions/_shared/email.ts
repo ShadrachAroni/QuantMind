@@ -379,3 +379,72 @@ export function getQuantMindRecoveryTemplate(token: string, origin: string = "ht
 </body>
 </html>`;
 }
+
+/**
+ * Institutional Receipt Template
+ */
+export function getQuantMindReceiptTemplate(details: { 
+  reference: string, 
+  amount: string, 
+  currency: string,
+  tier: string,
+  date: string,
+  method: string
+}) {
+  const tierLabel = (details.tier || "Standard").toUpperCase();
+  const brandAlt = "#00D9FF";
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>${COMMON_HEAD}</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="header">
+        <div class="logo">Quant<span>Mind</span>.</div>
+        <div style="float: right; font-size: 10px; color: ${TEXT_SECONDARY} !important; font-family: ui-monospace, monospace; margin-top: 6px;">RECEIPT_ID: ${details.reference}</div>
+      </div>
+      <div style="padding: 48px 32px;">
+        <div style="text-align: center; margin-bottom: 40px;">
+          <div style="display: inline-block; background: rgba(0, 217, 255, 0.1); color: ${brandAlt} !important; padding: 6px 16px; border-radius: 999px; font-size: 10px; font-weight: 900; letter-spacing: 2px; margin-bottom: 16px;">TRANSACTION_SUCCESSFUL</div>
+          <h1 style="font-size: 32px; font-weight: 900; margin: 0; color: #fff !important;">${details.amount} ${details.currency}</h1>
+          <p style="font-size: 14px; color: ${TEXT_SECONDARY} !important; margin-top: 8px;">Institutional Node Allotted: ${tierLabel} TIER</p>
+        </div>
+
+        <div style="background: rgba(15, 23, 42, 0.4) !important; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px; padding: 24px; margin-bottom: 32px;">
+          <div style="font-size: 10px; font-weight: 900; color: #fff !important; margin-bottom: 20px; letter-spacing: 1.5px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 8px;">LEDGER_DETAILS</div>
+          
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 8px 0; font-size: 12px; color: ${TEXT_SECONDARY} !important;">Transaction Date</td>
+              <td style="padding: 8px 0; font-size: 12px; color: #fff !important; text-align: right; font-family: ui-monospace, monospace;">${details.date}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; font-size: 12px; color: ${TEXT_SECONDARY} !important;">Payment Method</td>
+              <td style="padding: 8px 0; font-size: 12px; color: #fff !important; text-align: right; text-transform: uppercase;">${details.method}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; font-size: 12px; color: ${TEXT_SECONDARY} !important;">Service Tier</td>
+              <td style="padding: 8px 0; font-size: 12px; color: ${brandAlt} !important; text-align: right; font-weight: 900;">${tierLabel}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; font-size: 12px; color: ${TEXT_SECONDARY} !important;">Transaction Reference</td>
+              <td style="padding: 8px 0; font-size: 12px; color: #fff !important; text-align: right; font-family: ui-monospace, monospace;">${details.reference}</td>
+            </tr>
+          </table>
+        </div>
+
+        <div style="text-align: center;">
+          <p style="font-size: 13px; line-height: 1.6; color: ${TEXT_SECONDARY} !important; margin-bottom: 32px;">
+            Your institutional nodes have been provisioned. Access the terminal to initialize your simulation pipelines.
+          </p>
+          <a href="https://quantmind.app/dashboard/subscription" class="btn" style="width: 100%; box-sizing: border-box;">Enter Invoice Vault</a>
+        </div>
+      </div>
+    </div>
+    ${SHARED_FOOTER}
+  </div>
+</body>
+</html>`;
+}
+
