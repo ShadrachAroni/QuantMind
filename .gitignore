@@ -69,3 +69,7 @@ Assets and Designs/
 StitchAssets
 download_stitch.ps1
 .vercel
+*.log
+*.log*
+
+cache/
