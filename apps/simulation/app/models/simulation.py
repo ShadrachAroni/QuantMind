@@ -8,6 +8,29 @@ class Asset(BaseModel):
     expected_return: Optional[float] = 0.07
     volatility: Optional[float] = 0.15
     asset_class: Optional[str] = "stocks"
+    sector: Optional[str] = "Technology"
+
+class AdvancedModelConfig(BaseModel):
+    df: Optional[int] = 4
+    lambda_j: Optional[float] = 0.1
+    mu_j: Optional[float] = -0.05
+    sigma_j: Optional[float] = 0.1
+    lookback_periods: Optional[int] = 252
+    training_iterations: Optional[int] = 100
+    learning_rate: Optional[float] = 0.01
+
+class OptimizationParams(BaseModel):
+    method: str
+    target_return: Optional[float] = None
+    risk_tolerance: Optional[float] = 0.5
+    max_weight: Optional[float] = 1.0
+    min_weight: Optional[float] = 0.0
+
+class BacktestConfig(BaseModel):
+    start_date: str
+    end_date: str
+    multi_timeframe: str = "daily"
+    use_realtime_streaming: bool = False
 
 class SimParams(BaseModel):
     num_paths: int
@@ -17,6 +40,9 @@ class SimParams(BaseModel):
     model_type: Optional[str] = "gbm"
     stress_scenario: Optional[str] = None
     seed: Optional[int] = None
+    advanced_model_config: Optional[AdvancedModelConfig] = None
+    optimization_params: Optional[OptimizationParams] = None
+    backtest_config: Optional[BacktestConfig] = None
 
 class SimulationJob(BaseModel):
     simulation_id: str
@@ -53,3 +79,12 @@ class RiskMetrics(BaseModel):
     skewness: float
     kurtosis: float
     median_return: float
+    kail_ratio: Optional[float] = 0.0
+    
+    # Pro Metrics
+    drawdown_statistics: Optional[Dict[str, Any]] = None
+    attribution_analysis: Optional[Dict[str, Any]] = None
+    correlations: Optional[List[List[float]]] = None
+    volatility_regimes: Optional[List[Dict[str, Any]]] = None
+    sharpe_variation: Optional[Dict[str, Any]] = None
+    optimization_suggestion: Optional[Dict[str, Any]] = None

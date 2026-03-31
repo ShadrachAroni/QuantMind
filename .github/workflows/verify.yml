@@ -23,6 +23,9 @@ jobs:
           node-version: 20
           cache: 'npm'
 
+      - name: Enable Corepack
+        run: corepack enable
+
       - name: Install Dependencies
         run: npm ci
 

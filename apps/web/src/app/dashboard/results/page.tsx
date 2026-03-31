@@ -16,7 +16,8 @@ import {
   Loader2,
   Trash2,
   Table,
-  LayoutGrid
+  LayoutGrid,
+  ArrowUpCircle
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase';
@@ -67,7 +68,13 @@ function ResultsContent() {
           volatility: parseFloat(rawResult?.metrics?.portfolio_volatility || '0') || 0,
           jumpIntensity: rawResult?.metrics?.jump_intensity || 0,
           stressImpact: rawResult?.metrics?.stress_impact || 'N/A',
-          riskContribution: rawResult?.risk_contribution || {}
+          riskContribution: rawResult?.risk_contribution || {},
+          // Pro Metrics
+          drawdownStats: rawResult?.metrics?.drawdown_statistics || null,
+          attribution: rawResult?.metrics?.attribution_analysis || null,
+          optimizationProposal: rawResult?.metrics?.optimization_suggestion || null,
+          volatilityRegimes: rawResult?.metrics?.volatility_regimes || [],
+          correlations: rawResult?.metrics?.correlations || []
         };
 
         setSimulationResult({
@@ -202,6 +209,7 @@ Provide boardroom-level strategic recommendations.`;
          <button 
            onClick={() => router.back()}
            className="p-2.5 bg-white/5 border border-white/5 rounded-xl text-[#848D97] hover:text-white transition-all print:hidden"
+           title="Go Back"
          >
             <ArrowLeft size={18} />
          </button>
@@ -248,6 +256,43 @@ Provide boardroom-level strategic recommendations.`;
            </GlassCard>
          ))}
       </div>
+
+      {/* Pro Optimization Suggestion */}
+      {metrics.optimizationProposal && (
+        <GlassCard className="p-6 border-[#7C3AED]/30 bg-[#7C3AED]/5 relative overflow-hidden" intensity="medium">
+           <div className="absolute top-0 right-0 px-3 py-1 bg-[#7C3AED] text-white text-[8px] font-bold uppercase tracking-widest rounded-bl-lg">PRO_OPTIMIZATION</div>
+           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="flex-1">
+                 <div className="flex items-center gap-2 mb-3">
+                    <ArrowUpCircle size={18} className="text-[#7C3AED]" />
+                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">Strategic_Rebalancing_Proposal</h3>
+                 </div>
+                 <p className="text-xs text-[#848D97] leading-relaxed max-w-2xl">
+                    Based on {metrics.optimizationProposal.algorithm?.replace('_', ' ').toUpperCase()} analysis, we recommend adjusting your weights to maximize the Sharpe Ratio and mitigate tail-risk concentration.
+                 </p>
+              </div>
+              <div className="flex gap-4">
+                 <div className="text-center p-3 rounded-xl bg-white/5 border border-white/5 min-w-[120px]">
+                    <p className="text-[10px] text-[#848D97] font-bold uppercase mb-1">Target_Expected_Return</p>
+                    <p className="text-sm font-mono text-white">{(metrics.optimizationProposal.expected_return * 100).toFixed(2)}%</p>
+                 </div>
+                 <div className="text-center p-3 rounded-xl bg-white/5 border border-white/5 min-w-[120px]">
+                    <p className="text-[10px] text-[#848D97] font-bold uppercase mb-1">Target_Volatility</p>
+                    <p className="text-sm font-mono text-[#00D9FF]">{(metrics.optimizationProposal.volatility * 100).toFixed(2)}%</p>
+                 </div>
+              </div>
+           </div>
+           
+           <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+              {metrics.optimizationProposal.suggested_weights && Object.entries(metrics.optimizationProposal.suggested_weights).map(([symbol, weight]: [string, any]) => (
+                 <div key={symbol} className="p-2 rounded-lg bg-white/5 border border-white/5">
+                    <p className="text-[9px] font-bold text-[#848D97] mb-1">{symbol}</p>
+                    <p className="text-[11px] font-mono text-white">{(weight * 100).toFixed(1)}%</p>
+                 </div>
+              ))}
+           </div>
+        </GlassCard>
+      )}
 
       {metrics.jumpIntensity > 0 && (
         <motion.div 
@@ -318,6 +363,41 @@ Provide boardroom-level strategic recommendations.`;
                  </div>
               </div>
            </GlassCard>
+
+           {metrics.attribution && (
+             <GlassCard className="p-6" intensity="medium">
+                <h3 className="text-xs uppercase font-bold tracking-[0.3em] text-[#848D97] mb-6">Sector_Attribution_Analysis</h3>
+                <div className="space-y-4">
+                   {Object.entries(metrics.attribution.sector_contributions || {}).map(([sector, contrib]: [string, any]) => (
+                      <div key={sector}>
+                         <div className="flex justify-between text-[10px] mb-1">
+                            <span className="text-[#848D97] font-bold uppercase">{sector}</span>
+                            <span className="text-white font-mono">{(contrib * 100).toFixed(1)}%</span>
+                         </div>
+                         <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                            <div className="h-full bg-[#00D9FF]" style={{ width: `${contrib * 100}%` }} />
+                         </div>
+                      </div>
+                   ))}
+                </div>
+             </GlassCard>
+           )}
+
+           {metrics.drawdownStats && (
+             <GlassCard className="p-6" intensity="medium">
+                <h3 className="text-xs uppercase font-bold tracking-[0.2em] text-[#848D97] mb-6">Advanced_Drawdown_Stats</h3>
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="p-3 rounded-lg bg-white/5">
+                      <p className="text-[9px] text-[#848D97] font-bold uppercase mb-1">Avg_Drawdown</p>
+                      <p className="text-xs font-mono text-white">{(metrics.drawdownStats.avg_drawdown * 100).toFixed(1)}%</p>
+                   </div>
+                   <div className="p-3 rounded-lg bg-white/5">
+                      <p className="text-[9px] text-[#848D97] font-bold uppercase mb-1">Recovery_Median</p>
+                      <p className="text-xs font-mono text-white">{metrics.drawdownStats.recovery_time_median} d</p>
+                   </div>
+                </div>
+             </GlassCard>
+           )}
 
            {Object.keys(metrics.riskContribution).length > 0 && (
              <GlassCard className="p-6" intensity="medium">

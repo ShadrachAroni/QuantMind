@@ -42,7 +42,7 @@ export default function SimulatePage() {
   const [isSimulating, setIsSimulating] = useState(false);
   const [progress, setProgress] = useState(0);
   const [previewPath, setPreviewPath] = useState<number[]>([]);
-  const [modelType, setModelType] = useState<'gbm' | 'jump_diffusion' | 'fat_tails'>('gbm');
+  const [modelType, setModelType] = useState<'gbm' | 'jump_diffusion' | 'fat_tails' | 'random_forest_regressor' | 'lstm_forecast'>('gbm');
   const [history, setHistory] = useState<any[]>([]);
   const [simulationCount, setSimulationCount] = useState(0);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
@@ -54,6 +54,9 @@ export default function SimulatePage() {
   const [jumpMean, setJumpMean] = useState(-0.15);
   const [jumpVol, setJumpVol] = useState(0.1);
   const [stressTest, setStressTest] = useState<{ asset: string; magnitude: number } | null>(null);
+  const [optimizationParams, setOptimizationParams] = useState<any>(null);
+  const [modelConfig, setModelConfig] = useState<any>({});
+  const [backtestConfig, setBacktestConfig] = useState<any>(null);
 
   const supabase = createClient();
 
@@ -209,7 +212,10 @@ export default function SimulatePage() {
           jump_lambda: jumpIntensity,
           jump_size: jumpMean,
           jump_vol: jumpVol,
-          stress_test: stressTest ? [{ symbol: stressTest.asset, shock_pct: stressTest.magnitude }] : []
+          stress_test: stressTest ? [{ symbol: stressTest.asset, shock_pct: stressTest.magnitude }] : [],
+          optimization_params: optimizationParams,
+          advanced_model_config: modelConfig,
+          backtest_config: backtestConfig
         },
       });
 
@@ -399,8 +405,10 @@ export default function SimulatePage() {
 
                <div className="space-y-6">
                   <div>
-                     <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#848D97] mb-2 block">Source_Portfolio</label>
+                     <label htmlFor="source-portfolio" className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#848D97] mb-2 block">Source_Portfolio</label>
                      <select
+                       id="source-portfolio"
+                       aria-label="Select source portfolio"
                        className="w-full bg-[#12121A] border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#00D9FF]/50 transition-all font-mono appearance-none"
                        value={selectedPortfolioId}
                        onChange={(e) => setSelectedPortfolioId(e.target.value)}
@@ -412,9 +420,11 @@ export default function SimulatePage() {
                   </div>
 
                   <div>
-                     <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#848D97] mb-2 block">Initial_Capital ($)</label>
+                     <label htmlFor="initial-capital" className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#848D97] mb-2 block">Initial_Capital ($)</label>
                      <input
+                       id="initial-capital"
                        type="number"
+                       aria-label="Initial capital in dollars"
                        className="w-full bg-[#12121A] border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#00D9FF]/50 transition-all font-mono"
                        value={initialValue}
                        onChange={(e) => setInitialValue(Number(e.target.value))}
@@ -422,9 +432,11 @@ export default function SimulatePage() {
                   </div>
 
                   <div>
-                     <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#848D97] mb-2 block">Iteration_Count (n)</label>
+                     <label htmlFor="iteration-count" className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#848D97] mb-2 block">Iteration_Count (n)</label>
                      <input
+                       id="iteration-count"
                        type="range" min="100" max={currentTierConfig.maxPaths} step={userTier === 'pro' ? 1000 : 100}
+                       aria-label="Number of simulation iterations"
                        className="w-full accent-[#00D9FF]"
                        value={iterations}
                        onChange={(e) => setIterations(Number(e.target.value))}
@@ -443,6 +455,8 @@ export default function SimulatePage() {
                           { id: 'gbm', name: 'GBM (Standard)', requiredTier: 'free' },
                           { id: 'jump_diffusion', name: 'Jump Diffusion', requiredTier: 'pro' },
                           { id: 'fat_tails', name: 'Fat Tails (Stable)', requiredTier: 'pro' },
+                          { id: 'random_forest_regressor', name: 'Random Forest Forecast', requiredTier: 'pro' },
+                          { id: 'lstm_forecast', name: 'LSTM (Neural Network)', requiredTier: 'pro' },
                         ].map((m) => (
                           <div key={m.id}>
                             {m.requiredTier !== 'free' ? (
@@ -482,9 +496,11 @@ export default function SimulatePage() {
                   </div>
 
                   <div>
-                     <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#848D97] mb-2 block">Time_Horizon (Days)</label>
+                     <label htmlFor="time-horizon" className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#848D97] mb-2 block">Time_Horizon (Days)</label>
                      <input
+                       id="time-horizon"
                        type="range" min="30" max="756" step="30"
+                       aria-label="Simulation time horizon in days"
                        className="w-full accent-[#7C3AED]"
                        value={timeHorizon}
                        onChange={(e) => setTimeHorizon(Number(e.target.value))}
@@ -496,6 +512,60 @@ export default function SimulatePage() {
                      </div>
                   </div>
 
+                  <FeatureGate
+                    requiredTier="pro"
+                    featureName="Portfolio Optimization"
+                    className="mt-4"
+                  >
+                    <div className="p-4 bg-[#7C3AED]/5 border border-[#7C3AED]/20 rounded-xl space-y-4">
+                       <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                             <ArrowUpCircle size={14} className="text-[#7C3AED]" />
+                             <span className="text-[10px] font-bold text-white uppercase tracking-widest">Strategy_Optimizer</span>
+                          </div>
+                          <button
+                            onClick={() => setOptimizationParams(optimizationParams ? null : { algorithm: 'mean_variance', risk_tolerance: 0.1, target_return: 0.08 })}
+                            className={cn(
+                              "text-[9px] font-bold px-2 py-0.5 rounded transition-all",
+                              optimizationParams ? "bg-[#7C3AED] text-white" : "bg-white/10 text-[#848D97]"
+                            )}
+                          >
+                            {optimizationParams ? 'ACTIVE' : 'INACTIVE'}
+                          </button>
+                       </div>
+
+                       {optimizationParams && (
+                          <div className="space-y-4 animate-in fade-in zoom-in-95">
+                             <div>
+                                <label htmlFor="opt-algorithm" className="text-[8px] uppercase font-bold text-[#848D97] mb-1 block">Algorithm</label>
+                                <select
+                                  id="opt-algorithm"
+                                  aria-label="Selection optimization algorithm"
+                                  className="w-full bg-[#0F1113] border border-white/5 rounded-lg py-2 px-3 text-white text-[10px] font-mono"
+                                  value={optimizationParams.algorithm}
+                                  onChange={(e) => setOptimizationParams({ ...optimizationParams, algorithm: e.target.value })}
+                                >
+                                   <option value="mean_variance">Mean-Variance (MVO)</option>
+                                   <option value="risk_parity">Risk Parity</option>
+                                   <option value="hierarchical_risk_parity">Hierarchical Risk Parity</option>
+                                </select>
+                             </div>
+                             <div>
+                                <label htmlFor="opt-risk-tolerance" className="text-[8px] uppercase font-bold text-[#848D97] mb-1 block">Risk_Tolerance</label>
+                                <input
+                                  id="opt-risk-tolerance"
+                                  type="range" min="0" max="1" step="0.1"
+                                  aria-label="Risk tolerance level"
+                                  className="w-full h-1 accent-[#7C3AED]"
+                                  value={optimizationParams.risk_tolerance}
+                                  onChange={(e) => setOptimizationParams({ ...optimizationParams, risk_tolerance: Number(e.target.value) })}
+                                />
+                             </div>
+                          </div>
+                       )}
+                    </div>
+                  </FeatureGate>
+
                   {modelType === 'jump_diffusion' && userTier === 'pro' && (
                     <div className="p-4 bg-[#00D9FF]/5 border border-[#00D9FF]/20 rounded-xl space-y-4 animate-in slide-in-from-top-2">
                        <div className="flex items-center gap-2 mb-2">
@@ -505,9 +575,11 @@ export default function SimulatePage() {
 
                        <div className="space-y-4">
                           <div>
-                             <label className="text-[8px] uppercase font-bold text-[#848D97] mb-1 block">Jump_Intensity (λ)</label>
+                             <label htmlFor="jump-intensity" className="text-[8px] uppercase font-bold text-[#848D97] mb-1 block">Jump_Intensity (λ)</label>
                              <input
+                               id="jump-intensity"
                                type="range" min="0" max="0.5" step="0.01"
+                               aria-label="Jump intensity lambda"
                                className="w-full h-1 accent-[#00D9FF]"
                                value={jumpIntensity}
                                onChange={(e) => setJumpIntensity(Number(e.target.value))}
@@ -519,18 +591,22 @@ export default function SimulatePage() {
 
                           <div className="grid grid-cols-2 gap-4">
                              <div>
-                                <label className="text-[8px] uppercase font-bold text-[#848D97] mb-1 block">Mean_Jump (µj)</label>
+                                <label htmlFor="jump-mean" className="text-[8px] uppercase font-bold text-[#848D97] mb-1 block">Mean_Jump (µj)</label>
                                 <input
+                                  id="jump-mean"
                                   type="number" step="0.01"
+                                  aria-label="Jump mean mu-j"
                                   className="w-full bg-[#0F1113] border border-white/5 rounded-lg py-1 px-2 text-white text-[10px] font-mono"
                                   value={jumpMean}
                                   onChange={(e) => setJumpMean(Number(e.target.value))}
                                 />
                              </div>
                              <div>
-                                <label className="text-[8px] uppercase font-bold text-[#848D97] mb-1 block">Jump_Vol (σj)</label>
+                                <label htmlFor="jump-vol" className="text-[8px] uppercase font-bold text-[#848D97] mb-1 block">Jump_Vol (σj)</label>
                                 <input
+                                  id="jump-vol"
                                   type="number" step="0.01"
+                                  aria-label="Jump volatility sigma-j"
                                   className="w-full bg-[#0F1113] border border-white/5 rounded-lg py-1 px-2 text-white text-[10px] font-mono"
                                   value={jumpVol}
                                   onChange={(e) => setJumpVol(Number(e.target.value))}
@@ -566,8 +642,10 @@ export default function SimulatePage() {
                        {stressTest && (
                           <div className="space-y-4 animate-in fade-in zoom-in-95">
                              <div>
-                                <label className="text-[8px] uppercase font-bold text-[#848D97] mb-1 block">Target_Asset</label>
+                                <label htmlFor="stress-target-asset" className="text-[8px] uppercase font-bold text-[#848D97] mb-1 block">Target_Asset</label>
                                 <select
+                                  id="stress-target-asset"
+                                  aria-label="Select target asset for stress test"
                                   className="w-full bg-[#0F1113] border border-white/5 rounded-lg py-2 px-3 text-white text-[10px] font-mono"
                                   value={stressTest.asset}
                                   onChange={(e) => setStressTest({ ...stressTest, asset: e.target.value })}
@@ -578,9 +656,11 @@ export default function SimulatePage() {
                                 </select>
                              </div>
                              <div>
-                                <label className="text-[8px] uppercase font-bold text-[#848D97] mb-1 block">Shock_Magnitude (Δ Price)</label>
+                                <label htmlFor="stress-shock-magnitude" className="text-[8px] uppercase font-bold text-[#848D97] mb-1 block">Shock_Magnitude (Δ Price)</label>
                                 <input
+                                  id="stress-shock-magnitude"
                                   type="range" min="-0.99" max="0.99" step="0.01"
+                                  aria-label="Stress test shock magnitude"
                                   className="w-full h-1 accent-[#FF453A]"
                                   value={stressTest.magnitude}
                                   onChange={(e) => setStressTest({ ...stressTest, magnitude: Number(e.target.value) })}
@@ -640,12 +720,16 @@ export default function SimulatePage() {
                         <button
                           onClick={() => window.location.href = `/dashboard/results?id=${h.id}`}
                           className="p-1.5 text-[#00D9FF] hover:bg-[#00D9FF]/10 rounded"
+                          title="View Simulation Results"
+                          aria-label="View history item"
                         >
                           <ExternalLink size={12} />
                         </button>
                         <button
                           onClick={(e) => handleDeleteSimulation(e, h.id)}
                           className="p-1.5 text-[#848D97] hover:text-[#FF453A] hover:bg-[#FF453A]/10 rounded"
+                          title="Purge Artifact"
+                          aria-label="Delete history item"
                         >
                           <Trash2 size={12} />
                         </button>
@@ -718,7 +802,7 @@ export default function SimulatePage() {
                             filter="url(#glow)"
                           />
                         )}
-                     </svg>
+                      </svg>
                   </div>
 
                   <div className="absolute top-8 left-8 space-y-2 pointer-events-none">

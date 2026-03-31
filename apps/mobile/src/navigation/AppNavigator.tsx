@@ -25,6 +25,7 @@ import { SimulationScreen } from '../screens/simulation/SimulationScreen';
 import { SimulationResultsScreen } from '../screens/simulation/SimulationResultsScreen';
 import { BacktestScreen } from '../screens/simulation/BacktestScreen';
 import { AIChatScreen } from '../screens/ai/AIChatScreen';
+import { AnalyticsOverviewScreen } from '../screens/main/AnalyticsOverviewScreen';
 import { SettingsScreen } from '../screens/settings/SettingsScreen';
 import { PrivacyPolicyScreen } from '../screens/settings/PrivacyPolicyScreen';
 import { TermsOfServiceScreen } from '../screens/settings/TermsOfServiceScreen';
@@ -46,7 +47,7 @@ import { OfflineScene } from '../screens/OfflineScene';
 
 // UI
 import { GlowEffect } from '../components/ui/GlowEffect';
-import { LayoutGrid, Briefcase, Play, BarChart3, Cpu, UserCircle, Lock } from 'lucide-react-native';
+import { LayoutGrid, Briefcase, Play, BarChart3, Activity, Cpu, UserCircle, Lock } from 'lucide-react-native';
 import { Typography } from '../components/ui/Typography';
 import { sharedTheme } from '../constants/theme';
 
@@ -171,6 +172,7 @@ function MainTabNavigator() {
           else if (route.name === 'Portfolios') Icon = Briefcase;
           else if (route.name === 'Sims') Icon = Play;
           else if (route.name === 'Backtest') Icon = BarChart3;
+          else if (route.name === 'Terminal') Icon = Activity;
           else if (route.name === 'Oracle') Icon = Cpu;
           else if (route.name === 'Operator') Icon = UserCircle;
 
@@ -191,6 +193,7 @@ function MainTabNavigator() {
       <MainTab.Screen name="Home" component={HomeScreen} />
       <MainTab.Screen name="Portfolios" component={PortfolioNavigator} />
       <MainTab.Screen name="Sims" component={SimulationNavigator} />
+      <MainTab.Screen name="Terminal" component={AnalyticsOverviewScreen} />
       <MainTab.Screen name="Backtest">
         {(props) => <TierRestrictedScreen {...props} component={BacktestScreen} requirement="allow_backtest" />}
       </MainTab.Screen>

@@ -76,13 +76,56 @@ export interface SimulationParams {
     risk_free_rate?: number;
     correlation_matrix?: number[][];
     model_type?: SimulationModel;
+    model_config?: AdvancedModelConfig;
+    optimization_params?: OptimizationParams;
+    backtest_config?: {
+        start_date: string;
+        end_date: string;
+        multi_timeframe: 'daily' | 'weekly' | 'monthly';
+        use_realtime_streaming: boolean;
+    };
 }
 
 export type SimulationModel =
     | 'gbm'  // Geometric Brownian Motion
     | 'jump_diffusion'
     | 'fat_tails'
-    | 'regime_switching';
+    | 'regime_switching'
+    | 'random_forest_regressor'
+    | 'lstm_forecast';
+
+export interface AdvancedModelConfig {
+    // Fat Tails settings
+    df?: number; // degrees of freedom
+    
+    // Jump Diffusion settings
+    lambda_j?: number; // jump intensity
+    mu_j?: number; // mean jump size
+    sigma_j?: number; // jump volatility
+    
+    // ML/Training settings
+    lookback_periods?: number;
+    training_iterations?: number;
+    learning_rate?: number;
+    use_cross_validation?: boolean;
+}
+
+export interface OptimizationParams {
+    method: 'mean_variance' | 'risk_parity' | 'black_litterman';
+    target_return?: number;
+    risk_tolerance?: number; // 0-1
+    max_weight?: number; // 0-1
+    min_weight?: number; // 0-1
+    sector_constraints?: Record<string, [number, number]>;
+}
+
+export interface OptimizationSuggestion {
+    method: string;
+    suggested_weights: Record<string, number>;
+    expected_return: number;
+    expected_volatility: number;
+    sharpe_improvement: number;
+}
 
 export interface SimulationResult {
     id: string;
@@ -132,6 +175,33 @@ export interface RiskMetrics {
     skewness: number;
     kurtosis: number;
     median_return: number;
+
+    // Pro / Granular Metrics
+    drawdown_statistics?: {
+        max_drawdown: number;
+        avg_drawdown: number;
+        max_drawdown_duration: number;
+        avg_drawdown_duration: number;
+        recovery_time_median: number;
+    };
+    attribution_analysis?: {
+        sector_contributions: Record<string, number>;
+        asset_class_contributions: Record<string, number>;
+        top_performers: string[];
+        bottom_performers: string[];
+    };
+    correlations?: number[][];
+    volatility_regimes?: Array<{
+        name: string;
+        frequency: number;
+        avg_vol: number;
+    }>;
+    sharpe_variation?: {
+        rolling_sharpe_30d: number[];
+        best_month: number;
+        worst_month: number;
+    };
+    optimization_suggestion?: OptimizationSuggestion;
 }
 
 export interface PercentilePaths {
@@ -310,3 +380,107 @@ export const TIER_ENTITLEMENTS: Record<SubscriptionTier, TierEntitlements> = {
         allow_correlation_matrix: true,
     },
 };
+// ==================== Blockchain & On-Chain Types ====================
+
+export type BlockchainNetwork = 'ethereum' | 'binance_smart_chain' | 'solana';
+
+export interface UserWallet {
+    id: string;
+    user_id: string;
+    address: string;
+    network: BlockchainNetwork;
+    alias?: string;
+    is_active: boolean;
+    metadata?: WalletMetadata;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface WalletMetadata {
+    last_balance_usd?: number;
+    token_count?: number;
+    ens_name?: string;
+    portfolio_distribution?: Record<string, number>; // symbol -> weight
+}
+
+export interface OnChainTransaction {
+    hash: string;
+    network: BlockchainNetwork;
+    block_number: number;
+    from: string;
+    to: string;
+    value: string;
+    fee: string;
+    gas_used: number;
+    status: 'success' | 'failed' | 'pending';
+    method_name?: string;
+    timestamp: string;
+}
+
+export interface GasMetrics {
+    network: BlockchainNetwork;
+    low: number;
+    average: number;
+    fast: number;
+    unit: string; // Gwei, SOL, etc.
+}
+
+export interface DeFiPosition {
+    protocol: string;
+    network: BlockchainNetwork;
+    type: 'staking' | 'lending' | 'farming';
+    principal_symbol: string;
+    principal_amount: number;
+    reward_symbol: string;
+    reward_amount: number;
+    apy: number;
+    last_updated: string;
+}
+
+// ==================== News Feed Types ====================
+
+export interface NewsArticle {
+    id: string;
+    title: string;
+    summary?: string;
+    url: string;
+    source: string;
+    image_url?: string;
+    published_at: string;
+    sentiment?: 'bullish' | 'bearish' | 'neutral';
+    categories: string[];
+}
+
+// ==================== Market Terminal Types ====================
+
+export interface MarketTerminalConfig {
+    symbol: string;
+    indicators: string[];
+    timeframe: string;
+    favorite_pairs: string[];
+}
+
+export interface MarketDepth {
+    bids: [number, number][]; // [price, quantity]
+    asks: [number, number][];
+    last_price: number;
+    change_24h: number;
+}
+
+export interface MarketTick {
+    time: number;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume: number;
+}
+
+export interface MarketTicker {
+    symbol: string;
+    last_price: number;
+    price_change_percent: number;
+    high_24h: number;
+    low_24h: number;
+    volume_24h: string;
+}
