@@ -36,7 +36,7 @@ serve(async (req: Request) => {
   try {
     const signature = req.headers.get('x-hub-signature-256');
     const eventType = req.headers.get('x-github-event');
-    const secret = Deno.env.get('GITHUB_WEBHOOK_SECRET');
+    const secret = Deno.env.get('QUANTMIND_GH_SECRET');
 
     if (!signature || !eventType) {
        console.error('[GITHUB_WEBHOOK] Missing headers');

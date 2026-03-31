@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 const https = require('https');
 
-const GITHUB_SECRET = process.env.GITHUB_WEBHOOK_SECRET || "fallback_for_local_testing_only";
+const GITHUB_SECRET = process.env.QUANTMIND_GH_SECRET || "fallback_for_local_testing_only";
 const PAYSTACK_SECRET = process.env.PAYSTACK_WEBHOOK_SECRET || "fallback_for_local_testing_only";
 
 const GITHUB_URL = "qvqczzyghhgzaesiwtkj.supabase.co";
