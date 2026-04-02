@@ -4,6 +4,8 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Apple, Smartphone } from 'lucide-react';
 import styles from './DownloadModal.module.css';
+import { useTranslation } from '@/lib/i18n';
+import { useUser } from '@/components/UserContext';
 
 interface DownloadModalProps {
   isOpen: boolean;
@@ -11,6 +13,8 @@ interface DownloadModalProps {
 }
 
 export function DownloadModal({ isOpen, onClose }: DownloadModalProps) {
+  const { profile } = useUser();
+  const t = useTranslation(profile?.interface_language || 'ENGLISH_INTL');
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
@@ -76,7 +80,7 @@ export function DownloadModal({ isOpen, onClose }: DownloadModalProps) {
         <button 
           className={styles.closeBtn} 
           onClick={onClose}
-          aria-label="Close modal"
+          aria-label={t('CLOSE_MODAL')}
         >
           <X size={20} />
         </button>
@@ -85,41 +89,41 @@ export function DownloadModal({ isOpen, onClose }: DownloadModalProps) {
           <div className={styles.logoContainer}>
             <img src="/logo.png" alt="QuantMind" className={styles.logo} />
           </div>
-          <h2 id="modal-title" className={styles.title}>QuantMind Mobile</h2>
-          <p className={styles.subtitle}>Institutional deployment for your mobile node.</p>
+          <h2 id="modal-title" className={styles.title}>{t('DOWNLOAD_MOBILE_TITLE')}</h2>
+          <p className={styles.subtitle}>{t('DOWNLOAD_MOBILE_SUBTITLE')}</p>
         </div>
 
         <div className={styles.grid}>
           <button 
             className={styles.storeBtn}
-            onClick={() => alert('SYNCHRONIZING: Initializing iOS Institutional Beta Deployment...')}
+            onClick={() => alert(t('SYNC_INITIALIZING'))}
           >
             <div className={styles.iconWrapper}>
               <Apple size={28} className="text-white" />
             </div>
             <div className={styles.storeText}>
-              <span className={styles.label}>iOS Platform</span>
-              <span className={styles.name}>Apple App Store</span>
+              <span className={styles.label}>{t('IOS_PLATFORM')}</span>
+              <span className={styles.name}>{t('GET_FOR_IOS')}</span>
             </div>
           </button>
 
           <button 
             className={styles.storeBtn}
-            onClick={() => alert('SYNCHRONIZING: Initializing Android Institutional Beta Deployment...')}
+            onClick={() => alert(t('SYNC_INITIALIZING'))}
           >
             <div className={styles.iconWrapper}>
               <Smartphone size={28} className="text-white" />
             </div>
             <div className={styles.storeText}>
-              <span className={styles.label}>Android Platform</span>
-              <span className={styles.name}>Google Play Store</span>
+              <span className={styles.label}>{t('ANDROID_PLATFORM')}</span>
+              <span className={styles.name}>{t('GET_FOR_ANDROID')}</span>
             </div>
           </button>
         </div>
 
         <div className={styles.footer}>
           <div className={styles.statusDot} />
-          <span className={styles.statusText}>Global Sync Active // v4.2.0</span>
+          <span className={styles.statusText}>{t('GLOBAL_SYNC_ACTIVE')}</span>
         </div>
       </div>
     </div>

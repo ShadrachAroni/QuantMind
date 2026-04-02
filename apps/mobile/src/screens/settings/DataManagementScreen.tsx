@@ -69,7 +69,7 @@ export function DataManagementScreen({ navigation }: any) {
 
       showToast(t('EXPORT_QUEUED'), 'success');
     } catch (err: any) {
-      showToast(err.message || 'EXPORT_FAILED', 'error');
+      showToast(err.message || t('EXPORT_FAILED'), 'error');
     } finally {
       setLoading(false);
     }
@@ -91,7 +91,7 @@ export function DataManagementScreen({ navigation }: any) {
       setVerificationType('otp');
       showToast(t('OTP_SENT'), 'info');
     } catch (err: any) {
-      showToast(err.message || 'OTP_FAILED', 'error');
+      showToast(err.message || t('OTP_FAILED'), 'error');
     } finally {
       setLoading(false);
     }
@@ -118,7 +118,7 @@ export function DataManagementScreen({ navigation }: any) {
         // Navigation will automatically handle logout redirect via auth store listener
       }, 3000);
     } catch (err: any) {
-      showToast(err.message || 'PURGE_FAILED', 'error');
+      showToast(err.message || t('PURGE_FAILED'), 'error');
       if (err.message?.includes('INVALID')) {
         setCurrentStep(2);
       }
@@ -134,7 +134,7 @@ export function DataManagementScreen({ navigation }: any) {
       .update({ analytics_consent: val })
       .eq('id', user?.id);
     
-    if (error) showToast('CONSENT_UPDATE_FAILED', 'error');
+    if (error) showToast(t('CONSENT_UPDATE_FAILED'), 'error');
     else showToast(val ? t('ANALYTICS_ENABLED') : t('ANALYTICS_DISABLED'), 'info');
   };
 

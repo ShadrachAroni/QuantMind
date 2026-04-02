@@ -9,6 +9,7 @@ import { GlassCard } from '@/components/ui/GlassCard';
 import { StatusMessage } from '@/components/ui/StatusMessage';
 import { Eye, EyeOff, Globe, Github } from 'lucide-react';
 import { useEffect } from 'react';
+import { useTranslation } from '@/lib/i18n';
 
 function LoginForm() {
   const [email, setEmail] = useState('');
@@ -21,6 +22,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const plan = searchParams.get('plan');
   const supabase = createClient();
+  const t = useTranslation();
 
   useEffect(() => {
     const errorParam = searchParams.get('error');
@@ -29,8 +31,6 @@ function LoginForm() {
 
     if (statusParam === 'password_reset_success') {
       setError(null);
-      // We can use a success state or just reuse error with a success type in JSX
-      // Actually, I'll add a success state to LoginForm for clarity.
     }
 
     // Check for fragment errors (commonly used by Supabase Auth for hash-based redirects)
@@ -43,15 +43,15 @@ function LoginForm() {
     }
 
     if (statusParam === 'password_reset_success') {
-      setSuccessMessage('Access cipher updated successfully. You may now initialize your session.');
+      setSuccessMessage(t('AUTH_SESSION_READY'));
     }
 
     if (errorParam || fragmentError) {
-      const combinedError = detailsParam || fragmentDetails || fragmentError || 'Authentication sequence failed.';
+      const combinedError = detailsParam || fragmentDetails || fragmentError || t('AUTH_SECURITY_FAILURE');
       // Clean up the error message from URL encoding
       setError(decodeURIComponent(combinedError.replace(/\+/g, ' ')));
     }
-  }, [searchParams]);
+  }, [searchParams, t]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,7 +72,7 @@ function LoginForm() {
         router.push('/dashboard');
       }
     } catch (err: any) {
-      setError(err.message || 'Authorization failed. Please check your credentials.');
+      setError(err.message || t('AUTH_INVALID_CREDENTIALS'));
       setIsLoading(false);
     }
   };
@@ -96,8 +96,8 @@ function LoginForm() {
       <LoadingOverlay visible={isLoading} />
       
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Access Terminal</h1>
-        <p className="text-[#848D97]">QuantMind Institutional Node v.1.04</p>
+        <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">{t('AUTH_ACCESS_TERMINAL')}</h1>
+        <p className="text-[#848D97]">{t('AUTH_INSTITUTIONAL_NODE')}</p>
       </div>
 
       {successMessage && (
@@ -110,11 +110,11 @@ function LoginForm() {
 
       <form onSubmit={handleLogin} className="space-y-5">
         <div className="space-y-2">
-          <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">Deployment Email</label>
+          <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">{t('AUTH_DEPLOYMENT_EMAIL')}</label>
           <input
             type="email"
             required
-            placeholder="name@institution.com"
+            placeholder={t('AUTH_EMAIL_PLACEHOLDER')}
             className="w-full bg-[#12121A] border border-white/5 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00D9FF]/50 transition-colors placeholder:text-white/10"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -122,12 +122,12 @@ function LoginForm() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">Access Cipher</label>
+          <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">{t('AUTH_ACCESS_CIPHER')}</label>
           <div className="relative">
             <input
               type={showPassword ? 'text' : 'password'}
               required
-              placeholder="••••••••••••"
+              placeholder={t('AUTH_CIPHER_PLACEHOLDER')}
               className="w-full bg-[#12121A] border border-white/5 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00D9FF]/50 transition-colors placeholder:text-white/10"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -143,8 +143,8 @@ function LoginForm() {
         </div>
 
         <div className="flex items-center justify-end">
-          <Link href="/auth/forgot-password" title="Forgot Password" className="text-xs text-[#00D9FF] hover:underline uppercase tracking-wider">
-            Reobtain Access Cipher
+          <Link href="/auth/forgot-password" title={t('AUTH_REOBTAIN_CIPHER')} className="text-xs text-[#00D9FF] hover:underline uppercase tracking-wider">
+            {t('AUTH_REOBTAIN_CIPHER')}
           </Link>
         </div>
 
@@ -152,7 +152,7 @@ function LoginForm() {
           type="submit"
           className="w-full bg-[#00D9FF] hover:bg-[#00D9FF]/90 text-[#05070A] font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(0,217,255,0.2)] hover:shadow-[0_0_30px_rgba(0,217,255,0.4)] transition-all uppercase tracking-widest text-sm"
         >
-          Initialize Session
+          {t('AUTH_INITIALIZE_SESSION')}
         </button>
 
         <div className="relative my-8">
@@ -160,7 +160,7 @@ function LoginForm() {
             <div className="w-full border-t border-white/5"></div>
           </div>
           <div className="relative flex justify-center text-xs uppercase text-[#848D97] tracking-[0.2em] bg-[#05070A] px-4">
-            OR CONTINUITY PROTOCOL
+            {t('AUTH_OR_CONTINUITY')}
           </div>
         </div>
 
@@ -186,9 +186,9 @@ function LoginForm() {
 
       <div className="mt-8 text-center">
         <p className="text-[#848D97] text-sm">
-          No institutional credentials?{' '}
+          {t('AUTH_NO_CREDENTIALS')}{' '}
           <Link href="/auth/signup" className="text-[#00D9FF] hover:underline font-bold">
-            Create New Vault
+            {t('AUTH_CREATE_VAULT')}
           </Link>
         </p>
       </div>

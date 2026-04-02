@@ -73,3 +73,5 @@ download_stitch.ps1
 *.log*
 
 cache/
+
+web & Mobile Platform Updates.md

@@ -7,29 +7,31 @@ import { LoadingOverlay } from '@/components/ui/LoadingOverlay';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { GlowEffect } from '@/components/ui/GlowEffect';
 import { CheckCircle2, ChevronRight, Brain, Globe, Shield, Activity } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 
 const REGIONS = [
-  { id: 'US_EAST_NY', name: 'US East (New York)', signal: 'LOW_LATENCY' },
-  { id: 'EU_WEST_LDN', name: 'Europe West (London)', signal: 'OPTIMAL' },
-  { id: 'AP_SOUTH_SIN', name: 'Asia Pacific (Singapore)', signal: 'STABLE' },
+  { id: 'US_EAST_NY', name: 'AUTH_REGION_US_EAST_NY', signal: 'AUTH_SIGNAL_LOW_LATENCY' },
+  { id: 'EU_WEST_LDN', name: 'AUTH_REGION_EU_WEST_LDN', signal: 'AUTH_SIGNAL_OPTIMAL' },
+  { id: 'AP_SOUTH_SIN', name: 'AUTH_REGION_AP_SOUTH_SIN', signal: 'AUTH_SIGNAL_STABLE' },
 ];
 
 const EXPERTISE_LEVELS = [
-  { id: 'beginner', name: 'NEOPHYTE', desc: 'Standard narrative adaptation. High-clarity explanations.' },
-  { id: 'intermediate', name: 'PRACTITIONER', desc: 'Balanced technicality. Focus on correlation clusters.' },
-  { id: 'advanced', name: 'ARCHITECT', desc: 'Raw stochastic data. Minimal narrative padding.' },
+  { id: 'beginner', name: 'AUTH_NEOPHYTE', desc: 'AUTH_NEOPHYTE_DESC' },
+  { id: 'intermediate', name: 'AUTH_PRACTITIONER', desc: 'AUTH_PRACTITIONER_DESC' },
+  { id: 'advanced', name: 'AUTH_ARCHITECT', desc: 'AUTH_ARCHITECT_DESC' },
 ];
 
 const PERSONAS = [
-  { id: 'ANALYTICAL_COLD', name: 'ANALYTICAL_COLD', desc: 'Pure logic. Emotionless risk assessment.' },
-  { id: 'AGGRESSIVE_STOCHASTIC', name: 'AGGRESSIVE', desc: 'High-alpha focus. Volatility-positive.' },
-  { id: 'QUANTUM_EQUILIBRIUM', name: 'EQUILIBRIUM', desc: 'Balanced risk/reward. Mean-reverting logic.' },
+  { id: 'ANALYTICAL_COLD', name: 'AUTH_ANALYTICAL_COLD', desc: 'AUTH_ANALYTICAL_COLD_DESC' },
+  { id: 'AGGRESSIVE_STOCHASTIC', name: 'AUTH_AGGRESSIVE', desc: 'AUTH_AGGRESSIVE_DESC' },
+  { id: 'QUANTUM_EQUILIBRIUM', name: 'AUTH_EQUILIBRIUM', desc: 'AUTH_EQUILIBRIUM_DESC' },
 ];
 
 function OnboardingForm() {
   const [step, setStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const t = useTranslation();
   
   // Profile State
   const [region, setRegion] = useState('US_EAST_NY');
@@ -86,14 +88,14 @@ function OnboardingForm() {
 
   return (
     <div className="max-w-2xl mx-auto py-12 px-6 reveal slide-up">
-      <LoadingOverlay visible={isLoading} message="SYNCING_IDENTITY_PROTOCOL..." />
+      <LoadingOverlay visible={isLoading} message={t('AUTH_SYNCING_IDENTITY')} />
       
       <div className="mb-12 text-center">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#00D9FF]/10 border border-[#00D9FF]/20 text-[#00D9FF] mb-6">
           <Brain size={32} className="animate-pulse" />
         </div>
-        <h1 className="text-4xl font-bold text-white mb-3 tracking-tight uppercase">Neural Calibration</h1>
-        <p className="text-[#848D97] max-w-md mx-auto">Configure your operator profile to optimize institutional throughput.</p>
+        <h1 className="text-4xl font-bold text-white mb-3 tracking-tight uppercase">{t('AUTH_ONBOARDING_TITLE')}</h1>
+        <p className="text-[#848D97] max-w-md mx-auto">{t('AUTH_ONBOARDING_SUBTITLE')}</p>
         
         {/* Progress Tracker */}
         <div className="flex items-center justify-center gap-2 mt-8">
@@ -116,7 +118,7 @@ function OnboardingForm() {
             <div className="space-y-8 animate-in fade-in slide-in-from-right-4">
               <div className="flex items-center gap-3 mb-2">
                 <Globe className="text-[#00D9FF]" size={20} />
-                <h2 className="text-xl font-bold text-white uppercase tracking-wider">Regional Latency</h2>
+                <h2 className="text-xl font-bold text-white uppercase tracking-wider">{t('AUTH_REGIONAL_LATENCY')}</h2>
               </div>
               <div className="grid gap-4">
                 {REGIONS.map(r => (
@@ -131,9 +133,9 @@ function OnboardingForm() {
                   >
                     <div className="text-left">
                       <p className={`font-bold uppercase tracking-wide ${region === r.id ? 'text-[#00D9FF]' : 'text-white'}`}>
-                        {r.name}
+                        {t(r.name)}
                       </p>
-                      <p className="text-[10px] text-[#848D97] mt-1 font-mono tracking-widest">{r.signal}</p>
+                      <p className="text-[10px] text-[#848D97] mt-1 font-mono tracking-widest">{t(r.signal)}</p>
                     </div>
                     {region === r.id && <CheckCircle2 size={20} className="text-[#00D9FF]" />}
                   </button>
@@ -143,7 +145,7 @@ function OnboardingForm() {
                 onClick={nextStep}
                 className="w-full bg-[#00D9FF] text-[#05070A] font-bold py-4 rounded-xl flex items-center justify-center gap-2 uppercase tracking-widest text-sm"
               >
-                Continue Protocol <ChevronRight size={18} />
+                {t('AUTH_CONTINUE_PROTOCOL')} <ChevronRight size={18} />
               </button>
             </div>
           )}
@@ -152,7 +154,7 @@ function OnboardingForm() {
             <div className="space-y-8 animate-in fade-in slide-in-from-right-4">
               <div className="flex items-center gap-3 mb-2">
                 <Brain className="text-[#00D9FF]" size={20} />
-                <h2 className="text-xl font-bold text-white uppercase tracking-wider">Neural Adaptation</h2>
+                <h2 className="text-xl font-bold text-white uppercase tracking-wider">{t('AUTH_NEURAL_ADAPTATION')}</h2>
               </div>
               <div className="grid gap-4">
                 {EXPERTISE_LEVELS.map(lev => (
@@ -166,15 +168,15 @@ function OnboardingForm() {
                     }`}
                   >
                     <p className={`font-bold uppercase tracking-wide ${expertise === lev.id ? 'text-[#00D9FF]' : 'text-white'}`}>
-                      {lev.name}
+                      {t(lev.name)}
                     </p>
-                    <p className="text-xs text-[#848D97] mt-1">{lev.desc}</p>
+                    <p className="text-xs text-[#848D97] mt-1">{t(lev.desc)}</p>
                   </button>
                 ))}
               </div>
               
               <div className="pt-4">
-                 <p className="text-[10px] text-[#848D97] uppercase tracking-widest mb-3 font-bold px-1">AI Persona Preference</p>
+                 <p className="text-[10px] text-[#848D97] uppercase tracking-widest mb-3 font-bold px-1">{t('AUTH_AI_PERSONA_PREF')}</p>
                  <div className="grid grid-cols-3 gap-3">
                    {PERSONAS.map(p => (
                      <button
@@ -186,7 +188,7 @@ function OnboardingForm() {
                            : 'bg-white/[0.02] border-white/5 text-[#848D97]'
                        }`}
                      >
-                       {p.name.split('_')[0]}
+                       {t(p.name).split('_')[0]}
                      </button>
                    ))}
                  </div>
@@ -197,13 +199,13 @@ function OnboardingForm() {
                   onClick={prevStep}
                   className="flex-1 border border-white/10 text-white font-bold py-4 rounded-xl uppercase tracking-widest text-xs"
                 >
-                  Back
+                  {t('AUTH_BACK')}
                 </button>
                 <button
                   onClick={nextStep}
                   className="flex-[2] bg-[#00D9FF] text-[#05070A] font-bold py-4 rounded-xl flex items-center justify-center gap-2 uppercase tracking-widest text-sm"
                 >
-                  Proceed <ChevronRight size={18} />
+                  {t('AUTH_PROCEED')} <ChevronRight size={18} />
                 </button>
               </div>
             </div>
@@ -213,7 +215,7 @@ function OnboardingForm() {
             <div className="space-y-8 animate-in fade-in slide-in-from-right-4">
               <div className="flex items-center gap-3 mb-2">
                 <Shield className="text-[#00D9FF]" size={20} />
-                <h2 className="text-xl font-bold text-white uppercase tracking-wider">Final Compliance</h2>
+                <h2 className="text-xl font-bold text-white uppercase tracking-wider">{t('AUTH_FINAL_COMPLIANCE')}</h2>
               </div>
               
               <div className="p-6 bg-white/[0.02] border border-white/5 rounded-2xl">
@@ -228,9 +230,9 @@ function OnboardingForm() {
                     />
                   </div>
                   <div>
-                    <label htmlFor="analytics" className="text-sm text-white font-bold block mb-1">STOCHASTIC_ANALYTICS_SHARING</label>
+                    <label htmlFor="analytics" className="text-sm text-white font-bold block mb-1">{t('AUTH_ANALYTICS_SHARING')}</label>
                     <p className="text-xs text-[#848D97] leading-relaxed">
-                      Enable anonymized data collection to refine neural models and platform stability. Recommended for institutional growth.
+                      {t('AUTH_ANALYTICS_DESC')}
                     </p>
                   </div>
                 </div>
@@ -238,7 +240,7 @@ function OnboardingForm() {
 
               <div className="flex items-center gap-4 p-4 border border-[#00D9FF]/20 rounded-2xl bg-[#00D9FF]/5 text-sm">
                 <Activity size={18} className="text-[#00D9FF] shrink-0" />
-                <p className="text-[#00D9FF]">All systems calibrated. Network handshake pending validation.</p>
+                <p className="text-[#00D9FF]">{t('AUTH_SYSTEMS_CALIBRATED')}</p>
               </div>
 
               <div className="flex gap-4">
@@ -246,13 +248,13 @@ function OnboardingForm() {
                   onClick={prevStep}
                   className="flex-1 border border-white/10 text-white font-bold py-4 rounded-xl uppercase tracking-widest text-xs"
                 >
-                  Back
+                  {t('AUTH_BACK')}
                 </button>
                 <button
                   onClick={handleComplete}
                   className="flex-[2] bg-[#00D9FF] text-[#05070A] font-bold py-4 rounded-xl flex items-center justify-center gap-2 uppercase tracking-widest text-sm shadow-[0_0_30px_rgba(0,217,255,0.3)]"
                 >
-                  Deploy Profile <CheckCircle2 size={18} />
+                  {t('AUTH_DEPLOY_PROFILE')} <CheckCircle2 size={18} />
                 </button>
               </div>
             </div>
@@ -261,15 +263,16 @@ function OnboardingForm() {
       </div>
 
       <p className="mt-12 text-center text-[10px] text-[#848D97] uppercase tracking-[0.2em] font-mono opacity-50">
-        QuantMind Institutional Node // SECURE_HANDSHAKE_ESTABLISHED
+        {t('AUTH_SECURE_HANDSHAKE')}
       </p>
     </div>
   );
 }
 
 export default function OnboardingPage() {
+  const t = useTranslation();
   return (
-    <Suspense fallback={<LoadingOverlay visible={true} message="INITIALIZING_CALIBRATION..." />}>
+    <Suspense fallback={<LoadingOverlay visible={true} message={t('AUTH_INITIALIZING_CALIBRATION')} />}>
       <div className="min-h-screen bg-[#05070A] bg-[radial-gradient(circle_at_top,_#001a2e_0%,_#05070a_100%)]">
         <OnboardingForm />
       </div>

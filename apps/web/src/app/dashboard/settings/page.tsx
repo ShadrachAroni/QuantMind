@@ -81,7 +81,7 @@ export default function SettingsPage() {
       {/* Header */}
       <div>
          <div className="flex items-center gap-2 mb-2">
-            <span className="text-[10px] font-bold text-[#848D97] uppercase tracking-[0.3em] font-mono">{t('System_Config')}_v1.0</span>
+            <span className="text-[10px] font-bold text-[#848D97] uppercase tracking-[0.3em] font-mono">{t('System_Config_v1')}</span>
             <div className="w-1.5 h-1.5 rounded-full bg-white/10" />
          </div>
          <h1 className="text-2xl md:text-3xl font-bold text-white uppercase font-mono tracking-tight text-glow">{t('Account_Management')}</h1>
@@ -163,7 +163,6 @@ function ProfileSection() {
     }
   }, [initialProfile]);
 
-  // Credential change policy logic
   const lastChangeAt = initialProfile?.last_credential_change_at ? new Date(initialProfile.last_credential_change_at) : new Date(0);
   const nextAllowedChange = new Date(lastChangeAt.getTime() + 30 * 24 * 60 * 60 * 1000);
   const isLocked = new Date() < nextAllowedChange;
@@ -208,7 +207,7 @@ function ProfileSection() {
                <div className="flex items-center justify-center gap-2 px-3 py-1 bg-[#FFD60A]/10 border border-[#FFD60A]/30 rounded-lg">
                   <Lock size={12} className="text-[#FFD60A]" />
                   <span className="text-[9px] font-mono text-[#FFD60A] font-bold uppercase tracking-widest">
-                     Next Change: {nextAllowedChange.toLocaleDateString()}
+                     {t('Next_Change', { date: nextAllowedChange.toLocaleDateString() })}
                   </span>
                </div>
             )}
@@ -223,15 +222,15 @@ function ProfileSection() {
        </div>
 
        {isLocked && (
-          <div className="p-4 bg-[#FF453A]/10 border border-[#FF453A]/20 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
-             <AlertCircle size={16} className="text-[#FF453A] mt-0.5" />
-             <div className="space-y-1">
-                <p className="text-[10px] font-bold text-[#FF453A] uppercase font-mono tracking-widest">Credential_Change_Restriction_Active</p>
-                <p className="text-[10px] text-[#FF453A]/80 uppercase font-mono leading-relaxed">
-                   To maintain institutional account integrity, identity credentials (name, email, password) can only be modified once every 30 days. Your next modification window opens on <span className="underline decoration-dotted">{nextAllowedChange.toLocaleDateString()}</span>.
-                </p>
-             </div>
-          </div>
+           <div className="p-4 bg-[#FF453A]/10 border border-[#FF453A]/20 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+              <AlertCircle size={16} className="text-[#FF453A] mt-0.5" />
+              <div className="space-y-1">
+                 <p className="text-[10px] font-bold text-[#FF453A] uppercase font-mono tracking-widest">{t('Credential_Change_Restriction_Active')}</p>
+                 <p className="text-[10px] text-[#FF453A]/80 uppercase font-mono leading-relaxed">
+                    {t('Credential_Change_Policy_Desc', { date: nextAllowedChange.toLocaleDateString() })}
+                 </p>
+              </div>
+           </div>
        )}
 
        {message && (
@@ -255,74 +254,87 @@ function ProfileSection() {
              </div>
              <div className="text-center sm:text-left">
                 <h3 className="text-white font-bold text-lg">{firstName || 'QUANT_NODE'}</h3>
-                <p className="text-[#848D97] text-sm font-mono mt-1 uppercase tracking-widest">{t('Tier_Level')}::{initialProfile?.tier?.toUpperCase() || 'FREE'}_NODE</p>
-                <p className="text-[#848D97] text-[10px] md:text-xs font-mono mt-1">UID: {initialProfile?.id?.substring(0, 16).toUpperCase()}...</p>
+                <p className="text-[#848D97] text-sm font-mono mt-1 uppercase tracking-widest">{t('Tier_Level')}::{t('Tier_Node', { tier: initialProfile?.tier?.toUpperCase() || 'FREE' })}</p>
+                <p className="text-[#848D97] text-[10px] md:text-xs font-mono mt-1">{t('UID')}: {initialProfile?.id?.substring(0, 16).toUpperCase()}...</p>
              </div>
           </GlassCard>
 
           <div className="space-y-6">
              <div className="grid grid-cols-2 gap-4">
-               <div>
-                  <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#848D97] mb-2 block">{t('First_Name')}</label>
+               <div className="space-y-1">
+                  <label htmlFor="profile-first-name" className="text-[10px] font-bold text-[#848D97] uppercase tracking-widest font-mono">{t('First_Name')}</label>
                   <input 
+                    id="profile-first-name"
                     type="text" 
                     value={firstName}
                     disabled={isLocked}
                     onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full bg-[#12121A] border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#00D9FF]/50 transition-all font-mono disabled:opacity-40" 
+                    title={t('First_Name')}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#00D9FF]/50 transition-all font-mono disabled:opacity-40" 
                   />
                </div>
-               <div>
-                  <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#848D97] mb-2 block">{t('Last_Name')}</label>
+               <div className="space-y-1">
+                  <label htmlFor="profile-last-name" className="text-[10px] font-bold text-[#848D97] uppercase tracking-widest font-mono">{t('Last_Name')}</label>
                   <input 
+                    id="profile-last-name"
                     type="text" 
                     value={lastName}
                     disabled={isLocked}
                     onChange={(e) => setLastName(e.target.value)}
-                    className="w-full bg-[#12121A] border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#00D9FF]/50 transition-all font-mono disabled:opacity-40" 
+                    title={t('Last_Name')}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#00D9FF]/50 transition-all font-mono disabled:opacity-40" 
                   />
                </div>
              </div>
-             <div>
-                <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#848D97] mb-2 block">{t('Primary_Contact')}</label>
+             <div className="space-y-1">
+                <label htmlFor="profile-email-static" className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#848D97] mb-2 block">{t('Primary_Contact')}</label>
                 <input 
+                  id="profile-email-static"
                   type="text" 
                   value={initialProfile?.email || 'N/A'} 
                   disabled
+                  title={t('Primary_Contact')}
                   className="w-full bg-[#05070A] border border-white/5 rounded-xl py-3 px-4 text-white/40 text-sm font-mono opacity-60" 
                 />
              </div>
           </div>
 
           <div className="space-y-6">
-             <div>
-                <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#848D97] mb-2 block">{t('Phone_Anchor')}</label>
+             <div className="space-y-1">
+                <label htmlFor="profile-phone" className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#848D97] mb-2 block">{t('Phone_Anchor')}</label>
                 <input 
+                  id="profile-phone"
                   type="tel" 
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   placeholder="+1 (555) 000-0000"
+                  title={t('Phone_Anchor')}
                   className="w-full bg-[#12121A] border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#00D9FF]/50 transition-all font-mono" 
                 />
              </div>
              <div className="grid grid-cols-2 gap-4">
-               <div>
-                  <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#848D97] mb-2 block">{t('Region_Zone')}</label>
+               <div className="space-y-1">
+                  <label htmlFor="profile-region" className="text-[10px] font-bold text-[#848D97] uppercase tracking-widest font-mono">{t('Deployment_Region')}</label>
                   <select 
+                    id="profile-region"
                     value={region}
                     onChange={(e) => setRegion(e.target.value)}
-                    className="w-full bg-[#12121A] border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#00D9FF]/50 transition-all font-mono appearance-none"
+                    disabled={isLocked}
+                    title={t('Deployment_Region')}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#00D9FF]/50 transition-all font-mono appearance-none"
                   >
-                     <option value="US_EAST_NY">US_EAST_NY</option>
-                     <option value="EU_WEST_LDN">EU_WEST_LDN</option>
-                     <option value="AF_WEST_LOS">AF_WEST_LOS</option>
+                     <option value="us_east">US_EAST_NY</option>
+                     <option value="eu_west">EU_WEST_LDN</option>
+                     <option value="ap_south">AP_SOUTH_SIN</option>
                   </select>
                </div>
-               <div>
-                  <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#848D97] mb-2 block">{t('Interface_Language')}</label>
+               <div className="space-y-1">
+                  <label htmlFor="profile-language" className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#848D97] mb-2 block">{t('Interface_Language')}</label>
                   <select 
+                    id="profile-language"
                     value={interfaceLanguage}
                     onChange={(e) => setInterfaceLanguage(e.target.value)}
+                    title={t('Interface_Language')}
                     className="w-full bg-[#12121A] border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-[#00D9FF]/50 transition-all font-mono appearance-none"
                   >
                      <option value="ENGLISH_INTL">ENGLISH_INTL</option>
@@ -413,7 +425,7 @@ function SecuritySection({ router }: { router: any }) {
     } else {
        await refreshProfile();
        fetchMfaStatus();
-       setMessage({ type: 'success', text: 'MFA_DEACTIVATED' });
+       setMessage({ type: 'success', text: t('MFA_Deactivated') });
     }
   };
 
@@ -429,7 +441,7 @@ function SecuritySection({ router }: { router: any }) {
       
       if (error) throw error;
       await refreshProfile();
-      setMessage({ type: 'success', text: newState ? 'EMAIL_MFA_ENABLED' : 'EMAIL_MFA_DISABLED' });
+      setMessage({ type: 'success', text: newState ? t('Email_MFA_Enabled') : t('Email_MFA_Disabled') });
     } catch (err: any) {
       setMessage({ type: 'error', text: t('Error_Sync') });
     } finally {
@@ -440,7 +452,6 @@ function SecuritySection({ router }: { router: any }) {
   const handleEnrollPasskey = async () => {
     setMessage(null);
     try {
-      // Note: passkey enrollment typically requires a name/nickname
       const { data, error } = await (supabase.auth as any).addPasskey({
         name: `QuantMind_Node_${profile?.id?.substring(0, 4)}`
       });
@@ -455,11 +466,11 @@ function SecuritySection({ router }: { router: any }) {
       if (profileError) throw profileError;
       
       await refreshProfile();
-      setMessage({ type: 'success', text: 'PASSKEY_ENROLLED' });
+      setMessage({ type: 'success', text: t('Passkey_Enrolled') });
       fetchMfaStatus();
     } catch (err: any) {
       console.error(err);
-      setMessage({ type: 'error', text: 'PASSKEY_SETUP_FAILED' });
+      setMessage({ type: 'error', text: t('Passkey_Setup_Failed') });
     }
   };
 
@@ -507,7 +518,7 @@ function SecuritySection({ router }: { router: any }) {
                    <h3 className="text-[10px] uppercase font-bold tracking-[0.2em] text-white">{t('MFA_Method_App')}</h3>
                 </div>
                 <p className="text-[11px] text-[#848D97] leading-relaxed uppercase font-mono">
-                   Use standard TOTP generators like Google Authenticator or 1Password.
+                   {t('MFA_Method_App_Desc')}
                 </p>
              </div>
              <div>
@@ -540,7 +551,7 @@ function SecuritySection({ router }: { router: any }) {
                    <h3 className="text-[10px] uppercase font-bold tracking-[0.2em] text-white">{t('MFA_Method_Email')}</h3>
                 </div>
                 <p className="text-[11px] text-[#848D97] leading-relaxed uppercase font-mono">
-                   Receive unique security codes via your primary institutional email.
+                   {t('MFA_Method_Email_Desc')}
                 </p>
              </div>
              <div>
@@ -570,7 +581,7 @@ function SecuritySection({ router }: { router: any }) {
                    <h3 className="text-[10px] uppercase font-bold tracking-[0.2em] text-white">{t('MFA_Method_Passkey')}</h3>
                 </div>
                 <p className="text-[11px] text-[#848D97] leading-relaxed uppercase font-mono">
-                   Biometric or hardware-based verification (FaceID, TouchID, Yubikey).
+                   {t('MFA_Method_Passkey_Desc')}
                 </p>
              </div>
              <div>
@@ -586,7 +597,7 @@ function SecuritySection({ router }: { router: any }) {
                       : "bg-[#00D9FF] text-[#05070A] hover:bg-[#00D9FF]/90"
                   )}
                 >
-                   {profile?.mfa_passkey_enabled ? 'PASSKEY_STORED' : t('MFA_Action_Setup')}
+                   {profile?.mfa_passkey_enabled ? t('Passkey_Stored') : t('MFA_Action_Setup')}
                 </button>
              </div>
           </GlassCard>
@@ -596,20 +607,20 @@ function SecuritySection({ router }: { router: any }) {
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                  <div className="flex items-center gap-3">
                     <Settings className={isLocked ? "text-[#848D97]" : "text-[#FFD60A]"} size={20} />
-                    <h3 className="text-[10px] uppercase font-bold tracking-[0.2em] text-white">Access_Credentials_Node</h3>
+                    <h3 className="text-[10px] uppercase font-bold tracking-[0.2em] text-white">{t('Access_Credentials_Node')}</h3>
                  </div>
-                 <p className="text-[11px] text-[#848D97] uppercase font-mono tracking-widest truncate">
-                    {t('Primary_Contact')}: {profile?.email}
+                 <p className="text-[9px] text-[#848D97] uppercase font-mono tracking-widest">
+                    {t('AES_Encryption_Notice')}
                  </p>
               </div>
               <div className="flex flex-col md:flex-row items-center gap-8 justify-between p-6 bg-white/5 rounded-2xl border border-white/5 relative">
                  {isLocked && (
                     <div className="absolute inset-x-0 -top-2 flex justify-center">
-                       <span className="bg-[#FF453A] text-white text-[8px] font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">RESTRICTED_PROTOCOL_LOCK</span>
+                       <span className="bg-[#FF453A] text-white text-[8px] font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-lg">{t('Restricted_Protocol_Lock')}</span>
                     </div>
                  )}
                  <p className="text-[11px] text-[#848D97] leading-relaxed uppercase font-mono max-w-xl">
-                    Deploy a secure credential reset node to your primary contact address. This will terminate all active platform sessions. <span className="text-[#FF453A]/80 font-bold">{isLocked ? `Next allowed: ${nextAllowedChange.toLocaleDateString()}` : ''}</span>
+                    {t('Credential_Reset_Desc')} <span className="text-[#FF453A]/80 font-bold">{isLocked ? `${t('Next_Change')}: ${nextAllowedChange.toLocaleDateString()}` : ''}</span>
                  </p>
                  <button 
                    disabled={isLocked}
@@ -632,16 +643,16 @@ function SecuritySection({ router }: { router: any }) {
            <div className="flex flex-col md:flex-row items-center justify-between gap-6 p-8 bg-[#FF453A]/5 border border-[#FF453A]/10 rounded-2xl relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-[#FF453A]/30 to-transparent" />
               <div className="space-y-2 text-center md:text-left">
-                 <h3 className="text-xs font-bold text-[#FF453A] uppercase font-mono tracking-[0.2em]">Purge_Protocol_Node</h3>
+                 <h3 className="text-xs font-bold text-[#FF453A] uppercase font-mono tracking-[0.2em]">{t('Purge_Protocol_Node')}</h3>
                  <p className="text-[11px] text-[#848D97] uppercase font-mono leading-relaxed max-w-lg">
-                    Initialize irreversible account termination. All institutional credentials, portfolio nodes, and simulation history will be purged from the QuantMind cluster.
+                    {t('Irreversible_Termination_Desc')}
                  </p>
               </div>
               <button 
                 onClick={() => setIsDeleting(true)}
                 className="whitespace-nowrap px-8 py-3 bg-transparent border border-[#FF453A]/30 text-[#FF453A] hover:bg-[#FF453A] hover:text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all font-mono"
               >
-                 Terminate Account
+                 {t('Terminate_Account')}
               </button>
            </div>
         </div>
@@ -665,20 +676,21 @@ function SecuritySection({ router }: { router: any }) {
                    <div className="p-4 bg-white rounded-2xl shadow-[0_0_20px_rgba(255,255,255,0.1)]">
                       <img 
                         src={enrollmentData.totp.qr_code} 
-                        alt="MFA QR Code" 
+                        alt={t('MFA_QR_Code_Alt')} 
                         className="w-48 h-48"
                       />
                    </div>
                    <div className="text-center space-y-3 bg-white/5 p-4 rounded-xl border border-white/10 w-full">
-                      <p className="text-[9px] text-[#848D97] uppercase font-bold tracking-[0.2em] font-mono">SECURE_RECOVERY_KEY</p>
+                      <p className="text-[9px] text-[#848D97] uppercase font-bold tracking-[0.2em] font-mono">{t('Secure_Recovery_Key')}</p>
                       <code className="text-[#00D9FF] font-mono text-sm font-bold tracking-[0.3em] block">{enrollmentData.totp.secret}</code>
                    </div>
                 </div>
 
                 <div className="space-y-6">
                    <div className="space-y-2">
-                      <label className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#848D97] block text-center font-mono">{t('MFA_Verify_Prompt')}</label>
+                      <label htmlFor="mfa-verify-code" className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#848D97] block text-center font-mono">{t('MFA_Verify_Prompt')}</label>
                       <input 
+                        id="mfa-verify-code"
                         type="text" 
                         maxLength={6}
                         value={verificationCode}
@@ -787,10 +799,10 @@ function AIPersonaSection({ router }: { router: any }) {
   return (
     <div className="space-y-6 md:space-y-8 animate-in slide-in-from-right-4 duration-500 pb-20">
        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h2 className="text-lg md:text-xl font-bold text-white uppercase font-mono tracking-tight">Cognitive_Persona_Matrix</h2>
+          <h2 className="text-lg md:text-xl font-bold text-white uppercase font-mono tracking-tight">{t('Cognitive_Persona_Matrix')}</h2>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
             {profile?.tier === 'pro' && (
-               <span className="text-[9px] font-bold text-[#00D9FF] border border-[#00D9FF]/30 px-3 py-1 rounded-full uppercase tracking-widest bg-[#00D9FF]/5 text-center">Institutional_Pro_Node</span>
+               <span className="text-[9px] font-bold text-[#00D9FF] border border-[#00D9FF]/30 px-3 py-1 rounded-full uppercase tracking-widest bg-[#00D9FF]/5 text-center">{t('Institutional_Pro_Node')}</span>
             )}
             <button 
               disabled={isSavingPersona}
@@ -805,14 +817,14 @@ function AIPersonaSection({ router }: { router: any }) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
           {/* Usage Stats - Always Visible */}
           <GlassCard className="p-6 md:p-8 space-y-6" intensity="low">
-             <div className="flex items-center gap-3">
-                <Zap className="text-[#FFD60A]" size={20} />
-                <h3 className="text-xs uppercase font-bold tracking-[0.2em] text-white">Cognitive_Bandwidth</h3>
+             <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-[#848D97] uppercase tracking-widest font-mono">{t('Cognitive_Bandwidth')}</span>
+                <span className="text-[10px] font-bold text-white font-mono">{Math.round(quotaPercent)}%</span>
              </div>
              <div className="space-y-4">
                 <div className="flex justify-between text-[10px] font-mono uppercase tracking-widest">
-                   <span className="text-[#848D97]">Daily_Allocation</span>
-                   <span className="text-white">{quotaUsed} / {quotaLimit} Messages</span>
+                   <span className="text-[#848D97]">{t('Daily_Allocation')}</span>
+                   <span className="text-white" title={`${quotaUsed} / ${quotaLimit}`}>{t('Messages_Count', { used: quotaUsed, limit: quotaLimit })}</span>
                 </div>
                 <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
                    <div 
@@ -823,9 +835,9 @@ function AIPersonaSection({ router }: { router: any }) {
                      style={{ width: `${quotaPercent}%` }}
                    />
                 </div>
-                <p className="text-[9px] text-[#848D97] leading-relaxed uppercase font-mono italic">
-                   System-default nodes reset every 24 hours. Custom nodes bypass these restrictions.
-                </p>
+                <p className="text-[11px] text-[#848D97] leading-relaxed uppercase font-mono">
+                 {t('Bandwidth_Usage_Desc')}
+              </p>
              </div>
           </GlassCard>
 
@@ -833,36 +845,38 @@ function AIPersonaSection({ router }: { router: any }) {
           <GlassCard className="p-6 md:p-8 space-y-6" intensity="low">
              <div className="flex items-center gap-3">
                 <User className="text-[#00D9FF]" size={20} />
-                <h3 className="text-xs uppercase font-bold tracking-[0.2em] text-white">Oracle_Personality</h3>
+                <h3 className="text-xs uppercase font-bold tracking-[0.2em] text-white">{t('Oracle_Personality')}</h3>
              </div>
              <div className="space-y-4">
-                <div className="space-y-2">
-                   <label className="text-[9px] uppercase font-bold text-[#848D97] font-mono tracking-widest ml-1">{t('Cognitive_Persona')}</label>
-                   <select 
-                     value={persona}
-                     onChange={(e) => setPersona(e.target.value)}
-                     className="w-full bg-[#12121A] border border-white/10 rounded-xl py-3 px-4 text-white text-xs focus:outline-none focus:border-[#00D9FF]/50 transition-all font-mono appearance-none"
-                   >
-                      <option value="ANALYTICAL_COLD">{t('Persona_Analytical')}</option>
-                      <option value="ADVISORY_SUPPORTIVE">{t('Persona_Supportive')}</option>
-                      <option value="CRITICAL_ADVERSARIAL">{t('Persona_Critical')}</option>
-                      <option value="HEDGE_FUND_VIBE">{t('Persona_HedgeFund')}</option>
-                      <option value="QUANTI_MAXIMALIST">{t('Persona_QuantMax')}</option>
-                   </select>
-                </div>
+                <div className="space-y-1">
+                 <label htmlFor="persona-selection" className="text-[10px] font-bold text-[#848D97] uppercase tracking-widest font-mono">{t('Oracle_Personality')}</label>
+                 <select 
+                   id="persona-selection"
+                   value={persona}
+                   onChange={(e) => setPersona(e.target.value)}
+                   title={t('Oracle_Personality')}
+                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#00D9FF]/50 transition-all font-mono appearance-none"
+                 >
+                    <option value="balanced">{t('Persona_Balanced')}</option>
+                    <option value="analytical">{t('Persona_Analytical')}</option>
+                    <option value="aggressive">{t('Persona_Aggressive')}</option>
+                 </select>
+              </div>
                 
                 <div className="space-y-2">
-                   <label className="text-[9px] uppercase font-bold text-[#848D97] font-mono tracking-widest ml-1">{t('Risk_Sensitivity')}</label>
-                   <select 
-                     value={sensitivity}
-                     onChange={(e) => setSensitivity(e.target.value)}
-                     className="w-full bg-[#12121A] border border-white/10 rounded-xl py-3 px-4 text-white text-xs focus:outline-none focus:border-[#00D9FF]/50 transition-all font-mono appearance-none"
-                   >
-                      <option value="CONSERVATIVE">{t('Sensitivity_Conservative')}</option>
-                      <option value="BALANCED">{t('Sensitivity_Balanced')}</option>
-                      <option value="AGGRESSIVE">{t('Sensitivity_Aggressive')}</option>
-                      <option value="MAX_EXPOSURE">{t('Sensitivity_Max')}</option>
-                   </select>
+                    <label htmlFor="risk-sensitivity-select" className="text-[9px] uppercase font-bold text-[#848D97] font-mono tracking-widest ml-1">{t('Risk_Sensitivity_Label')}</label>
+                    <select 
+                      id="risk-sensitivity-select"
+                      value={sensitivity}
+                      onChange={(e) => setSensitivity(e.target.value)}
+                      title={t('Risk_Sensitivity_Label')}
+                      className="w-full bg-[#12121A] border border-white/10 rounded-xl py-3 px-4 text-white text-xs focus:outline-none focus:border-[#00D9FF]/50 transition-all font-mono appearance-none"
+                    >
+                       <option value="CONSERVATIVE">{t('Sensitivity_Conservative')}</option>
+                       <option value="BALANCED">{t('Sensitivity_Balanced')}</option>
+                       <option value="AGGRESSIVE">{t('Sensitivity_Aggressive')}</option>
+                       <option value="MAX_EXPOSURE">{t('Sensitivity_Max')}</option>
+                    </select>
                 </div>
              </div>
           </GlassCard>
@@ -880,8 +894,8 @@ function AIPersonaSection({ router }: { router: any }) {
                      </div>
                      <div>
                         <h4 className="text-white font-bold uppercase tracking-[0.2em] text-sm mb-2">{t('Pro_Upgrade_Required')}</h4>
-                        <p className="text-[#848D97] text-[10px] leading-relaxed uppercase font-mono mb-6">
-                           Upgraded institutional nodes allow for 3rd party API integration to bypass all platform bandwidth limits and access sovereign models.
+                        <p className="text-[11px] text-[#848D97] leading-relaxed uppercase font-mono">
+                           {t('Pro_Node_Integration_Desc')}
                         </p>
                         <button 
                           onClick={() => router.push('/dashboard/subscription')}
@@ -897,7 +911,7 @@ function AIPersonaSection({ router }: { router: any }) {
              <div className="flex items-center justify-between relative z-20">
                 <div className="flex items-center gap-3">
                    <Globe className="text-[#00D9FF]" size={20} />
-                   <h3 className="text-xs uppercase font-bold tracking-[0.2em] text-white">Secure_Cognitive_Configuration [Pro_Feature]</h3>
+                   <h4 className="text-[10px] font-bold text-white uppercase font-mono tracking-widest">{t('Secure_Cognitive_Configuration')}</h4>
                 </div>
                 {message && (
                   <span className={cn(
@@ -909,52 +923,58 @@ function AIPersonaSection({ router }: { router: any }) {
 
              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-20">
                 <div className="space-y-2">
-                   <label className="text-[9px] uppercase font-bold text-[#848D97] font-mono tracking-widest ml-1">Relay_Provider</label>
-                   <select 
-                     value={activeConfig?.provider || newConfig.provider}
-                     onChange={(e) => setNewConfig({ ...newConfig, provider: e.target.value })}
-                     className="w-full bg-[#05070A] border border-white/10 rounded-xl py-3 px-4 text-white text-xs focus:outline-none focus:border-[#00D9FF]/50 transition-all font-mono"
-                   >
-                      <option value="google">Google_Gemini</option>
-                      <option value="openai">OpenAI_GPT</option>
-                      <option value="anthropic">Anthropic_Claude</option>
-                   </select>
+                    <label htmlFor="relay-provider" className="text-[9px] uppercase font-bold text-[#848D97] font-mono tracking-widest ml-1">{t('Relay_Provider')}</label>
+                    <select 
+                      id="relay-provider"
+                      value={activeConfig?.provider || newConfig.provider}
+                      onChange={(e) => setNewConfig({ ...newConfig, provider: e.target.value })}
+                      title={t('Relay_Provider')}
+                      className="w-full bg-[#05070A] border border-white/10 rounded-xl py-3 px-4 text-white text-xs focus:outline-none focus:border-[#00D9FF]/50 transition-all font-mono appearance-none"
+                    >
+                       <option value="google">Google_Gemini</option>
+                       <option value="openai">OpenAI_GPT</option>
+                       <option value="anthropic">Anthropic_Claude</option>
+                    </select>
                 </div>
                 <div className="space-y-2">
-                   <label className="text-[9px] uppercase font-bold text-[#848D97] font-mono tracking-widest ml-1">Model_Identifier</label>
-                   <input 
-                     type="text" 
-                     placeholder="e.g. gemini-2.5-flash"
-                     value={newConfig.model_id}
-                     onChange={(e) => setNewConfig({ ...newConfig, model_id: e.target.value })}
-                     className="w-full bg-[#05070A] border border-white/10 rounded-xl py-3 px-4 text-white text-xs focus:outline-none focus:border-[#00D9FF]/50 transition-all font-mono"
-                   />
+                    <label htmlFor="model-id" className="text-[9px] uppercase font-bold text-[#848D97] font-mono tracking-widest ml-1">{t('Model_Identifier')}</label>
+                    <input 
+                      id="model-id"
+                      type="text" 
+                      placeholder="e.g. gemini-2.5-flash"
+                      value={newConfig.model_id}
+                      onChange={(e) => setNewConfig({ ...newConfig, model_id: e.target.value })}
+                      title={t('Model_Identifier')}
+                      className="w-full bg-[#05070A] border border-white/10 rounded-xl py-3 px-4 text-white text-xs focus:outline-none focus:border-[#00D9FF]/50 transition-all font-mono"
+                    />
                 </div>
                 <div className="space-y-2">
-                   <label className="text-[9px] uppercase font-bold text-[#848D97] font-mono tracking-widest ml-1">Secure_API_Key</label>
-                   <div className="relative">
-                      <input 
-                        type="password" 
-                        placeholder="••••••••••••••••"
-                        value={newConfig.api_key}
-                        onChange={(e) => setNewConfig({ ...newConfig, api_key: e.target.value })}
-                        className="w-full bg-[#05070A] border border-white/10 rounded-xl py-3 px-4 text-white text-xs focus:outline-none focus:border-[#00D9FF]/50 transition-all font-mono pr-10"
-                      />
-                      <Lock className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20" size={14} />
-                   </div>
+                    <label htmlFor="api-key" className="text-[9px] uppercase font-bold text-[#848D97] font-mono tracking-widest ml-1">{t('Secure_API_Key')}</label>
+                    <div className="relative">
+                       <input 
+                         id="api-key"
+                         type="password" 
+                         placeholder="••••••••••••••••"
+                         value={newConfig.api_key}
+                         onChange={(e) => setNewConfig({ ...newConfig, api_key: e.target.value })}
+                         title={t('Secure_API_Key')}
+                         className="w-full bg-[#05070A] border border-white/10 rounded-xl py-3 px-4 text-white text-xs focus:outline-none focus:border-[#00D9FF]/50 transition-all font-mono pr-10"
+                       />
+                       <Lock className="absolute right-3 top-1/2 -translate-y-1/2 text-white/20" size={14} />
+                    </div>
                 </div>
              </div>
 
              <div className="pt-4 border-t border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-20">
                 <p className="text-[9px] text-[#848D97] font-mono uppercase max-w-md leading-relaxed">
-                   API keys are stored using military-grade AES-256-GCM encryption. De-cryption only occurs in secure server-side memory buffers during active cognitve relays.
+                   {t('AES_Encryption_Notice')}
                 </p>
                 <button 
                   disabled={isSaving || profile?.tier !== 'pro'}
                   onClick={handleSaveConfig}
                   className="bg-[#00D9FF] text-[#05070A] px-8 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#00D9FF]/90 transition-all disabled:opacity-50 w-full md:w-auto"
                 >
-                   {isSaving ? 'Synchronizing...' : 'Initialize_Node'}
+                   {isSaving ? t('Synchronizing') : t('Initialize_Node')}
                 </button>
              </div>
           </GlassCard>
@@ -990,9 +1010,9 @@ function BillingSection({ router }: { router: any }) {
       // Small delay to ensure profile has synced via webhook
       setTimeout(() => refreshProfile(), 2000);
     } else if (status === 'failed') {
-      setError('TRANSACTION_FAILED_BY_GATEWAY');
+      setError(t('TRANSACTION_FAILED_BY_GATEWAY'));
     } else if (status === 'error') {
-      setError(searchParams.get('message') || 'TRANSACTION_TERMINATED');
+      setError(searchParams.get('message') || t('TRANSACTION_TERMINATED'));
     }
   }, [searchParams]);
 
@@ -1035,7 +1055,7 @@ function BillingSection({ router }: { router: any }) {
       if (data?.url) {
         window.location.href = data.url;
       } else {
-        throw new Error('Could not generate billing portal link');
+        throw new Error(t('Billing_Portal_Error'));
       }
     } catch (err: any) {
       setError(err.message);
@@ -1044,7 +1064,7 @@ function BillingSection({ router }: { router: any }) {
   };
 
   const handleDecommission = async () => {
-    if (!window.confirm(t('Cancel_Confirm') || 'Are you sure you want to decommission this plan?')) return;
+    if (!window.confirm(t('Cancel_Confirm'))) return;
     
     setIsDecommissioning(true);
     setError(null);
@@ -1054,7 +1074,7 @@ function BillingSection({ router }: { router: any }) {
       
       await refreshProfile();
       setSubscription((prev: Subscription | null) => prev ? ({ ...prev, status: 'canceled', cancel_at_period_end: true }) : null);
-      alert(t('Cancel_Success') || 'Plan decommissioned successfully');
+      alert(t('Cancel_Success'));
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -1087,7 +1107,7 @@ function BillingSection({ router }: { router: any }) {
           <h2 className="text-lg md:text-xl font-bold text-white uppercase font-mono tracking-tight">{t('Subscription_Ledger')}</h2>
           {searchParams.get('status') === 'success' && (
             <span className="text-[10px] text-[#32D74B] font-mono uppercase font-bold animate-pulse">
-              [SUCCESS]::CREDENTIALS_UPDATED_REF_{searchParams.get('ref')?.substring(0, 8)}
+              {t('Success_Sync')}
             </span>
           )}
           {error && (
@@ -1097,7 +1117,7 @@ function BillingSection({ router }: { router: any }) {
                 onClick={handleRetry}
                 className="px-2 py-0.5 bg-[#00D9FF]/10 border border-[#00D9FF]/30 text-[#00D9FF] text-[8px] font-bold rounded uppercase font-mono hover:bg-[#00D9FF]/20 transition-all"
               >
-                [RETRY_INITIALIZATION]
+                {t('Retry_Initialization')}
               </button>
             </div>
           )}
@@ -1110,13 +1130,13 @@ function BillingSection({ router }: { router: any }) {
              <div className="flex-1 space-y-6 w-full">
                 <div>
                    <div className="flex items-center gap-3">
-                      <span className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#00D9FF] font-mono">Current_Phase</span>
+                      <span className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#00D9FF] font-mono">{t('Current_Phase')}</span>
                       {subscription?.status === 'canceled' && (
-                        <span className="px-2 py-0.5 bg-[#FF453A]/20 text-[#FF453A] text-[8px] font-bold rounded uppercase font-mono">Decommissioned</span>
+                        <span className="px-2 py-0.5 bg-[#FF453A]/20 text-[#FF453A] text-[8px] font-bold rounded uppercase font-mono">{t('Decommissioned')}</span>
                       )}
                    </div>
                    <h3 className="text-2xl md:text-3xl font-bold text-white uppercase font-mono mt-1">
-                      {profile?.tier ? `${profile.tier.toUpperCase()}_TIER_NODE` : 'FREE_TIER_NODE'}
+                      {profile?.tier ? t('Tier_Node_Label', { tier: profile.tier.toUpperCase() }) : t('Free_Tier_Node')}
                    </h3>
                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2">
                        <p className="text-[#848D97] text-[10px] font-mono uppercase tracking-widest">
@@ -1145,7 +1165,7 @@ function BillingSection({ router }: { router: any }) {
                    onClick={handleManageBilling}
                    className="w-full bg-white/5 border border-white/10 text-white py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-white/10 transition-all font-mono disabled:opacity-50"
                  >
-                   {isManaging ? 'Initializing_Portal...' : t('Manage_Billing_Session')}
+                   {isManaging ? t('Initializing_Portal') : t('Billing_Action_Manage')}
                 </button>
                 {subscription?.status !== 'canceled' && profile?.tier !== 'free' && (
                   <button 
@@ -1153,17 +1173,16 @@ function BillingSection({ router }: { router: any }) {
                     onClick={handleDecommission}
                     className="w-full bg-transparent border border-[#FF453A]/30 text-[#FF453A] py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-[#FF453A]/5 transition-all disabled:opacity-50"
                   >
-                    {isDecommissioning ? 'Decommissioning...' : t('Decommission_Plan')}
+                    {isDecommissioning ? t('Decommissioning') : t('Decommission_Plan')}
                   </button>
                 )}
              </div>
           </div>
 
           <div className="mt-8 pt-6 border-t border-white/5">
-             <div className="flex items-start gap-3 text-[#848D97]">
-                <AlertCircle size={14} className="text-[#00D9FF] shrink-0 mt-0.5" />
-                <p className="text-[10px] uppercase font-bold tracking-widest font-mono leading-relaxed">
-                   Institutional_Policy::The Web Terminal is the authoritative node for all subscription management. Mobile access is restricted to secure credit card payments.
+             <div className="bg-[#12121A] border border-white/5 p-4 rounded-xl">
+                <p className="text-[9px] text-[#848D97] leading-relaxed uppercase font-mono italic text-center">
+                   {t('Billing_Policy_Notice')}
                 </p>
              </div>
           </div>
@@ -1176,17 +1195,17 @@ function BillingSection({ router }: { router: any }) {
                <div className="w-10 h-10 rounded-full bg-[#00D9FF]/20 flex items-center justify-center shrink-0">
                  <Zap className="text-[#00D9FF]" size={20} />
                </div>
-               <div>
-                 <h4 className="text-sm font-bold text-white uppercase font-mono">Upgrade to Institutional Pro</h4>
-                 <p className="text-[10px] text-[#848D97] font-mono mt-1">Unlock unlimited simulations, real-time risk surfaces, and elite cognitive models.</p>
-               </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white uppercase font-mono">{t('Upgrade_Title')}</h4>
+                  <p className="text-[10px] text-[#848D97] font-mono mt-1">{t('Upgrade_Desc')}</p>
+                </div>
              </div>
-             <button 
-               onClick={() => router.push('/dashboard/subscription')}
-               className="bg-[#00D9FF] text-[#05070A] h-10 px-6 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-[#00D9FF]/90 transition-all w-full sm:w-auto"
-             >
-               Initialize_Upgrade
-             </button>
+              <button 
+                onClick={() => router.push('/dashboard/subscription')}
+                className="bg-[#00D9FF] text-[#05070A] h-10 px-6 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-[#00D9FF]/90 transition-all w-full sm:w-auto"
+              >
+                {t('Initialize_Upgrade')}
+              </button>
            </div>
          </GlassCard>
        )}

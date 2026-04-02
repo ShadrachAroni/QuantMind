@@ -23,14 +23,18 @@ import { LineChart } from 'react-native-svg-charts';
 import * as shape from 'd3-shape';
 import { theme as constTheme } from '../../constants/theme';
 import { hsmService } from '../../utils/hsm';
+import { useTranslation } from '../../lib/i18n';
+
 
 const { width } = Dimensions.get('window');
 
 export function BacktestScreen({ navigation }: any) {
   const { theme, isDark } = useTheme();
   const portfolios = usePortfolios();
-  const { tier, user } = useAuthStore();
+  const { tier, user, interfaceLanguage } = useAuthStore();
   const { showToast } = useToast();
+  const t = useTranslation(interfaceLanguage);
+
 
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(null);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -125,12 +129,13 @@ export function BacktestScreen({ navigation }: any) {
         }
       });
       setStatus('success');
-      showToast('BACKTEST_SUCCESS', 'success');
+      showToast(t('BACKTEST_SUCCESS'), 'success');
     } catch (err) {
       console.error(err);
       setStatus('error');
-      showToast('BACKTEST_FAILED', 'error');
+      showToast(t('BACKTEST_FAILED'), 'error');
     }
+
   };
 
   const handleSign = async () => {
@@ -146,12 +151,13 @@ export function BacktestScreen({ navigation }: any) {
       
       if (payload) {
         setSignedId(payload.signature);
-        showToast('REPORT_SIGNED_HSM', 'success');
+        showToast(t('REPORT_SIGNED_SUCCESS'), 'success');
       }
     } catch (err) {
       console.error('SIGNING_ERROR:', err);
-      showToast('SIGNING_FAILURE', 'error');
+      showToast(t('SIGNING_FAILURE'), 'error');
     } finally {
+
       setIsSigning(false);
     }
   };
@@ -165,29 +171,31 @@ export function BacktestScreen({ navigation }: any) {
           <TouchableOpacity onPress={() => navigation.goBack()} style={dynamicStyles.backBtn}>
             <ChevronLeft size={20} color={theme.textSecondary} />
           </TouchableOpacity>
-          <Typography variant="mono" style={dynamicStyles.subHeader}>INSTITUTIONAL_BACKTEST_V2</Typography>
-          <Typography variant="h2" style={dynamicStyles.title}>SIMULATION_TERMINAL</Typography>
+          <Typography variant="mono" style={dynamicStyles.subHeader}>{t('INSTITUTIONAL_BACKTEST_V2')}</Typography>
+          <Typography variant="h2" style={dynamicStyles.title}>{t('SIMULATION_TERMINAL')}</Typography>
         </View>
+
 
         {!isPremium && (
           <GlassCard style={dynamicStyles.gatingCard}>
             <Lock size={32} color={theme.primary} style={{ marginBottom: 16 }} />
-            <Typography variant="h3" style={{ textAlign: 'center', marginBottom: 8 }}>PREMIUM_ACCESS_REQUIRED</Typography>
+            <Typography variant="h3" style={{ textAlign: 'center', marginBottom: 8 }}>{t('PREMIUM_ACCESS_REQUIRED')}</Typography>
             <Typography variant="body" style={{ textAlign: 'center', color: theme.textSecondary, marginBottom: 24 }}>
-              The Backtesting Terminal is reserved for Plus and Pro clearing levels.
+              {t('PREMIUM_ACCESS_DESC')}
             </Typography>
             <TouchableOpacity 
               style={[dynamicStyles.submitBtn, { backgroundColor: theme.primary }]}
               onPress={() => navigation.navigate('Subscription')}
             >
-              <Typography variant="monoBold" style={{ color: theme.background }}>UPGRADE_CLEARANCE</Typography>
+              <Typography variant="monoBold" style={{ color: theme.background }}>{t('UPGRADE_CLEARANCE')}</Typography>
             </TouchableOpacity>
           </GlassCard>
+
         )}
 
         {isPremium && (
           <>
-            <Typography variant="mono" style={dynamicStyles.sectionLabel}>// SELECT_PORTFOLIO</Typography>
+            <Typography variant="mono" style={dynamicStyles.sectionLabel}>{t('SELECT_PORTFOLIO')}</Typography>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={dynamicStyles.portList}>
               {portfolios.map(p => (
                 <TouchableOpacity 
@@ -215,42 +223,43 @@ export function BacktestScreen({ navigation }: any) {
               ) : (
                 <>
                   <Play size={18} color={theme.background} style={{ marginRight: 8 }} />
-                  <Typography variant="monoBold" style={{ color: theme.background }}>EXECUTE_BACKTEST</Typography>
+                  <Typography variant="monoBold" style={{ color: theme.background }}>{t('EXECUTE_BACKTEST')}</Typography>
                 </>
               )}
             </TouchableOpacity>
 
+
             {results && status === 'success' && (
               <View style={{ marginTop: 32 }}>
-                <Typography variant="mono" style={dynamicStyles.sectionLabel}>// PERFORMANCE_METRICS</Typography>
+                <Typography variant="mono" style={dynamicStyles.sectionLabel}>{t('PERFORMANCE_METRICS')}</Typography>
                 <View style={dynamicStyles.metricsGrid}>
                   <GlassCard style={dynamicStyles.metricItem}>
-                    <Typography variant="caption" style={{ color: theme.textTertiary }}>TOT_RETURN</Typography>
+                    <Typography variant="caption" style={{ color: theme.textTertiary }}>{t('TOT_RETURN')}</Typography>
                     <Typography variant="h3" style={{ color: results.metrics.totalReturn >= 0 ? theme.success : theme.error }}>
                       {results.metrics.totalReturn.toFixed(2)}%
                     </Typography>
                   </GlassCard>
                   <GlassCard style={dynamicStyles.metricItem}>
-                    <Typography variant="caption" style={{ color: theme.textTertiary }}>CAGR</Typography>
+                    <Typography variant="caption" style={{ color: theme.textTertiary }}>{t('CAGR')}</Typography>
                     <Typography variant="h3" style={{ color: theme.primary }}>
                       {results.metrics.cagr.toFixed(2)}%
                     </Typography>
                   </GlassCard>
                   <GlassCard style={dynamicStyles.metricItem}>
-                    <Typography variant="caption" style={{ color: theme.textTertiary }}>MAX_DRAWDOWN</Typography>
+                    <Typography variant="caption" style={{ color: theme.textTertiary }}>{t('MAX_DRAWDOWN')}</Typography>
                     <Typography variant="h3" style={{ color: theme.error }}>
                       -{results.metrics.maxDrawdown.toFixed(2)}%
                     </Typography>
                   </GlassCard>
                   <GlassCard style={dynamicStyles.metricItem}>
-                    <Typography variant="caption" style={{ color: theme.textTertiary }}>SHARPE</Typography>
+                    <Typography variant="caption" style={{ color: theme.textTertiary }}>{t('SHARPE')}</Typography>
                     <Typography variant="h3" style={{ color: theme.secondary }}>
                       {results.metrics.sharpeRatio.toFixed(2)}
                     </Typography>
                   </GlassCard>
                 </View>
 
-                <Typography variant="mono" style={dynamicStyles.sectionLabel}>// EQUITY_CURVE</Typography>
+                <Typography variant="mono" style={dynamicStyles.sectionLabel}>{t('EQUITY_CURVE')}</Typography>
                 <GlassCard style={dynamicStyles.chartCard}>
                   <LineChart
                     style={{ height: 200 }}
@@ -262,25 +271,26 @@ export function BacktestScreen({ navigation }: any) {
                 </GlassCard>
 
                 <TouchableOpacity 
-                  style={[dynamicStyles.signBtn, { borderColor: theme.primary }]}
-                  onPress={handleSign}
-                  disabled={isSigning || !!signedId}
+                   style={[dynamicStyles.signBtn, { borderColor: theme.primary }]}
+                   onPress={handleSign}
+                   disabled={isSigning || !!signedId}
                 >
                   <ShieldCheck size={18} color={theme.primary} style={{ marginRight: 8 }} />
                   <Typography variant="monoBold" style={{ color: theme.primary }}>
-                    {isSigning ? 'SIGNING...' : signedId ? 'REPORT_SECURED' : 'HSM_SIGN_REPORT'}
+                    {isSigning ? t('SIGNING_STATUS') : signedId ? t('REPORT_SECURED') : t('HSM_SIGN_REPORT')}
                   </Typography>
                 </TouchableOpacity>
 
                 {signedId && (
                   <View style={dynamicStyles.signedInfo}>
                     <Typography variant="caption" style={{ color: theme.success, fontSize: 8 }}>
-                      VERIFIED_SIG: {signedId}
+                      {t('VERIFIED_SIG_INFO', { signedId })}
                     </Typography>
                   </View>
                 )}
               </View>
             )}
+
           </>
         )}
         

@@ -6,6 +6,9 @@ import { CheckCircle2, Cpu, X, Smartphone, Apple, ArrowUp, ArrowRight, Shield, P
 import { GlassCard } from '@/components/ui/GlassCard';
 import { DownloadModal } from '@/components/ui/DownloadModal';
 import { createClient } from '@/lib/supabase';
+import { useTranslation } from '@/lib/i18n';
+import { useUser } from '@/components/UserContext';
+import { cn } from '@/lib/utils';
 
 
 export default function HomePage() {
@@ -16,6 +19,8 @@ export default function HomePage() {
   const [liveSymbol] = useState('BTC/USD');
   const [mounted, setMounted] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const { profile } = useUser();
+  const t = useTranslation(profile?.interface_language || 'ENGLISH_INTL');
   const supabase = createClient();
 
   const particleCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -287,22 +292,20 @@ export default function HomePage() {
       <canvas ref={particleCanvasRef} className="particle-canvas" />
 
       {/* Navigation */}
-      <nav className="main-nav">
+      <nav className="navbar glass-card">
         <div className="nav-container max-width">
-          <div className="brand">
-            <div className="brand-logo-container">
-              <img src="/logo.png" alt="QuantMind Logo" className="brand-logo-img" />
-            </div>
-            <span className="brand-name">QUANTMIND</span>
-          </div>
+          <Link href="/" className="nav-logo">
+            <img src="/logo.png" alt="QuantMind" />
+            <span className="logo-text">QuantMind</span>
+          </Link>
           <div className="nav-links">
-            <Link href="#features" className="nav-link-item">Intelligence</Link>
-            <Link href="#engine" className="nav-link-item">The Engine</Link>
-            <Link href="#pricing" className="nav-link-item">Pricing</Link>
-            <Link href="#about" className="nav-link-item">About</Link>
-            <Link href="#contact" className="nav-link-item">Contact</Link>
+            <Link href="#features" className="nav-link-item">{t('MASTER_COMPLEXITY')}</Link>
+            <Link href="#engine" className="nav-link-item">{t('NAV_ENGINE')}</Link>
+            <Link href="#pricing" className="nav-link-item">{t('NAV_PRICING')}</Link>
+            <Link href="#about" className="nav-link-item">{t('NAV_ABOUT')}</Link>
+            <Link href="#contact" className="nav-link-item">{t('NAV_CONTACT')}</Link>
           </div>
-          <Link href="/auth/login" className="nav-cta shimmer">Client Login</Link>
+          <Link href="/auth/login" className="nav-cta shimmer">{t('CLIENT_LOGIN')}</Link>
         </div>
       </nav>
 
@@ -313,23 +316,23 @@ export default function HomePage() {
           <div className="hero-container max-width reveal slide-up">
             <div className="hero-content">
               <h1 className="hero-title">
-                Invest with foresight.<br />
-                <span className="hero-title-white">Not just hindsight.</span>
+                {t('HERO_TITLE_FORSIGHT')}<br />
+                <span className="hero-title-white">{t('HERO_TITLE_HINDSIGHT')}</span>
               </h1>
               <p className="hero-lead">
-                QuantMind delivers professional-grade portfolio risk intelligence, bridging the gap between retail accessibility and institutional sophistication. Our advanced Monte Carlo engine runs 10,000 parallel market realities to stress-test your strategy against historical and synthetic market stressors.
+                {t('HERO_LEAD')}
               </p>
               <div className="hero-buttons">
                 <button
                   onClick={() => setIsDownloadModalOpen(true)}
                   className="btn-primary shimmer"
                 >
-                  Download App
+                  {t('DOWNLOAD_APP')}
                   <ArrowRight size={18} />
                 </button>
                 <Link href="/auth/signup" className="btn-secondary">
                   <Shield size={18} />
-                  <span>Create Vault</span>
+                  <span>{t('CREATE_VAULT')}</span>
                 </Link>
               </div>
             </div>
@@ -349,9 +352,9 @@ export default function HomePage() {
         <section className="stats-section">
           <div className="stats-container max-width">
             {[
-              { val: '$1.2B', label: 'Assets Modeled', icon: 'M12 6v6m0 0v6m0-6h6m-6 0H6' },
-              { val: '450K', label: 'Simulations', icon: 'M9.75 17L9 20l-1.5-4h3L9.75 17z' },
-              { val: '4.9', label: 'App Rating', icon: 'M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z' }
+              { val: '$1.2B', label: t('ASSETS_MODELED'), icon: 'M12 6v6m0 0v6m0-6h6m-6 0H6' },
+              { val: '450K', label: t('SIMULATIONS'), icon: 'M9.75 17L9 20l-1.5-4h3L9.75 17z' },
+              { val: '4.9', label: t('APP_RATING'), icon: 'M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z' }
             ].map((stat, i) => (
               <div
                 key={i}
@@ -381,9 +384,9 @@ export default function HomePage() {
           </div>
           <div className="features-grid max-width">
             {[
-              { icon: 'M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z', name: 'Monte Carlo Framework', desc: 'Run 10,000 parallel market realities to understand every possible outcome of your strategy.' },
-              { icon: 'M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.25 15L17.5 17.625 14.875 18.375 17.5 19.125 18.25 21.75 19 19.125 21.625 18.375 19 17.625 18.25 15z', name: 'AI Portfolio Doctor', desc: 'Ask our LLM-powered assistant to analyze simulation results and suggest structural hedge improvements.' },
-              { icon: 'M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z', name: 'Real-Time Risk Monitoring', desc: 'Continuous calculation of VAR and Max Drawdown against historical and synthetic market stressors.' }
+              { icon: 'M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z', name: t('MONTE_CARLO_FRAMEWORK'), desc: t('MONTE_CARLO_DESC') },
+              { icon: 'M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.25 15L17.5 17.625 14.875 18.375 17.5 19.125 18.25 21.75 19 19.125 21.625 18.375 19 17.625 18.25 15z', name: t('AI_PORTFOLIO_DOCTOR'), desc: t('AI_DOCTOR_DESC') },
+              { icon: 'M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z', name: t('REAL_TIME_RISK'), desc: t('RISK_MONITOR_DESC') }
             ].map((f, i) => (
               <div
                 key={i}
@@ -405,52 +408,55 @@ export default function HomePage() {
         <section id="engine" className="demo-section">
           <div className="demo-container max-width reveal slide-up">
             <div className="demo-header">
-              <h2 className="demo-title">Try the Engine</h2>
-              <p className="demo-subtitle">Live computation demo</p>
+              <h2 className="demo-title">{t('TRY_ENGINE')}</h2>
+              <p className="demo-subtitle">{t('LIVE_COMPUTATION')}</p>
             </div>
             <div className="demo-card glass-card">
               <div className="demo-controls">
                 <div className="control-header">
-                  <label>Market Volatility</label>
+                  <label htmlFor="vol-slider">{t('MARKET_VOLATILITY')}</label>
                   <span className="vol-val">{volatility}%</span>
                 </div>
                 <input
+                  id="vol-slider"
                   type="range"
                   min="5" max="50"
                   value={volatility}
                   onChange={(e) => setVolatility(parseInt(e.target.value))}
                   className="vol-slider"
+                  aria-label={t('MARKET_VOLATILITY')}
+                  title={t('MARKET_VOLATILITY')}
                 />
               </div>
               <div className="chart-wrapper">
                 <canvas ref={fanChartCanvasRef} />
                 <div className="chart-overlay">
                   <div className="stat-row">
-                    <span className="stat-label">LIVE_ASSET</span>
-                    <span className="stat-value text-cyan">{liveSymbol} @ ${livePrice?.toLocaleString() ?? 'FETCHING...'}</span>
+                    <span className="stat-label">{t('LIVE_ASSET')}</span>
+                    <span className="stat-value text-cyan">{liveSymbol} @ ${livePrice?.toLocaleString() ?? t('FETCHING')}</span>
                   </div>
                   <div className="stat-row">
-                    <span className="stat-label">DAILY_VAR_99%</span>
+                    <span className="stat-label">{t('DAILY_VAR_99')}</span>
                     <span className="stat-value text-red">
                       -${((livePrice ?? 1000) * (volatility / 1000) * 2.33).toFixed(2)}
                     </span>
                   </div>
                   <div className="stat-row">
-                    <span className="stat-label">MONTE_CARLO_PATHS</span>
+                    <span className="stat-label">{t('MONTE_CARLO_PATHS')}</span>
                     <span className="stat-value">10,000</span>
                   </div>
                   <div className="stat-row">
-                    <span className="stat-label">NODE_LATENCY</span>
+                    <span className="stat-label">{t('NODE_LATENCY')}</span>
                     <span className="stat-value text-green">12ms</span>
                   </div>
                 </div>
                 <div className="chart-timestamp">
-                  GLOBAL_SYNC_ACTIVE // {mounted ? new Date().toLocaleTimeString() : 'INITIALIZING_STREAM...'}
+                  {t('GLOBAL_SYNC_ACTIVE')} // {mounted ? new Date().toLocaleTimeString() : t('INITIALIZING_STREAM')}
                 </div>
               </div>
               <div className="demo-footer">
                 <Link href="#" className="flex-center gap-2">
-                  <span>Run 10,000 paths in the app</span> <span className="arrow">→</span>
+                  <span>{t('RUN_PATHS_IN_APP')}</span> <span className="arrow">→</span>
                 </Link>
               </div>
             </div>
@@ -461,13 +467,18 @@ export default function HomePage() {
         <section id="pricing" className="pricing-section">
           <div className="pricing-container max-width">
             <div className="pricing-header reveal slide-up">
-              <h2 className="section-title">Select Your Intelligence</h2>
+              <h2 className="section-title">{t('SELECT_INTELLIGENCE')}</h2>
               <div className="pricing-toggle-wrap">
-                <span>Monthly</span>
-                <button className={`toggle-btn ${isYearly ? 'yearly' : ''}`} onClick={() => setIsYearly(!isYearly)}>
+                <span>{t('MONTHLY')}</span>
+                <button 
+                  className={`toggle-btn ${isYearly ? 'yearly' : ''}`} 
+                  onClick={() => setIsYearly(!isYearly)}
+                  aria-label={t('YEARLY')}
+                  title={t('YEARLY')}
+                >
                   <div className="toggle-dot"></div>
                 </button>
-                <span className="yearly-label">Yearly <span className="save-badge">(Save up to 23%)</span></span>
+                <span className="yearly-label">{t('YEARLY')} <span className="save-badge">({t('SAVE_BADGE', { percent: 23 })})</span></span>
               </div>
             </div>
 
@@ -525,22 +536,22 @@ export default function HomePage() {
             <div className="about-layout">
               <div className="about-content">
                 <div className="about-header">
-                  <span className="about-tag">SINCE_2008</span>
-                  <h2 className="about-title">Institutional Roots</h2>
+                  <span className="about-tag">{t('SINCE_2008')}</span>
+                  <h2 className="about-title">{t('INSTITUTIONAL_ROOTS')}</h2>
                   <div className="about-divider"></div>
                 </div>
-
+ 
                 <div className="about-text-wrap">
                   <p className="about-text">
-                    Born from the high-frequency trading floors of London and New York, QuantMind was built to bridge the gap between retail accessibility and institutional sophistication.
+                    {t('ABOUT_MISSION')}
                   </p>
                   <p className="about-text">
-                    Our mission is simple: to provide every investor with the same predictive foresight used by the world's most successful hedge funds. No more guessing; only data-driven strategy.
+                    {t('ABOUT_VISION')}
                   </p>
                 </div>
-
+ 
                 <div className="about-features-row">
-                  {['HFT-Grade Data', 'Monte Carlo Standard', 'Neural Risk Modeling'].map((f, i) => (
+                  {[t('HFT_DATA'), t('MONTE_CARLO_STANDARD'), t('NEURAL_RISK_MODELING')].map((f, i) => (
                     <div key={i} className="about-f-item">
                       <div className="f-icon-wrap"><CheckCircle2 size={14} /></div>
                       <span>{f}</span>
@@ -548,7 +559,7 @@ export default function HomePage() {
                   ))}
                 </div>
               </div>
-
+ 
               <div className="about-visual-side">
                 <div
                   className="visual-card-wrap tilt-card"
@@ -560,21 +571,21 @@ export default function HomePage() {
                     <div className="card-content">
                       <div className="node-status">
                         <div className="status-dot animate-pulse"></div>
-                        <span>SYSTEM_STABLE</span>
+                        <span>{t('SYSTEM_STABLE')}</span>
                       </div>
                       <Cpu size={64} className="node-icon" />
                       <div className="node-info">
                         <span className="node-label">Quant_Core_v4.2</span>
-                        <h4 className="node-name">Active_Sovereign_Control</h4>
+                        <h4 className="node-name">{t('ACTIVE_SOVEREIGN_CONTROL')}</h4>
                       </div>
                       <div className="node-stats-grid">
                         <div className="n-stat">
                           <span className="n-val">2.4ms</span>
-                          <span className="n-lab">LATENCY</span>
+                          <span className="n-lab">{t('LATENCY')}</span>
                         </div>
                         <div className="n-stat">
                           <span className="n-val">99.9%</span>
-                          <span className="n-lab">UPTIME</span>
+                          <span className="n-lab">{t('UPTIME')}</span>
                         </div>
                       </div>
                     </div>
@@ -589,46 +600,42 @@ export default function HomePage() {
         {/* Contact Section */}
         <section id="contact" className="contact-section">
           <div className="contact-container max-width reveal slide-up">
-            <div className="section-header">
-              <h2 className="section-title">Establish Connectivity</h2>
-              <div className="title-underline"></div>
+            <div className="contact-header text-center mb-12">
+              <h2 className="section-title">{t('ESTABLISH_CONNECTIVITY')}</h2>
             </div>
+ 
             <div className="contact-grid">
-              <GlassCard className="contact-form-card" intensity="medium">
-                <div className="form-fields">
-                  <div className="form-group">
-                    <label className="form-label">Institutional_Identifier</label>
-                    <input type="text" placeholder="FullName / CorporateName" className="form-input" />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Direct_Relay_Address</label>
-                    <input type="email" placeholder="contact@institution.com" className="form-input" />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Inquiry_Payload</label>
-                    <textarea rows={4} placeholder="Protocol requirement details..." className="form-textarea" />
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    const btn = document.activeElement as HTMLButtonElement;
-                    if (btn) {
-                      const originalText = btn.innerText;
-                      btn.innerText = "TRANSMITTING...";
-                      btn.disabled = true;
-                      setTimeout(() => {
-                        alert("PROTOCOL SYNCHRONIZED: Inquiry Payload Transmitted to QuantMind Central Control.");
-                        btn.innerText = originalText;
-                        btn.disabled = false;
-                      }, 1500);
-                    }
-                  }}
-                  className="btn-primary form-submit shimmer"
-                >
-                  Transmit_Data
-                </button>
-              </GlassCard>
-
+              <div className="contact-form-side">
+                <GlassCard className="contact-card" intensity="low">
+                  <form className="contact-form" onSubmit={(e) => {
+                    e.preventDefault();
+                    alert(t('CONNECTIVITY_ESTABLISHED'));
+                  }}>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>{t('INSTITUTIONAL_IDENTIFIER')}</label>
+                        <input type="text" placeholder="John_Doe_Fund" className="form-input" required />
+                      </div>
+                      <div className="form-group">
+                        <label>{t('EMAIL_ADDRESS')}</label>
+                        <input type="email" placeholder="terminal@quantmind.io" className="form-input" required />
+                      </div>
+                    </div>
+                    <div className="form-group">
+                      <label>{t('SUBJECT_PROTOCOLS')}</label>
+                      <input type="text" placeholder="Institutional_Inquiry" className="form-input" required />
+                    </div>
+                    <div className="form-group">
+                      <label>{t('MESSAGE_BODY')}</label>
+                      <textarea placeholder="..." className="form-input text-area" required></textarea>
+                    </div>
+                    <button type="submit" className="btn-primary shimmer w-full justify-center">
+                      {t('INITIALIZE_HANDSHAKE')}
+                    </button>
+                  </form>
+                </GlassCard>
+              </div>
+ 
               <div className="contact-info-side">
                 <div className="info-block">
                   <h3 className="info-title">Global_Access_Nodes</h3>
@@ -650,45 +657,57 @@ export default function HomePage() {
           </div>
         </section>
       </main>
-
-      <footer className="main-footer">
+ 
+      <footer className="footer-terminal">
         <div className="footer-container max-width reveal fade-in">
-          <div className="footer-grid">
-            <div className="footer-brand">
-              <div className="brand mb-6">
-                <div className="brand-logo-container small">
-                  <img src="/logo.png" alt="QuantMind Logo" className="brand-logo-img" />
-                </div>
-                <span className="brand-name">QUANTMIND</span>
-              </div>
-              <p className="brand-text">
-                The future of portfolio intelligence. We bring institutional-grade risk modeling to the modern investor.
+          <div className="footer-main">
+            <div className="footer-brand-side">
+              <Link href="/" className="footer-logo mb-6">
+                <img src="/logo.png" alt="QuantMind" />
+                <span className="logo-text">QuantMind</span>
+              </Link>
+              <p className="footer-tagline">
+                {t('FOOTER_TAGLINE')}
               </p>
             </div>
-            <div className="footer-col">
-              <label>Product</label>
-              <Link href="#engine">Risk Engine</Link>
-              <Link href="#features">Monte Carlo API</Link>
-              {mounted ? (
-                <Link href="/docs">Documentation</Link>
-              ) : (
-                <div style={{ visibility: 'hidden', height: '1.25rem' }}>Documentation</div>
-              )}
-            </div>
-            <div className="footer-col">
-              <label>Company</label>
-              <Link href="#about">About Us</Link>
-              <Link href="mailto:shadracking7@gmail.com">Contact</Link>
-              <Link href="/legal/privacy">Privacy Policy</Link>
-              <Link href="/legal/terms">Terms of Service</Link>
+ 
+            <div className="footer-links-grid">
+              <div className="footer-col">
+                <label>{t('PLATFORM')}</label>
+                <Link href="/dashboard">{t('INSTITUTIONAL_DASHBOARD')}</Link>
+                <Link href="#engine">{t('ENGINE_MODELS')}</Link>
+                <Link href="/docs">{t('SIM_API')}</Link>
+                <Link href="#download">{t('MOBILE_TERMINALS')}</Link>
+              </div>
+              <div className="footer-col">
+                <label>{t('RESOURCES')}</label>
+                <Link href="/status">{t('SYSTEM_STATUS')}</Link>
+                <Link href="/whitepaper">{t('WHITEGUST')}</Link>
+                <Link href="/methodology">{t('METHODOLOGY')}</Link>
+                <Link href="/support">{t('SUPPORT_LOGS')}</Link>
+              </div>
+              <div className="footer-col">
+                <label>{t('LEGAL_GOVERNANCE')}</label>
+                <Link href="/legal/privacy">{t('PRIVACY_ENCRYPTION')}</Link>
+                <Link href="/legal/terms">{t('TERMS_OF_SERVICE')}</Link>
+                <Link href="/legal/cookies">{t('COOKIE_PROTOCOLS')}</Link>
+                <button 
+                   onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                   className="footer-link-btn"
+                >
+                  {t('BACK_TO_TOP')}
+                </button>
+              </div>
             </div>
           </div>
+ 
           <div className="footer-bottom">
-            <span className="confidential-tag">March 2026 · Confidential · Built for Tomorrow</span>
-            <div className="social-links">
-              <Link href="https://twitter.com/quantmind" target="_blank">Twitter</Link>
-              <Link href="https://linkedin.com/company/quantmind" target="_blank">LinkedIn</Link>
-              <Link href="https://github.com/quantmind" target="_blank">GitHub</Link>
+            <div className="footer-copyright">
+              © {new Date().getFullYear()} QUANTMIND_INTL. {t('ALL_RIGHTS_RESERVED')}
+            </div>
+            <div className="footer-status-label">
+              <span className="status-indicator"></span>
+              {t('GLOBAL_SYNC_ACTIVE')}
             </div>
           </div>
         </div>
@@ -2125,7 +2144,15 @@ export default function HomePage() {
 
 function CheckMark({ active }: { active?: boolean }) {
   return (
-    <svg className={`w-4 h-4 shrink-0 mt-0.5`} fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ width: '18px', height: '18px', color: active ? '#00F0FF' : '#9090B8' }}>
+    <svg 
+      className={cn(
+        "shrink-0 mt-0.5 w-[18px] h-[18px]",
+        active ? "text-[#00F0FF]" : "text-[#9090B8]"
+      )} 
+      fill="none" 
+      stroke="currentColor" 
+      viewBox="0 0 24 24"
+    >
       <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5"></path>
     </svg>
   );

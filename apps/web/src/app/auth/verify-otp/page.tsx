@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { LoadingOverlay } from '@/components/ui/LoadingOverlay';
 import { Timer, RefreshCw, AlertCircle } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 
 function VerifyOtpForm() {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
@@ -14,6 +15,7 @@ function VerifyOtpForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isExpired, setIsExpired] = useState(false);
+  const t = useTranslation();
   
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const router = useRouter();
@@ -72,7 +74,7 @@ function VerifyOtpForm() {
 
   const verifyOtp = async (token: string) => {
     if (!email) {
-      setError('Email missing from verification context.');
+      setError(t('AUTH_EMAIL_MISSING'));
       return;
     }
 
@@ -92,7 +94,7 @@ function VerifyOtpForm() {
       const onboardingUrl = `/auth/onboarding${plan ? `?plan=${plan}` : ''}`;
       router.push(onboardingUrl);
     } catch (err: any) {
-      setError(err.message || 'Verification cipher rejected. Please check and retry.');
+      setError(err.message || t('AUTH_VERIFICATION_REJECTED'));
       setOtp(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
       setIsLoading(false);
@@ -120,7 +122,7 @@ function VerifyOtpForm() {
       setError(null);
       inputRefs.current[0]?.focus();
     } catch (err: any) {
-      setError(err.message || 'Resend protocol failed. Please wait or contact support.');
+      setError(err.message || t('AUTH_RESEND_FAILED'));
     } finally {
       setIsLoading(false);
     }
@@ -130,10 +132,10 @@ function VerifyOtpForm() {
     return (
       <div className="text-center p-8 bg-black/20 rounded-2xl border border-white/5">
         <AlertCircle className="mx-auto mb-4 text-red-500" size={48} />
-        <h2 className="text-xl font-bold text-white mb-2">Missing Context</h2>
-        <p className="text-[#848D97] mb-6">Verification required email context to proceed.</p>
+        <h2 className="text-xl font-bold text-white mb-2">{t('AUTH_MISSING_CONTEXT')}</h2>
+        <p className="text-[#848D97] mb-6">{t('AUTH_VERIFICATION_CONTEXT_REQUIRED')}</p>
         <Link href="/auth/signup" className="text-[#00D9FF] hover:underline uppercase tracking-widest text-xs font-bold">
-          Return to Vault Creation
+          {t('AUTH_RETURN_TO_VAULT')}
         </Link>
       </div>
     );
@@ -141,11 +143,11 @@ function VerifyOtpForm() {
 
   return (
     <div className="reveal slide-up">
-      <LoadingOverlay visible={isLoading} message="VALIDATING_CIPHER..." />
+      <LoadingOverlay visible={isLoading} message={t('AUTH_VALIDATING_CIPHER')} />
       
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Verify Identity</h1>
-        <p className="text-[#848D97]">A 6-digit security code was dispatched to: <br/><span className="text-white font-medium">{email}</span></p>
+        <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">{t('AUTH_VERIFY_IDENTITY')}</h1>
+        <p className="text-[#848D97]">{t('AUTH_OTP_SENT', { email })}</p>
       </div>
 
       {error && (
@@ -156,12 +158,12 @@ function VerifyOtpForm() {
 
       {isExpired ? (
         <div className="p-8 bg-red-500/5 border border-red-500/20 rounded-2xl text-center">
-          <p className="text-red-500 font-bold uppercase tracking-widest mb-4">CODE_EXPIRED</p>
+          <p className="text-red-500 font-bold uppercase tracking-widest mb-4">{t('AUTH_CODE_EXPIRED')}</p>
           <button
             onClick={handleResend}
             className="flex items-center gap-2 mx-auto text-[#00D9FF] hover:text-[#00D9FF]/80 transition-colors uppercase tracking-widest text-xs font-bold"
           >
-            <RefreshCw size={14} /> Request New Cipher
+            <RefreshCw size={14} /> {t('AUTH_REQUEST_NEW_CIPHER')}
           </button>
         </div>
       ) : (
@@ -176,6 +178,8 @@ function VerifyOtpForm() {
                 value={digit}
                 onChange={(e) => handleInputChange(i, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(i, e)}
+                title={t('AUTH_VERIFY_IDENTITY')}
+                aria-label={t('AUTH_VERIFY_IDENTITY')}
                 className="aspect-square bg-[#12121A] border border-white/10 rounded-xl text-center text-2xl font-bold text-[#00D9FF] focus:outline-none focus:border-[#00D9FF]/50 transition-all focus:shadow-[0_0_15px_rgba(0,217,255,0.2)]"
                 autoFocus={i === 0}
               />
@@ -185,7 +189,7 @@ function VerifyOtpForm() {
           <div className="flex items-center justify-between">
             <div className={`flex items-center gap-2 text-xs font-mono uppercase tracking-wider ${timeLeft < 60 ? 'text-red-500 animate-pulse' : 'text-[#848D97]'}`}>
               <Timer size={14} />
-              Protocol Expiry: {formatTime(timeLeft)}
+              {t('AUTH_PROTOCOL_EXPIRY', { time: formatTime(timeLeft) })}
             </div>
             
             <button
@@ -195,16 +199,16 @@ function VerifyOtpForm() {
                 resendCooldown > 0 ? 'text-[#848D97] cursor-not-allowed' : 'text-[#00D9FF] hover:underline'
               }`}
             >
-              {resendCooldown > 0 ? `Resend In ${resendCooldown}s` : 'Resend Cipher'}
+              {resendCooldown > 0 ? t('AUTH_RESEND_IN', { seconds: resendCooldown }) : t('AUTH_RESEND_CIPHER')}
             </button>
           </div>
         </div>
       )}
 
       <div className="mt-12 text-center text-[#848D97] text-sm">
-        Incorrect email?{' '}
+        {t('AUTH_INCORRECT_EMAIL')}{' '}
         <Link href="/auth/signup" className="text-[#00D9FF] hover:underline font-bold">
-          Start Over
+          {t('AUTH_START_OVER')}
         </Link>
       </div>
     </div>
@@ -212,8 +216,9 @@ function VerifyOtpForm() {
 }
 
 export default function VerifyOtpPage() {
+  const t = useTranslation();
   return (
-    <Suspense fallback={<LoadingOverlay visible={true} message="INITIALIZING_CIPHER_FALLBACK..." />}>
+    <Suspense fallback={<LoadingOverlay visible={true} message={t('AUTH_INITIALIZING_CIPHER_FALLBACK')} />}>
       <VerifyOtpForm />
     </Suspense>
   );

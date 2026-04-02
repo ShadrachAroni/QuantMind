@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase';
 import { LoadingOverlay } from '@/components/ui/LoadingOverlay';
 import { PasswordStrengthMeter } from '@/components/ui/PasswordStrengthMeter';
 import { Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 
 function SignupForm() {
   const [firstName, setFirstName] = useState('');
@@ -24,6 +25,7 @@ function SignupForm() {
   const searchParams = useSearchParams();
   const plan = searchParams.get('plan');
   const supabase = createClient();
+  const t = useTranslation();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,17 +33,17 @@ function SignupForm() {
 
     // 1. Validation
     if (password !== confirmPassword) {
-      setError('Cipher mismatch. Please re-verify passwords.');
+      setError(t('AUTH_CIPHER_MISMATCH'));
       return;
     }
 
     if (!tosChecked) {
-      setError('Please acknowledge the Institutional Protocols (ToS & Privacy).');
+      setError(t('AUTH_ACKNOWLEDGE_PROTOCOLS'));
       return;
     }
 
     if (!firstName.trim() || !lastName.trim()) {
-      setError('Identity credentials required. Please provide First and Last names.');
+      setError(t('AUTH_IDENTITY_REQUIRED'));
       return;
     }
 
@@ -67,14 +69,14 @@ function SignupForm() {
       // Redirect to OTP verification
       router.push(`/auth/verify-otp?email=${encodeURIComponent(email)}${plan ? `&plan=${plan}` : ''}`);
     } catch (err: any) {
-      setError(err.message || 'Vault creation failed. This node may be experiencing high load.');
+      setError(err.message || t('AUTH_VAULT_FAILURE'));
       setIsLoading(false);
     }
   };
 
   return (
     <div className="reveal slide-up">
-      <LoadingOverlay visible={isLoading} message="CONSTRUCTING_VAULT..." />
+      <LoadingOverlay visible={isLoading} message={t('AUTH_CONSTRUCTING_VAULT')} />
       
       <div className="mb-8">
         {plan && (
@@ -83,13 +85,13 @@ function SignupForm() {
                <CheckCircle2 size={18} />
              </div>
              <div>
-               <p className="text-[#00D9FF] text-xs font-bold uppercase tracking-widest">Enrolling in {plan.toUpperCase()} tier</p>
-               <p className="text-[#848D97] text-[10px]">Select your credentials to proceed.</p>
+               <p className="text-[#00D9FF] text-xs font-bold uppercase tracking-widest">{t('AUTH_ENROLLING_TIER', { plan: plan.toUpperCase() })}</p>
+               <p className="text-[#848D97] text-[10px]">{t('AUTH_SELECT_CREDENTIALS')}</p>
              </div>
           </div>
         )}
-        <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Create Vault</h1>
-        <p className="text-[#848D97]">Initialize your secure institutional repository.</p>
+        <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">{t('AUTH_SIGNUP_TITLE')}</h1>
+        <p className="text-[#848D97]">{t('AUTH_SIGNUP_SUBTITLE')}</p>
       </div>
 
       {error && (
@@ -101,22 +103,22 @@ function SignupForm() {
       <form onSubmit={handleSignup} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">First Name</label>
+            <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">{t('AUTH_FIRST_NAME')}</label>
             <input
               type="text"
               required
-              placeholder="JOHN"
+              placeholder={t('AUTH_FIRST_NAME_PLACEHOLDER')}
               className="w-full bg-[#12121A] border border-white/5 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00D9FF]/50 transition-colors placeholder:text-white/10"
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
             />
           </div>
           <div className="space-y-2">
-            <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">Second Name</label>
+            <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">{t('AUTH_SECOND_NAME')}</label>
             <input
               type="text"
               required
-              placeholder="DOE"
+              placeholder={t('AUTH_SECOND_NAME_PLACEHOLDER')}
               className="w-full bg-[#12121A] border border-white/5 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00D9FF]/50 transition-colors placeholder:text-white/10"
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
@@ -125,11 +127,11 @@ function SignupForm() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">Deployment Email</label>
+          <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">{t('AUTH_DEPLOYMENT_EMAIL')}</label>
           <input
             type="email"
             required
-            placeholder="operator@quantmind.io"
+            placeholder={t('AUTH_EMAIL_DEFAULT')}
             className="w-full bg-[#12121A] border border-white/5 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-[#00D9FF]/50 transition-all placeholder:text-white/10"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -138,7 +140,7 @@ function SignupForm() {
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">Access Cipher</label>
+            <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">{t('AUTH_ACCESS_CIPHER')}</label>
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -158,7 +160,7 @@ function SignupForm() {
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">Verify Cipher</label>
+            <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">{t('AUTH_VERIFY_CIPHER')}</label>
             <input
               type={showPassword ? 'text' : 'password'}
               required
@@ -173,7 +175,7 @@ function SignupForm() {
         <PasswordStrengthMeter password={password} />
 
         <div className="space-y-2">
-          <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">Communication Link (Optional)</label>
+          <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">{t('AUTH_COMM_LINK')}</label>
           <input
             type="tel"
             placeholder="+1 (555) 000-0000"
@@ -181,7 +183,7 @@ function SignupForm() {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
           />
-          <p className="text-[10px] text-[#848D97] px-1">Used for mission-critical alerts. Can be updated in settings.</p>
+          <p className="text-[10px] text-[#848D97] px-1">{t('AUTH_COMM_LINK_DESC')}</p>
         </div>
 
         <div className="flex items-start gap-3 pt-2">
@@ -193,7 +195,23 @@ function SignupForm() {
             onChange={(e) => setTosChecked(e.target.checked)}
           />
           <label htmlFor="tos" className="text-xs text-[#848D97] leading-relaxed">
-            I acknowledge and accept the <Link href="/legal/terms?from=/auth/signup" className="text-[#00D9FF] hover:underline">Institutional Terms</Link> and <Link href="/legal/privacy?from=/auth/signup" className="text-[#00D9FF] hover:underline">Privacy Handshake</Link>.
+            {t('AUTH_PROTOCOL_ACK', {
+              terms: '',
+              privacy: ''
+            }).split('{{terms}}').map((part, i) => {
+              if (i === 1) {
+                const subParts = part.split('{{privacy}}');
+                return (
+                  <React.Fragment key={i}>
+                    <Link href="/legal/terms?from=/auth/signup" className="text-[#00D9FF] hover:underline">{t('AUTH_TERMS')}</Link>
+                    {subParts[0]}
+                    <Link href="/legal/privacy?from=/auth/signup" className="text-[#00D9FF] hover:underline">{t('AUTH_PRIVACY')}</Link>
+                    {subParts[1]}
+                  </React.Fragment>
+                );
+              }
+              return part;
+            })}
           </label>
         </div>
 
@@ -201,14 +219,14 @@ function SignupForm() {
           type="submit"
           className="w-full bg-[#00D9FF] hover:bg-[#00D9FF]/90 text-[#05070A] font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(0,217,255,0.2)] hover:shadow-[0_0_30px_rgba(0,217,255,0.4)] transition-all uppercase tracking-widest text-sm mt-4"
         >
-          Generate Vault
+          {t('AUTH_GENERATE_VAULT')}
         </button>
       </form>
 
       <div className="mt-8 text-center text-[#848D97] text-sm">
-        Already have a vault?{' '}
+        {t('AUTH_ALREADY_HAVE_VAULT')}{' '}
         <Link href={`/auth/login${plan ? `?plan=${plan}` : ''}`} className="text-[#00D9FF] hover:underline font-bold">
-          Enter Terminal
+          {t('AUTH_ENTER_TERMINAL')}
         </Link>
       </div>
     </div>
@@ -216,8 +234,9 @@ function SignupForm() {
 }
 
 export default function SignupPage() {
+  const t = useTranslation();
   return (
-    <Suspense fallback={<LoadingOverlay visible={true} message="INITIALIZING_VAULT_PROTOCOL..." />}>
+    <Suspense fallback={<LoadingOverlay visible={true} message={t('AUTH_INITIALIZING_PROTOCOL')} />}>
       <SignupForm />
     </Suspense>
   );

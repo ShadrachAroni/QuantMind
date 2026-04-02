@@ -9,6 +9,7 @@ import { LoadingOverlay } from '@/components/ui/LoadingOverlay';
 import { PasswordStrengthMeter } from '@/components/ui/PasswordStrengthMeter';
 import { StatusMessage } from '@/components/ui/StatusMessage';
 import { Eye, EyeOff, ShieldCheck, AlertCircle, Lock } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState('');
@@ -19,6 +20,7 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState(false);
   const [sessionActive, setSessionActive] = useState(false);
   const [lastChangeAt, setLastChangeAt] = useState<Date | null>(null);
+  const t = useTranslation();
   
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -35,7 +37,7 @@ export default function ResetPasswordPage() {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
-        setError('Recovery session expired or invalid. Please re-initiate recovery.');
+        setError(t('AUTH_SESSION_EXPIRED'));
         return;
       }
 
@@ -43,7 +45,7 @@ export default function ResetPasswordPage() {
       const isExpired = initiationTime && (Date.now() - parseInt(initiationTime) > EXPIRATION_TIME);
 
       if (isExpired) {
-        setError('The password reset environment has expired (10-minute window exceeded). Please initiate another reset.');
+        setError(t('AUTH_RESET_EXPIRED'));
         setSessionActive(false);
         return;
       }
@@ -64,7 +66,7 @@ export default function ResetPasswordPage() {
       setSessionActive(true);
     };
     checkSession();
-  }, [supabase, searchParams]);
+  }, [supabase, searchParams, t]);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,12 +75,12 @@ export default function ResetPasswordPage() {
 
     // 1. Validation (Section 3.5)
     if (password !== confirmPassword) {
-      setError('Cipher mismatch. Please re-verify.');
+      setError(t('AUTH_CIPHER_MISMATCH'));
       return;
     }
 
     if (password.length < 12) {
-      setError('Entropy failure. Minimum requirement: 12 characters.');
+      setError(t('AUTH_ENTROPY_FAILURE'));
       return;
     }
 
@@ -89,7 +91,7 @@ export default function ResetPasswordPage() {
     const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
 
     if (!hasUpperCase || !hasLowerCase || !hasNumber || !hasSpecialChar) {
-      setError('Complexity failure. Mixture of uppercase, lowercase, numbers, and symbols required.');
+      setError(t('AUTH_COMPLEXITY_FAILURE'));
       return;
     }
 
@@ -103,7 +105,7 @@ export default function ResetPasswordPage() {
       if (updateError) {
         // Handle database trigger exception
         if (updateError.message?.includes('CREDENTIAL_CHANGE_RESTRICTED')) {
-          throw new Error(`SECURITY_RESTRICTION: Credential modifications are restricted for 30 days. Next allowed: ${nextAllowedChange?.toLocaleDateString()}`);
+          throw new Error(t('AUTH_SECURITY_RESTRICTION', { date: nextAllowedChange?.toLocaleDateString() || '' }));
         }
         throw updateError;
       }
@@ -116,7 +118,7 @@ export default function ResetPasswordPage() {
         router.push('/auth/login?status=password_reset_success');
       }, 3000);
     } catch (err: any) {
-      setError(err.message || 'Cipher update failed. The terminal was unable to commit changes.');
+      setError(err.message || t('AUTH_CIPHER_UPDATE_FAILED'));
       setIsLoading(false);
     }
   };
@@ -127,15 +129,15 @@ export default function ResetPasswordPage() {
         <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center text-red-500 mx-auto mb-6">
           <AlertCircle size={32} />
         </div>
-        <h1 className="text-2xl font-bold text-white mb-2 tracking-tight">Access Token Expired</h1>
+        <h1 className="text-2xl font-bold text-white mb-2 tracking-tight">{t('AUTH_TOKEN_EXPIRED')}</h1>
         <p className="text-[#848D97] mb-8 leading-relaxed">
-          The recovery session token is no longer valid or has been exhausted.
+          {t('AUTH_TOKEN_EXPIRED_DESC')}
         </p>
         <Link 
           href="/auth/forgot-password" 
           className="inline-flex items-center gap-2 text-[#00D9FF] hover:underline uppercase tracking-widest text-xs font-bold"
         >
-          Re-initiate Protocol
+          {t('AUTH_REINITIATE_PROTOCOL')}
         </Link>
       </div>
     );
@@ -143,11 +145,11 @@ export default function ResetPasswordPage() {
 
   return (
     <div className="reveal slide-up">
-      <LoadingOverlay visible={isLoading} message="COMMITING_NEW_CIPHER..." />
+      <LoadingOverlay visible={isLoading} message={t('AUTH_COMMITING_CIPHER')} />
       
       <div className="mb-8 p-6 bg-white/5 border border-white/5 rounded-2xl backdrop-blur-sm">
-        <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Define New Cipher</h1>
-        <p className="text-[#848D97] text-sm italic">Ensure your repository remains protocol-secure with a high-entropy access key.</p>
+        <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">{t('AUTH_DEFINE_CIPHER')}</h1>
+        <p className="text-[#848D97] text-sm italic">{t('AUTH_CIPHER_SECURE_DESC')}</p>
       </div>
 
       {error && (
@@ -155,13 +157,13 @@ export default function ResetPasswordPage() {
       )}
 
       {success && (
-        <StatusMessage type="success" message="Access cipher updated successfully. Re-initiating institutional session..." />
+        <StatusMessage type="success" message={t('AUTH_CIPHER_UPDATE_SUCCESS')} />
       )}
 
       <form onSubmit={handleReset} className="space-y-6">
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">New Access Cipher</label>
+            <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">{t('AUTH_NEW_CIPHER')}</label>
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -183,7 +185,7 @@ export default function ResetPasswordPage() {
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">Verify New Cipher</label>
+            <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">{t('AUTH_VERIFY_NEW_CIPHER')}</label>
             <input
               type={showPassword ? 'text' : 'password'}
               required
@@ -196,13 +198,13 @@ export default function ResetPasswordPage() {
         </div>
 
         <div className="bg-white/5 border border-white/5 rounded-xl p-4 space-y-3">
-          <p className="text-[10px] uppercase tracking-widest text-[#848D97] font-bold">Security Requirements</p>
+          <p className="text-[10px] uppercase tracking-widest text-[#848D97] font-bold">{t('AUTH_SECURITY_REQS')}</p>
           <ul className="space-y-2">
             {[
-              { label: 'Minimum 12 Characters', met: password.length >= 12 },
-              { label: 'Mixed Case (A/a)', met: /[A-Z]/.test(password) && /[a-z]/.test(password) },
-              { label: 'Number (0-9)', met: /[0-9]/.test(password) },
-              { label: 'Protocol Symbol (!@#$)', met: /[!@#$%^&*(),.?":{}|<>]/.test(password) }
+              { label: t('AUTH_MIN_CHARS'), met: password.length >= 12 },
+              { label: t('AUTH_MIXED_CASE'), met: /[A-Z]/.test(password) && /[a-z]/.test(password) },
+              { label: t('AUTH_NUMBER_REQ'), met: /[0-9]/.test(password) },
+              { label: t('AUTH_SYMBOL_REQ'), met: /[!@#$%^&*(),.?":{}|<>]/.test(password) }
             ].map((req, i) => (
               <li key={i} className={`flex items-center gap-2 text-xs ${req.met ? 'text-[#00D9FF]' : 'text-[#848D97]'}`}>
                 <ShieldCheck size={14} className={req.met ? 'text-[#00D9FF]' : 'opacity-20'} /> {req.label}
@@ -215,9 +217,9 @@ export default function ResetPasswordPage() {
           <div className="p-4 bg-[#FF453A]/10 border border-[#FF453A]/20 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
              <Lock size={16} className="text-[#FF453A] mt-0.5" />
              <div className="space-y-1">
-                <p className="text-[10px] font-bold text-[#FF453A] uppercase font-mono tracking-widest">Protocol_Lock_Active</p>
+                <p className="text-[10px] font-bold text-[#FF453A] uppercase font-mono tracking-widest">{t('AUTH_PROTOCOL_LOCK')}</p>
                 <p className="text-[10px] text-[#FF453A]/80 uppercase font-mono leading-relaxed">
-                   To maintain institutional account integrity, identity credentials (including access ciphers) can only be modified once every 30 days. Your next modification window opens on <span className="underline decoration-dotted">{nextAllowedChange?.toLocaleDateString()}</span>.
+                   {t('AUTH_LOCK_DESC', { date: nextAllowedChange?.toLocaleDateString() || '' })}
                 </p>
              </div>
           </div>
@@ -233,7 +235,7 @@ export default function ResetPasswordPage() {
               : "bg-[#00D9FF] hover:bg-[#00D9FF]/90 text-[#05070A] shadow-[0_0_20px_rgba(0,217,255,0.2)] hover:shadow-[0_0_30px_rgba(0,217,255,0.4)]"
           )}
         >
-          {isLocked ? 'Protocol_Locked' : 'Update Access Cipher'}
+          {isLocked ? t('AUTH_PROTOCOL_LOCKED') : t('AUTH_UPDATE_CIPHER')}
         </button>
       </form>
     </div>

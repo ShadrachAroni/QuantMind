@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase';
 import { LoadingOverlay } from '@/components/ui/LoadingOverlay';
 import { StatusMessage } from '@/components/ui/StatusMessage';
 import { Mail, CheckCircle, ArrowLeft } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -13,6 +14,7 @@ export default function ForgotPasswordPage() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
+  const t = useTranslation();
   
   useEffect(() => {
     if (cooldown > 0) {
@@ -30,8 +32,6 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
-    console.log('--- CLIENT RECOVERY ATTEMPT ---');
-    console.log('Email:', email);
 
     try {
       // Call the custom recovery API (Uses Resend to bypass Supabase project limits)
@@ -42,14 +42,13 @@ export default function ForgotPasswordPage() {
       });
 
       const result = await response.json();
-      console.log('Server Response:', { status: response.status, result });
 
       if (!response.ok) {
         // Handle 429 specifically for custom route if it returns it
         if (response.status === 429) {
           throw { status: 429, message: result.error };
         }
-        throw new Error(result.error || 'Recovery protocol dispatch failed.');
+        throw new Error(result.error || t('AUTH_RECOVERY_FAILED'));
       }
 
       setIsSubmitted(true);
@@ -58,7 +57,7 @@ export default function ForgotPasswordPage() {
         const isProjectLimit = err.message?.toLowerCase().includes('email rate limit exceeded');
         
         if (isProjectLimit) {
-          setError('Global institutional rate limit reached (Project-wide). Please wait 1 hour or check the Supabase Dashboard > Authentication > Rate Limits.');
+          setError(t('AUTH_RATE_LIMIT'));
           setCooldown(0); 
         } else {
           setCooldown(60);
@@ -66,15 +65,13 @@ export default function ForgotPasswordPage() {
           if (match) {
             setCooldown(parseInt(match[1]));
           }
-          setError(err.message || 'Rate limit exceeded. Please wait 60 seconds.');
+          setError(err.message || t('AUTH_RATE_LIMIT'));
         }
       } else {
-        setError(err.message || 'Reset protocol dispatch failed. Please check network connectivity.');
-        console.error('Client Recovery Error:', err);
+        setError(err.message || t('AUTH_RECOVERY_FAILED'));
       }
     } finally {
       setIsLoading(false);
-      console.log('--- RECOVERY ATTEMPT FINISHED ---');
     }
   };
 
@@ -84,16 +81,15 @@ export default function ForgotPasswordPage() {
         <div className="w-16 h-16 bg-[#00D9FF]/20 rounded-full flex items-center justify-center text-[#00D9FF] mx-auto mb-6">
           <CheckCircle size={32} />
         </div>
-        <h1 className="text-2xl font-bold text-white mb-2 tracking-tight">Dispatch Confirmed</h1>
+        <h1 className="text-2xl font-bold text-white mb-2 tracking-tight">{t('AUTH_DISPATCH_CONFIRMED')}</h1>
         <p className="text-[#848D97] mb-8 leading-relaxed">
-          If an institutional record exists for <span className="text-white font-medium">{email}</span>, 
-          recovery instructions have been transmitted.
+          {t('AUTH_RECOVERY_SENT', { email })}
         </p>
         <Link 
           href="/auth/login" 
           className="inline-flex items-center gap-2 text-[#00D9FF] hover:underline uppercase tracking-widest text-xs font-bold"
         >
-          <ArrowLeft size={14} /> Return to Terminal
+          <ArrowLeft size={14} /> {t('AUTH_RETURN_TERMINAL')}
         </Link>
       </div>
     );
@@ -101,29 +97,29 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="reveal slide-up">
-      <LoadingOverlay visible={isLoading} message="DISPATCHING_RECOVERY..." />
+      <LoadingOverlay visible={isLoading} message={t('AUTH_DISPATCHING_RECOVERY')} />
       
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">Access Recovery</h1>
-        <p className="text-[#848D97]">Initiate a secure cipher reset protocol.</p>
+        <h1 className="text-3xl font-bold text-white mb-2 tracking-tight">{t('AUTH_RECOVERY_TITLE')}</h1>
+        <p className="text-[#848D97]">{t('AUTH_RECOVERY_SUBTITLE')}</p>
       </div>
 
       {error && (
         <StatusMessage 
           type={cooldown > 0 ? 'warning' : 'error'} 
-          message={cooldown > 0 ? `${error} (Cooldown: ${cooldown}s remaining)` : error} 
+          message={cooldown > 0 ? t('AUTH_WAIT_COOLDOWN', { seconds: cooldown.toString() }) : error} 
         />
       )}
 
       <form onSubmit={handleResetRequest} className="space-y-6">
         <div className="space-y-2">
-          <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">Deployment Email</label>
+          <label className="text-xs uppercase tracking-widest text-[#848D97] font-semibold">{t('AUTH_DEPLOYMENT_EMAIL')}</label>
           <div className="relative">
             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-[#848D97]" size={18} />
             <input
               type="email"
               required
-              placeholder="name@institution.com"
+              placeholder={t('AUTH_EMAIL_PLACEHOLDER')}
               className="w-full bg-[#12121A] border border-white/5 rounded-xl pl-12 pr-4 py-3 text-white focus:outline-none focus:border-[#00D9FF]/50 transition-colors placeholder:text-white/10"
               value={email}
               onChange={(e) => {
@@ -142,12 +138,12 @@ export default function ForgotPasswordPage() {
           {isLoading ? (
             <span className="flex items-center gap-2">
               <span className="animate-spin rounded-full h-4 w-4 border-2 border-[#05070A] border-t-transparent"></span>
-              Synchronizing...
+              {t('Synchronizing')}
             </span>
           ) : cooldown > 0 ? (
-            `Wait ${cooldown}s`
+            t('AUTH_WAIT_COOLDOWN', { seconds: cooldown.toString() })
           ) : (
-            'Dispatch Recovery Link'
+            t('AUTH_DISPATCH_LINK')
           )}
         </button>
 
@@ -156,7 +152,7 @@ export default function ForgotPasswordPage() {
             href="/auth/login" 
             className="inline-flex items-center gap-2 text-[#848D97] hover:text-white transition-colors text-xs uppercase tracking-widest font-bold"
           >
-            <ArrowLeft size={14} /> Back to Login
+            <ArrowLeft size={14} /> {t('AUTH_BACK_LOGIN')}
           </Link>
         </div>
       </form>

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LoadingOverlay } from '@/components/ui/LoadingOverlay';
+import { useTranslation } from '@/lib/i18n';
 
 export default function AuthLayout({
   children,
@@ -12,6 +13,7 @@ export default function AuthLayout({
 }) {
   const pathname = usePathname();
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const t = useTranslation();
 
   useEffect(() => {
     // Trigger a brief loading state on pathname changes
@@ -22,7 +24,7 @@ export default function AuthLayout({
 
   return (
     <div className="auth-layout min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-[#05070A] overflow-hidden">
-      <LoadingOverlay visible={isTransitioning} message="SYNCHRONIZING_AUTH_VAULT..." />
+      <LoadingOverlay visible={isTransitioning} message={t('AUTH_SYNCHRONIZING_VAULT')} />
       {/* Brand Panel (Left) */}
       <div className="hidden lg:flex relative flex-col justify-between p-12 overflow-hidden border-r border-white/5">
         <div className="relative z-10">
@@ -36,25 +38,25 @@ export default function AuthLayout({
 
         <div className="relative z-10 max-w-md">
           <h2 className="font-serif text-5xl text-[#D4AF37] leading-tight mb-6">
-            Invest with foresight. Not just hindsight.
+            {t('AUTH_TAGLINE')}
           </h2>
           <p className="text-[#848D97] text-lg leading-relaxed">
-            Welcome to the institutional terminal. Access your simulation engine, AI oracle, and risk vaults with bank-grade security.
+            {t('AUTH_WELCOME_MSG')}
           </p>
         </div>
 
         <div className="relative z-10 pt-12 border-t border-white/5">
           <div className="flex items-center gap-6 text-[#848D97] text-sm uppercase tracking-widest font-medium">
-            <span>AES-256 Encrypted</span>
-            <span>2FA Protocol</span>
-            <span>Real-time Audit</span>
+            <span>{t('AUTH_ENCRYPTED')}</span>
+            <span>{t('AUTH_2FA')}</span>
+            <span>{t('AUTH_AUDIT')}</span>
           </div>
         </div>
 
         {/* Animated Background for Brand Panel */}
         <div className="absolute inset-0 z-0">
           <div className="absolute top-1/4 -left-20 w-80 h-80 bg-[#00D9FF]/10 rounded-full blur-[100px] animate-pulse-glow" />
-          <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-[#7C3AED]/10 rounded-full blur-[100px] animate-pulse-glow" style={{ animationDelay: '2s' }} />
+          <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-[#7C3AED]/10 rounded-full blur-[100px] animate-pulse-glow [animation-delay:2s]" />
           <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] mix-blend-overlay" />
 
           {/* Subtle Grid */}

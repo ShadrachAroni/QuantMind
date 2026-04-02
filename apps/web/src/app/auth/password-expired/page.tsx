@@ -3,8 +3,11 @@
 import React from 'react';
 import Link from 'next/link';
 import { Lock, AlertTriangle } from 'lucide-react';
+import { useTranslation } from '@/lib/i18n';
 
 export default function PasswordExpiredPage() {
+  const t = useTranslation();
+
   return (
     <div className="reveal slide-up text-center">
       {/* Red Glow Effect */}
@@ -17,24 +20,24 @@ export default function PasswordExpiredPage() {
       </div>
 
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-3 tracking-tight uppercase">Rotation Required</h1>
+        <h1 className="text-3xl font-bold text-white mb-3 tracking-tight uppercase">{t('AUTH_ROTATION_REQUIRED')}</h1>
         <div className="flex justify-center gap-2 mb-6">
             <span className="px-2 py-1 bg-red-500/20 text-red-500 text-[10px] font-bold rounded uppercase tracking-widest border border-red-500/20">
-              Protocol: SEP-60
+              {t('AUTH_PROTOCOL_SEP60')}
             </span>
             <span className="px-2 py-1 bg-white/5 text-[#848D97] text-[10px] font-bold rounded uppercase tracking-widest border border-white/5">
-              Cipher Expired
+              {t('AUTH_CIPHER_EXPIRED')}
             </span>
         </div>
         <p className="text-[#848D97] leading-relaxed max-w-sm mx-auto">
-          Institutional security protocols require access cipher rotation every 60 Earth-standard days. Your current cipher has exceeded this window.
+          {t('AUTH_ROTATION_DESC')}
         </p>
       </div>
 
       <div className="bg-red-500/5 border border-red-500/10 rounded-xl p-4 mb-10 flex items-start gap-4 text-left">
         <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={18} />
         <p className="text-xs text-red-500/80 leading-relaxed">
-          The node has restricted your access. You must re-initiate the recovery protocol to define a new secure cipher.
+          {t('AUTH_RESTRICTED_ACCESS')}
         </p>
       </div>
 
@@ -42,12 +45,12 @@ export default function PasswordExpiredPage() {
         href="/auth/forgot-password" 
         className="w-full block bg-white text-[#05070A] font-bold py-4 rounded-xl hover:bg-neutral-200 transition-all uppercase tracking-widest text-sm shadow-[0_0_20px_rgba(255,255,255,0.1)]"
       >
-        Initiate Rotation
+        {t('AUTH_INITIATE_ROTATION')}
       </Link>
 
       <div className="mt-8">
          <Link href="/auth/login" className="text-[#848D97] hover:text-white transition-colors text-xs uppercase tracking-widest font-bold">
-            Return to Terminal
+            {t('AUTH_RETURN_TO_TERMINAL')}
          </Link>
       </div>
     </div>

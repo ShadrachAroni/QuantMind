@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Dimensions, Alert } from 'react-native';
+
 import { Typography } from '../../components/ui/Typography';
 import { useAuthStore } from '../../store/authStore';
 import { usePortfolioStore, usePortfolios } from '../../store/portfolioStore';
@@ -11,25 +12,27 @@ import { GlowEffect } from '../../components/ui/GlowEffect';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { sharedTheme } from '../../constants/theme';
-import { STRINGS } from '../../constants/strings';
-import { GatedFeature } from '../../components/ui/GatedFeature';
-import { Alert } from 'react-native';
+import { useTranslation } from '../../lib/i18n';
 
 const { width } = Dimensions.get('window');
 
+
 const SIMULATION_MODELS = [
-  { id: 'gbm', name: STRINGS.MODEL_GBM, desc: STRINGS.DESC_GBM },
-  { id: 'fat_tails', name: STRINGS.MODEL_FAT_TAILS, desc: STRINGS.DESC_FAT_TAILS },
-  { id: 'jump_diffusion', name: STRINGS.MODEL_JUMP_DIFFUSION, desc: STRINGS.DESC_JUMP_DIFFUSION },
-  { id: 'regime_switching', name: STRINGS.MODEL_REGIME_SWITCHING, desc: STRINGS.DESC_REGIME_SWITCHING },
+  { id: 'gbm', name: 'MODEL_GBM', desc: 'DESC_GBM' },
+  { id: 'fat_tails', name: 'MODEL_FAT_TAILS', desc: 'DESC_FAT_TAILS' },
+  { id: 'jump_diffusion', name: 'MODEL_JUMP_DIFFUSION', desc: 'DESC_JUMP_DIFFUSION' },
+  { id: 'regime_switching', name: 'MODEL_REGIME_SWITCHING', desc: 'DESC_REGIME_SWITCHING' },
 ] as const;
 
+
 export function SimulationScreen({ route, navigation }: any) {
-  const { tier, powerShifts, usePowerShift, tierConfigs } = useAuthStore();
+  const { tier, powerShifts, usePowerShift, tierConfigs, interfaceLanguage } = useAuthStore();
   const portfolios = usePortfolios();
   const { runSimulation } = useSimulationStore();
   const { theme, isDark } = useTheme();
   const { showToast } = useToast();
+  const t = useTranslation(interfaceLanguage);
+
 
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string | null>(route.params?.portfolioId || null);
   const [paths, setPaths] = useState(1000);
@@ -48,9 +51,10 @@ export function SimulationScreen({ route, navigation }: any) {
 
   const handleRun = async () => {
     if (!selectedPortfolioId) {
-      showToast('SELECTION_ERROR: Target portfolio must be initialized.', 'error');
+      showToast(t('SELECTION_ERROR_PORTFOLIO'), 'error');
       return;
     }
+
     await runSimulation(selectedPortfolioId, {
       portfolio_id: selectedPortfolioId,
       num_paths: paths,
@@ -72,14 +76,15 @@ export function SimulationScreen({ route, navigation }: any) {
               </TouchableOpacity>
               <View style={[dynamicStyles.statusBadge, { backgroundColor: theme.secondary + '10', borderColor: theme.secondary + '33' }]}>
                  <GlowEffect color={theme.secondary} size={6} glowRadius={6} />
-                 <Typography variant="mono" style={[dynamicStyles.statusText, { color: theme.secondary }]}>COMPUTE_READY</Typography>
+                 <Typography variant="mono" style={[dynamicStyles.statusText, { color: theme.secondary }]}>{t('COMPUTE_READY')}</Typography>
               </View>
            </View>
-           <Typography variant="mono" style={[dynamicStyles.subHeader, { color: theme.textTertiary }]}>ENGINE_CONFIGURATION_V4.2</Typography>
-           <Typography variant="h2" style={[dynamicStyles.title, { color: theme.textPrimary }]}>COMPUTE_SETUP</Typography>
+           <Typography variant="mono" style={[dynamicStyles.subHeader, { color: theme.textTertiary }]}>{t('ENGINE_CONFIGURATION_V4.2')}</Typography>
+           <Typography variant="h2" style={[dynamicStyles.title, { color: theme.textPrimary }]}>{t('COMPUTE_SETUP')}</Typography>
         </View>
 
-        <Typography variant="mono" style={[dynamicStyles.sectionLabel, { color: theme.textSecondary }]}>// TARGET_CONSTRUCT</Typography>
+        <Typography variant="mono" style={[dynamicStyles.sectionLabel, { color: theme.textSecondary }]}>{t('TARGET_CONSTRUCT')}</Typography>
+
         <GlassCard style={dynamicStyles.section}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={dynamicStyles.portList}>
             {portfolios.map(p => {
@@ -104,7 +109,8 @@ export function SimulationScreen({ route, navigation }: any) {
           </ScrollView>
         </GlassCard>
 
-        <Typography variant="mono" style={[dynamicStyles.sectionLabel, { color: theme.textSecondary }]}>// KERNEL_LOGIC</Typography>
+        <Typography variant="mono" style={[dynamicStyles.sectionLabel, { color: theme.textSecondary }]}>{t('KERNEL_LOGIC')}</Typography>
+
         <GlassCard style={dynamicStyles.section}>
           {SIMULATION_MODELS.map(m => {
             const selected = model === m.id;
@@ -115,21 +121,22 @@ export function SimulationScreen({ route, navigation }: any) {
               if (locked) {
                 if (powerShifts > 0) {
                   Alert.alert(
-                    STRINGS.POWER_SHIFT_AVAILABLE,
-                    `Use 1 of ${powerShifts} daily Power Shifts to trial the ${m.name} engine for this session?`,
+                    t('POWER_SHIFT_AVAILABLE'),
+                    `Use 1 of ${powerShifts} daily Power Shifts to trial the ${t(m.name)} engine for this session?`,
                     [
                       { text: "Cancel", style: "cancel" },
                       { 
-                        text: STRINGS.USE_POWER_SHIFT, 
+                        text: t('USE_POWER_SHIFT'), 
                         onPress: () => {
                           usePowerShift();
                           setModel(m.id);
-                          showToast('POWER_SHIFT: Advanced Engine Activated', 'success');
+                          showToast(t('POWER_SHIFT_ACTIVATED'), 'success');
                         } 
                       }
                     ]
                   );
                 } else {
+
                   navigation.navigate('Subscription');
                 }
               } else {
@@ -150,10 +157,11 @@ export function SimulationScreen({ route, navigation }: any) {
                   </View>
                   <View>
                     <Typography variant="monoBold" style={[dynamicStyles.modelName, { color: theme.textSecondary }, selected && { color: theme.primary }]}>
-                      {m.name.toUpperCase()} {locked && ' [LOCKED]'}
+                      {t(m.name).toUpperCase()} {locked && ` ${t('LOCKED_TAG')}`}
                     </Typography>
-                    <Typography variant="caption" style={[dynamicStyles.modelDesc, { color: theme.textTertiary }]}>{m.desc}</Typography>
+                    <Typography variant="caption" style={[dynamicStyles.modelDesc, { color: theme.textTertiary }]}>{t(m.desc)}</Typography>
                   </View>
+
                 </View>
                 {locked ? (
                   <View style={dynamicStyles.shiftBadgeInline}>
@@ -172,7 +180,7 @@ export function SimulationScreen({ route, navigation }: any) {
 
         <View style={dynamicStyles.splitRow}>
           <View style={{ flex: 1 }}>
-            <Typography variant="mono" style={[dynamicStyles.sectionLabel, { color: theme.textSecondary }]}>// ITERATIONS</Typography>
+            <Typography variant="mono" style={[dynamicStyles.sectionLabel, { color: theme.textSecondary }]}>{t('ITERATIONS')}</Typography>
             <GlassCard style={dynamicStyles.controlCard}>
               <View style={dynamicStyles.counter}>
                 <TouchableOpacity onPress={() => setPaths(Math.max(100, paths - 500))} style={[dynamicStyles.countBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)' }]}>
@@ -182,7 +190,7 @@ export function SimulationScreen({ route, navigation }: any) {
                 <TouchableOpacity 
                    onPress={() => {
                      if (paths + 500 > maxPaths) {
-                       showToast(`LIMIT_REACHED: ${tier.toUpperCase()} capped at ${maxPaths}`, 'error');
+                       showToast(t('LIMIT_REACHED_INFO', { tier: tier.toUpperCase(), maxPaths }), 'error');
                      } else {
                        setPaths(paths + 500);
                      }
@@ -192,12 +200,12 @@ export function SimulationScreen({ route, navigation }: any) {
                   <Typography variant="h3" style={{ color: theme.primary }}>+</Typography>
                 </TouchableOpacity>
               </View>
-              <Typography variant="caption" style={[dynamicStyles.limitText, { color: theme.textTertiary }]}>MAX: {maxPaths} ({tier.toUpperCase()})</Typography>
+              <Typography variant="caption" style={[dynamicStyles.limitText, { color: theme.textTertiary }]}>{t('MAX_INFO', { max: maxPaths, tier: tier.toUpperCase() })}</Typography>
             </GlassCard>
           </View>
 
           <View style={{ flex: 1, marginLeft: 16 }}>
-            <Typography variant="mono" style={[dynamicStyles.sectionLabel, { color: theme.textSecondary }]}>// HORIZON_D</Typography>
+            <Typography variant="mono" style={[dynamicStyles.sectionLabel, { color: theme.textSecondary }]}>{t('HORIZON_D')}</Typography>
             <GlassCard style={dynamicStyles.controlCard}>
               <View style={dynamicStyles.counter}>
                 <TouchableOpacity onPress={() => setHorizon(Math.max(30, horizon - 30))} style={[dynamicStyles.countBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)' }]}>
@@ -208,10 +216,11 @@ export function SimulationScreen({ route, navigation }: any) {
                   <Typography variant="h3" style={{ color: theme.primary }}>+</Typography>
                 </TouchableOpacity>
               </View>
-              <Typography variant="caption" style={[dynamicStyles.limitText, { color: theme.textTertiary }]}>252_D = 1_YR_WINDOW</Typography>
+              <Typography variant="caption" style={[dynamicStyles.limitText, { color: theme.textTertiary }]}>{t('HORIZON_WINDOW_INFO')}</Typography>
             </GlassCard>
           </View>
         </View>
+
 
         <TouchableOpacity 
           style={[dynamicStyles.submitBtn, { backgroundColor: theme.primary }, !selectedPortfolioId && { opacity: 0.3 }]}
@@ -221,13 +230,14 @@ export function SimulationScreen({ route, navigation }: any) {
         >
           <GlowEffect color={theme.background} size={width - 48} glowRadius={30} style={dynamicStyles.btnGlow} />
           <PlayIcon size={20} color={theme.background} style={{ marginRight: 12 }} />
-          <Typography variant="monoBold" style={[dynamicStyles.submitText, { color: theme.background }]}>COMMIT_COMPUTE_JOB</Typography>
+          <Typography variant="monoBold" style={[dynamicStyles.submitText, { color: theme.background }]}>{t('COMMIT_COMPUTE_JOB')}</Typography>
         </TouchableOpacity>
 
         <View style={dynamicStyles.footer}>
            <ZapIcon size={12} color={theme.textTertiary} />
-           <Typography variant="mono" style={[dynamicStyles.footerText, { color: theme.textTertiary }]}>{STRINGS.MONTE_CARLO_ENGINE}</Typography>
+           <Typography variant="mono" style={[dynamicStyles.footerText, { color: theme.textTertiary }]}>{t('MONTE_CARLO_ENGINE')}</Typography>
         </View>
+
 
         <View style={{ height: 60 }} />
       </ScrollView>

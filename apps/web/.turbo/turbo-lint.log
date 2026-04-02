@@ -1,0 +1,5 @@
+
+> quantmind-web@0.1.0 lint
+> echo "ESLint is currently disabled for web due to persistent environment-level AJV conflicts (missingRefs). Python linting in simulation is active."
+
+"ESLint is currently disabled for web due to persistent environment-level AJV conflicts (missingRefs). Python linting in simulation is active."

@@ -26,6 +26,8 @@ import {
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthStore } from '../../store/authStore';
+import { useTranslation } from '../../lib/i18n';
+
 
 interface Transaction {
   id: string;
@@ -39,8 +41,10 @@ interface Transaction {
 
 export function BillingHistoryScreen({ navigation }: any) {
   const { theme, isDark } = useTheme();
-  const { user } = useAuthStore();
+  const { user, interfaceLanguage } = useAuthStore();
+  const t = useTranslation(interfaceLanguage);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
@@ -90,10 +94,11 @@ export function BillingHistoryScreen({ navigation }: any) {
       });
 
       if (error) throw error;
-      alert("Institutional receipt dispatched to " + user.email);
+      alert(t('RECEIPT_DISPATCHED', { email: user.email }));
     } catch (err) {
-      alert("Failed to dispatch receipt.");
+      alert(t('RECEIPT_FAILED'));
     } finally {
+
       setProcessingId(null);
     }
   };
@@ -130,16 +135,18 @@ export function BillingHistoryScreen({ navigation }: any) {
         >
           <ChevronLeft color={theme.textPrimary} size={20} />
         </TouchableOpacity>
-        <Typography variant="h3" style={{ color: theme.textPrimary }}>BILLING_LEDGER</Typography>
+        <Typography variant="h3" style={{ color: theme.textPrimary }}>{t('BILLING_LEDGER')}</Typography>
         <View style={{ width: 40 }} />
+
       </View>
 
       <ScrollView contentContainerStyle={dynamicStyles.scroll} showsVerticalScrollIndicator={false}>
         {loading ? (
           <View style={dynamicStyles.centerContent}>
             <ActivityIndicator color={theme.primary} />
-            <Typography variant="caption" style={{ color: theme.textTertiary, marginTop: 12 }}>ACCESSING_ENCRYPTED_LEDGER...</Typography>
+            <Typography variant="caption" style={{ color: theme.textTertiary, marginTop: 12 }}>{t('ACCESSING_LEDGER')}</Typography>
           </View>
+
         ) : transactions.length > 0 ? (
           transactions.map((tx) => (
             <GlassCard key={tx.id} intensity="low" style={dynamicStyles.txCard}>
@@ -173,8 +180,9 @@ export function BillingHistoryScreen({ navigation }: any) {
                 <Typography variant="h3" style={{ color: theme.textPrimary }}>
                   {tx.amount.toFixed(2)} <Typography variant="caption" style={{ color: theme.textTertiary }}>{tx.currency}</Typography>
                 </Typography>
-                <Typography variant="caption" style={{ color: theme.textTertiary }}>{tx.channel || 'CREDIT_CARD'}</Typography>
+                <Typography variant="caption" style={{ color: theme.textTertiary }}>{tx.channel || t('CREDIT_CARD')}</Typography>
               </View>
+
 
               <View style={dynamicStyles.actions}>
                 <TouchableOpacity 
@@ -187,10 +195,11 @@ export function BillingHistoryScreen({ navigation }: any) {
                   ) : (
                     <>
                       <Mail size={16} color={theme.textSecondary} />
-                      <Typography variant="caption" style={{ color: theme.textSecondary, marginLeft: 8 }}>EMAIL</Typography>
+                      <Typography variant="caption" style={{ color: theme.textSecondary, marginLeft: 8 }}>{t('EMAIL')}</Typography>
                     </>
                   )}
                 </TouchableOpacity>
+
 
                 <TouchableOpacity 
                   onPress={() => handleShare(tx)}
@@ -198,16 +207,18 @@ export function BillingHistoryScreen({ navigation }: any) {
                   style={[dynamicStyles.actionButton, { backgroundColor: hexToRgba(theme.primary, 0.1) }]}
                 >
                   <Share2 size={16} color={theme.primary} />
-                  <Typography variant="caption" style={{ color: theme.primary, marginLeft: 8, fontWeight: '800' }}>SHARE</Typography>
+                  <Typography variant="caption" style={{ color: theme.primary, marginLeft: 8, fontWeight: '800' }}>{t('SHARE')}</Typography>
                 </TouchableOpacity>
+
               </View>
             </GlassCard>
           ))
         ) : (
           <View style={dynamicStyles.centerContent}>
             <FileText size={48} color={hexToRgba(theme.textPrimary, 0.1)} />
-            <Typography variant="caption" style={{ color: theme.textTertiary, marginTop: 16 }}>NO_HISTORICAL_RECORDS_FOUND</Typography>
+            <Typography variant="caption" style={{ color: theme.textTertiary, marginTop: 16 }}>{t('NO_RECORDS_FOUND')}</Typography>
           </View>
+
         )}
       </ScrollView>
     </View>
