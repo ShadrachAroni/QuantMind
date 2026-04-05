@@ -41,8 +41,8 @@ const REVERSE_MAP: Record<string, string> = Object.entries(SYMBOL_MAP).reduce((a
 
 // State for Radar-Sweep Batching
 let batch: PriceTick[] = [];
-let activeSymbols: Set<string> = new Set(['AAPL', 'MSFT', 'TSLA', 'AMZN', 'GOOGL', 'NVDA', 'SPY', 'GLD', 'QQQ', 'BTC/USD', 'ETH/USD', 'SOL/USD']);
-let dailyOpens: Record<string, number> = {};
+const activeSymbols: Set<string> = new Set(['AAPL', 'MSFT', 'TSLA', 'AMZN', 'GOOGL', 'NVDA', 'SPY', 'GLD', 'QQQ', 'BTC/USD', 'ETH/USD', 'SOL/USD']);
+const dailyOpens: Record<string, number> = {};
 const BATCH_INTERVAL_MS = 1000; // 1 second "radar sweep"
 
 async function fetchDailyQuotes() {
@@ -203,7 +203,7 @@ syncSymbols().then(() => {
 });
 
 // @ts-ignore: Deno global recognized at runtime
-Deno.serve(async (_req: Request) => {
+Deno.serve((_req: Request) => {
   return new Response(JSON.stringify({ 
     status: "streaming", 
     architecture: "asterix-inspired",

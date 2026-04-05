@@ -152,7 +152,11 @@ function AutomationContent() {
                                 </span>
                              </td>
                              <td className="p-4 text-right">
-                                <button className="p-2 text-gray-600 hover:text-cyan-400 transition-colors">
+                                <button 
+                                  className="p-2 text-gray-600 hover:text-cyan-400 transition-colors"
+                                  title="Refresh Process Status"
+                                  aria-label="Refresh Process Status"
+                                >
                                    <RefreshCcw size={14} />
                                 </button>
                              </td>
@@ -181,6 +185,8 @@ function AutomationContent() {
                           <button 
                             onClick={() => toggleWebhook(hook.id, hook.active)}
                             className={`p-1 rounded-full border border-white/10 transition-all ${hook.active ? 'bg-cyan-500/20 text-cyan-400' : 'text-gray-700'}`}
+                            title={hook.active ? 'Deactivate Webhook' : 'Activate Webhook'}
+                            aria-label={hook.active ? 'Deactivate Webhook' : 'Activate Webhook'}
                           >
                              {hook.active ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
                           </button>
@@ -260,7 +266,11 @@ function AutomationContent() {
                      <div className="text-xl font-black text-red-500">12</div>
                      <div className="text-[8px] mono text-gray-600 uppercase">FAILED_TASK_SYNCS</div>
                   </div>
-                  <button className="p-2 bg-red-500/10 rounded-xl text-red-400 hover:bg-red-500 hover:text-white transition-all">
+                  <button 
+                    className="p-2 bg-red-500/10 rounded-xl text-red-400 hover:bg-red-500 hover:text-white transition-all"
+                    title="Retry Failed Task Syncs"
+                    aria-label="Retry Failed Task Syncs"
+                  >
                      <RefreshCcw size={16} />
                   </button>
                </div>
@@ -268,10 +278,10 @@ function AutomationContent() {
          </div>
       </div>
 
-      <style jsx>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         .animate-fade-in { animation: fade-in 0.4s ease-out; }
         @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-      `}</style>
+      ` }} />
     </div>
   );
 }

@@ -70,7 +70,7 @@ function getLandingPage(path: string) {
 </html>`;
 }
 
-serve(async (req: Request) => {
+serve((req: Request) => {
   const url = new URL(req.url);
   const path = url.pathname;
 

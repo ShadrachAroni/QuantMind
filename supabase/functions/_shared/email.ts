@@ -10,6 +10,7 @@ export interface EmailOptions {
   html: string;
   from?: string;
   reply_to?: string;
+  tags?: { name: string, value: string }[];
 }
 
 /**
@@ -32,6 +33,7 @@ export async function sendEmail(options: EmailOptions) {
       subject: options.subject,
       html: options.html,
       reply_to: options.reply_to,
+      tags: options.tags,
     }),
   });
 
@@ -446,5 +448,63 @@ export function getQuantMindReceiptTemplate(details: {
   </div>
 </body>
 </html>`;
+}
+
+/**
+ * Verification / Signup Confirmation Template
+ */
+export function getQuantMindVerificationTemplate(otp: string) {
+  const accent = BRAND_COLOR;
+  
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>${COMMON_HEAD}</head>
+<body>
+  <div class="container">
+    <div class="card" style="border: 1px solid rgba(0, 245, 255, 0.3) !important;">
+      <div class="header">
+        <div class="logo">Quant<span>Mind</span>.</div>
+      </div>
+      <div style="padding: 48px 32px; text-align: center;">
+        <div style="display: inline-block; background: rgba(0, 245, 255, 0.1); color: ${accent} !important; padding: 6px 16px; border-radius: 999px; font-size: 10px; font-weight: 900; letter-spacing: 1px; margin-bottom: 24px;">IDENTITY_VERIFICATION_PROTOCOL</div>
+        <h1 style="font-size: 26px; margin: 0; color: #fff !important;">VERIFY YOUR TERMINAL</h1>
+        
+        <p style="font-size: 15px; line-height: 1.6; color: ${TEXT_SECONDARY} !important; margin: 32px 0;">
+          To initialize your QuantMind analytical node, enter the following authorization key in the terminal:
+        </p>
+
+        <div style="background: rgba(0, 245, 255, 0.05) !important; border: 1px dashed ${accent}; padding: 32px; border-radius: 20px; margin: 32px 0;">
+          <div style="font-size: 48px; font-weight: 900; color: ${accent} !important; letter-spacing: 0.3em; font-family: ui-monospace, monospace;">${otp}</div>
+        </div>
+
+        <p style="font-size: 12px; color: #64748b !important; margin: 0;">
+          If you did not initiate this registration, ignore this notification. The node allocation will be automatically reclaimed in 15 minutes.
+        </p>
+      </div>
+    </div>
+    ${SHARED_FOOTER}
+  </div>
+</body>
+</html>`;
+}
+
+/**
+ * Institutional Sender Mapping
+ */
+export function getInstitutionalSender(type: string): string {
+  const domain = "quantmind.co.ke";
+  const mapping: Record<string, string> = {
+    'signup': `QuantMind Verification <verify@${domain}>`,
+    'email_change': `QuantMind Verification <verify@${domain}>`,
+    'recovery': `QuantMind Security <security@${domain}>`,
+    'magiclink': `QuantMind Access <verify@${domain}>`,
+    'onboarding': `QuantMind Onboarding <onboarding@${domain}>`,
+    'welcome': `QuantMind Onboarding <onboarding@${domain}>`,
+    'review': `QuantMind Compliance <review@${domain}>`,
+    'system': `QuantMind Terminal <noreply@${domain}>`,
+    'alert': `QuantMind Terminal <noreply@${domain}>`,
+  };
+
+  return mapping[type] || `QuantMind <noreply@${domain}>`;
 }
 
