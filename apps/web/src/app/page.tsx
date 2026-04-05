@@ -292,11 +292,13 @@ export default function HomePage() {
       <canvas ref={particleCanvasRef} className="particle-canvas" />
 
       {/* Navigation */}
-      <nav className="navbar glass-card">
+      <nav className="main-nav">
         <div className="nav-container max-width">
-          <Link href="/" className="nav-logo">
-            <img src="/logo.png" alt="QuantMind" />
-            <span className="logo-text">QuantMind</span>
+          <Link href="/" className="brand">
+            <div className="brand-logo-container">
+              <img src="/logo.png" alt="QuantMind" className="brand-logo-img" />
+            </div>
+            <span className="brand-name">QuantMind</span>
           </Link>
           <div className="nav-links">
             <Link href="#features" className="nav-link-item">{t('MASTER_COMPLEXITY')}</Link>
@@ -1143,39 +1145,6 @@ export default function HomePage() {
         }
 
         :global(.nav-cta:active) {
-          transform: translateY(-1px) scale(0.98);
-        }
-
-        .nav-cta {
-          padding: 0.75rem 1.75rem;
-          background: #00F0FF;
-          color: #080810;
-          border-radius: 100px;
-          font-family: 'Space Grotesk', sans-serif;
-          font-size: 0.7rem;
-          font-weight: 800;
-          text-transform: uppercase;
-          letter-spacing: 0.1em;
-          transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-          box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
-          animation: cta-pulse 3s infinite;
-          text-decoration: none;
-          border: none;
-        }
-
-        @keyframes cta-pulse {
-          0%, 100% { box-shadow: 0 0 20px rgba(0, 240, 255, 0.3); }
-          50% { box-shadow: 0 0 35px rgba(0, 240, 255, 0.6); }
-        }
-
-        .nav-cta:hover {
-          background: white;
-          transform: translateY(-3px) scale(1.05);
-          box-shadow: 0 15px 40px rgba(0, 240, 255, 0.5);
-          animation: none;
-        }
-
-        .nav-cta:active {
           transform: translateY(-1px) scale(0.98);
         }
 
