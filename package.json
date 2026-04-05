@@ -1,7 +1,8 @@
 {
   "name": "quantmind-monorepo",
   "version": "1.0.0",
-  "private": true,
+  "private": false,
+  "license": "Apache-2.0",
   "packageManager": "npm@10.8.2",
   "workspaces": [
     "apps/*",
@@ -32,7 +33,7 @@
     "glob": "^11.0.0",
     "minimatch": "^9.0.7",
     "d3-color": "^3.1.0",
-    "next": "15.1.0",
+    "next": "15.1.9",
     "picomatch": "^4.0.4",
     "react": "19.1.0",
     "react-dom": "19.1.0",

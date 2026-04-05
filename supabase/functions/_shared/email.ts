@@ -79,8 +79,9 @@ const COMMON_HEAD = `
   </style>
 `;
 
-const SHARED_FOOTER = `
+const SHARED_FOOTER = (canReply: boolean = false) => `
   <div class="footer">
+    ${!canReply ? '<div style="color: #64748b; margin-bottom: 24px; font-weight: 700;">[ NOTICE: THIS IS AN AUTOMATED SYSTEM NOTIFICATION. DO NOT REPLY TO THIS ADDRESS. ]</div>' : ''}
     QUANTMIND_SYSTEMS // SECURE_COMM_LAYER_E2EE<br>
     © 2024 QUANTMIND GLOBAL. LONDON // NYC // SINGAPORE
   </div>
@@ -89,7 +90,7 @@ const SHARED_FOOTER = `
 /**
  * Standard QuantMind Template Wrapper
  */
-export function getQuantMindTemplate(htmlContent: string, title: string = "TERMINAL NOTIFICATION") {
+export function getQuantMindTemplate(htmlContent: string, title: string = "TERMINAL NOTIFICATION", canReply: boolean = false) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>${COMMON_HEAD}</head>
@@ -104,7 +105,7 @@ export function getQuantMindTemplate(htmlContent: string, title: string = "TERMI
         <div style="font-size: 16px; line-height: 1.6; color: ${TEXT_SECONDARY} !important;">${htmlContent}</div>
       </div>
     </div>
-    ${SHARED_FOOTER}
+    ${SHARED_FOOTER(canReply)}
   </div>
 </body>
 </html>`;
@@ -160,7 +161,7 @@ export function getQuantMindRiskAlertTemplate(details: { eventId: string, title:
         <a href="https://quantmind.app/terminal/risk/${details.eventId}" class="btn" style="background-color: ${accent} !important; width: 100%; box-sizing: border-box;">Launch Risk Terminal</a>
       </div>
     </div>
-    ${SHARED_FOOTER}
+    ${SHARED_FOOTER(false)}
   </div>
 </body>
 </html>`;
@@ -208,7 +209,7 @@ export function getQuantMindWelcomeTemplate(tier: string, userId: string) {
         <a href="https://quantmind.app/terminal" class="btn" style="width: 100%; box-sizing: border-box;">Enter QuantMind Terminal</a>
       </div>
     </div>
-    ${SHARED_FOOTER}
+    ${SHARED_FOOTER(false)}
   </div>
 </body>
 </html>`;
@@ -257,7 +258,7 @@ export function getQuantMindSubscriptionTemplate(details: { tier: string, amount
         <div style="font-size: 11px; color: ${TEXT_SECONDARY} !important; font-family: ui-monospace, monospace;">NEXT VALIDATION: ${details.nextBilling}</div>
       </div>
     </div>
-    ${SHARED_FOOTER}
+    ${SHARED_FOOTER(false)}
   </div>
 </body>
 </html>`;
@@ -293,7 +294,7 @@ export function getQuantMindOTPTemplate(code: string) {
         </p>
       </div>
     </div>
-    ${SHARED_FOOTER}
+    ${SHARED_FOOTER(false)}
   </div>
 </body>
 </html>`;
@@ -324,7 +325,7 @@ export function getQuantMindPasswordReminderTemplate(details: { daysLeft: number
         <a href="https://quantmind.app/terminal/security" class="btn" style="background-color: ${accent} !important; width: 100%; box-sizing: border-box;">Rotate Access Key</a>
       </div>
     </div>
-    ${SHARED_FOOTER}
+    ${SHARED_FOOTER(false)}
   </div>
 </body>
 </html>`;
@@ -376,7 +377,7 @@ export function getQuantMindRecoveryTemplate(token: string, origin: string = "ht
         </p>
       </div>
     </div>
-    ${SHARED_FOOTER}
+    ${SHARED_FOOTER(false)}
   </div>
 </body>
 </html>`;
@@ -444,7 +445,7 @@ export function getQuantMindReceiptTemplate(details: {
         </div>
       </div>
     </div>
-    ${SHARED_FOOTER}
+    ${SHARED_FOOTER(false)}
   </div>
 </body>
 </html>`;
@@ -482,10 +483,38 @@ export function getQuantMindVerificationTemplate(otp: string) {
         </p>
       </div>
     </div>
-    ${SHARED_FOOTER}
+    ${SHARED_FOOTER(false)}
   </div>
 </body>
 </html>`;
+}
+
+/**
+ * Ticket Received Auto-reply Template
+ */
+export function getSupportTicketReceivedTemplate(ticketId: string, subject: string) {
+  return getQuantMindTemplate(
+    `<p>We have received your inquiries regarding <strong>"${subject}"</strong>. Your support session has been initialized in the QuantMind Terminal.</p>
+     <p>A support engineer will review your request and initialize a secure communication channel shortly.</p>
+     <div style="margin-top: 24px; padding: 16px; background: rgba(0, 245, 255, 0.05); border-radius: 12px; font-family: ui-monospace, monospace; font-size: 12px;">TICKET_ID: ${ticketId}</div>`,
+    "Support Session Initialized",
+    true
+  );
+}
+
+/**
+ * Institutional Support Reply Template
+ */
+export function getSupportReplyTemplate(ticketId: string, content: string) {
+  return getQuantMindTemplate(
+    `<div style="white-space: pre-wrap; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 1.6;">${content}</div>
+     <div style="margin-top: 32px; padding: 16px; background: rgba(0, 245, 255, 0.05); border-radius: 12px; font-family: ui-monospace, monospace; font-size: 11px; border-top: 1px solid rgba(0, 245, 255, 0.1);">
+       TICKET_ID: ${ticketId.toUpperCase()}<br>
+       RELAY_STATUS: SECURE_CHANNEL_ACTIVE
+     </div>`,
+    "Support Transmission",
+    true
+  );
 }
 
 /**
@@ -501,6 +530,7 @@ export function getInstitutionalSender(type: string): string {
     'onboarding': `QuantMind Onboarding <onboarding@${domain}>`,
     'welcome': `QuantMind Onboarding <onboarding@${domain}>`,
     'review': `QuantMind Compliance <review@${domain}>`,
+    'support': `QuantMind Support <support@${domain}>`,
     'system': `QuantMind Terminal <noreply@${domain}>`,
     'alert': `QuantMind Terminal <noreply@${domain}>`,
   };

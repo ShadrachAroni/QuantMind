@@ -32,6 +32,8 @@ import { SettingsScreen } from '../screens/settings/SettingsScreen';
 import { PrivacyPolicyScreen } from '../screens/settings/PrivacyPolicyScreen';
 import { TermsOfServiceScreen } from '../screens/settings/TermsOfServiceScreen';
 import { SupportScreen } from '../screens/settings/SupportScreen';
+import { AboutAppScreen } from '../screens/settings/AboutAppScreen';
+import { HowToUseScreen } from '../screens/settings/HowToUseScreen';
 import { AIPreferencesScreen } from '../screens/settings/AIPreferencesScreen';
 import { SubscriptionScreen } from '../screens/settings/SubscriptionScreen';
 import { MFAScreen } from '../screens/settings/MFAScreen';
@@ -122,6 +124,8 @@ function SettingsNavigator() {
       <SettingsStack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
       <SettingsStack.Screen name="TermsOfService" component={TermsOfServiceScreen} />
       <SettingsStack.Screen name="Support" component={SupportScreen} />
+      <SettingsStack.Screen name="AboutApp" component={AboutAppScreen} />
+      <SettingsStack.Screen name="HowToUse" component={HowToUseScreen} />
       <SettingsStack.Screen name="AIPreferences">
         {(props) => <TierRestrictedScreen {...props} component={AIPreferencesScreen} requirement="allow_ai_tuning" />}
       </SettingsStack.Screen>

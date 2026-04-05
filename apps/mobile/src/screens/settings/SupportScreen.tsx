@@ -25,8 +25,7 @@ import { GlowEffect } from '../../components/ui/GlowEffect';
 
 const { width } = Dimensions.get('window');
 
-const SUPPORT_PHONE = '+254 746 741 690';
-const SUPPORT_EMAIL = 'Shadracking7@gmail.com';
+const SUPPORT_EMAIL = 'support@quantmind.co.ke';
 
 export function SupportScreen({ navigation }: any) {
   const { user } = useAuthStore();
@@ -133,14 +132,16 @@ export function SupportScreen({ navigation }: any) {
     <GlassCard style={dynamicStyles.contactCard} intensity="low">
       <Typography variant="mono" style={[dynamicStyles.contactTitle, { color: theme.textTertiary }]}>// DIRECT_HQ_UPLINK</Typography>
       <View style={dynamicStyles.contactActions}>
-        <TouchableOpacity style={[dynamicStyles.contactBtn, { borderColor: theme.border, backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)' }]} onPress={() => Linking.openURL(`tel:${SUPPORT_PHONE.replace(/\s/g, '')}`)}>
-          <PhoneIcon size={16} color={theme.primary} />
-          <Typography variant="mono" style={[dynamicStyles.contactValue, { color: theme.primary }]}>{SUPPORT_PHONE}</Typography>
+        <TouchableOpacity 
+          style={[dynamicStyles.contactBtn, { borderColor: theme.primary + '44', backgroundColor: theme.primary + '11' }]} 
+          onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=QuantMind%20Support`)}
+        >
+          <MailIcon size={18} color={theme.primary} />
+          <Typography variant="monoBold" style={[dynamicStyles.contactValue, { color: theme.primary }]}>{SUPPORT_EMAIL.toUpperCase()}</Typography>
         </TouchableOpacity>
-        <TouchableOpacity style={[dynamicStyles.contactBtn, { borderColor: theme.border, backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.02)' }]} onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=QuantMind%20Support`)}>
-          <MailIcon size={16} color={theme.primary} />
-          <Typography variant="mono" style={[dynamicStyles.contactValue, { color: theme.primary }]}>{SUPPORT_EMAIL.toUpperCase()}</Typography>
-        </TouchableOpacity>
+        <Typography variant="caption" style={{ color: theme.textTertiary, textAlign: 'center', marginTop: 8, fontSize: 8 }}>
+          ESTIMATED_RESPONSE_LATENCY: &lt; 4_HOURS
+        </Typography>
       </View>
     </GlassCard>
   );

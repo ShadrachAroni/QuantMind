@@ -18,7 +18,11 @@ import {
   Zap,
   Lock,
   Globe,
-  Trash2
+  Trash2,
+  Info,
+  HelpCircle,
+  LifeBuoy,
+  ChevronDown
 } from 'lucide-react';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { DeletionWizard } from '@/components/ui/DeletionWizard';
@@ -30,7 +34,7 @@ import { useUser } from '@/components/UserContext';
 import { useTranslation } from '@/lib/i18n';
 import { logSecurityEvent } from '@/lib/security/audit';
 
-type Tab = 'profile' | 'security' | 'ai' | 'billing';
+type Tab = 'profile' | 'security' | 'ai' | 'billing' | 'about' | 'how-to-use' | 'support';
 
 interface Subscription {
   id: string;
@@ -52,7 +56,7 @@ export default function SettingsPage() {
   const tabParam = searchParams.get('tab');
 
   useEffect(() => {
-    if (tabParam && ['profile', 'security', 'ai', 'billing'].includes(tabParam)) {
+    if (tabParam && ['profile', 'security', 'ai', 'billing', 'about', 'how-to-use', 'support'].includes(tabParam)) {
        setActiveTab(tabParam as Tab);
     }
   }, [tabParam]);
@@ -68,6 +72,9 @@ export default function SettingsPage() {
     { id: 'security', label: t('Security_Nodes'), icon: Shield },
     { id: 'ai', label: t('Cognitive_Persona'), icon: Cpu },
     { id: 'billing', label: t('Subscription_Ledger'), icon: CreditCard },
+    { id: 'about', label: t('About_Protocol'), icon: Info },
+    { id: 'how-to-use', label: t('Operational_Manual'), icon: HelpCircle },
+    { id: 'support', label: t('Institutional_Uplink'), icon: LifeBuoy },
   ];
 
    if (profileLoading) return (
@@ -123,6 +130,9 @@ export default function SettingsPage() {
             {activeTab === 'security' && <SecuritySection router={router} />}
             {activeTab === 'ai' && <AIPersonaSection router={router} />}
             {activeTab === 'billing' && <BillingSection router={router} />}
+            {activeTab === 'about' && <AboutSection />}
+            {activeTab === 'how-to-use' && <HowToUseSection />}
+            {activeTab === 'support' && <SupportSection />}
             
             {/* Mobile Sign Out */}
             <div className="lg:hidden mt-12 pt-8 border-t border-white/5">
@@ -137,7 +147,190 @@ export default function SettingsPage() {
          </div>
       </div>
     </div>
-   );
+  );
+}
+
+function AboutSection() {
+  const { profile } = useUser();
+  const t = useTranslation(profile?.interface_language || 'ENGLISH_INTL');
+
+  return (
+    <div className="space-y-6 md:space-y-8 animate-in slide-in-from-right-4 duration-500">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <h2 className="text-lg md:text-xl font-bold text-white uppercase font-mono tracking-tight">{t('About_Protocol')}</h2>
+      </div>
+
+      <GlassCard className="p-6 md:p-10 space-y-8 relative overflow-hidden" intensity="low">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-[#00D9FF]/5 rounded-full blur-[100px] -mr-48 -mt-48" />
+        
+        <div className="space-y-6 relative z-10">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-[#00D9FF]/10 flex items-center justify-center border border-[#00D9FF]/20 shadow-[0_0_20px_rgba(0,217,255,0.1)]">
+              <Info className="text-[#00D9FF]" size={24} />
+            </div>
+            <div>
+              <h3 className="text-white font-bold text-lg uppercase font-mono tracking-wider">QUANTMIND_OS v1.0.4</h3>
+              <p className="text-[#848D97] text-[10px] font-mono uppercase tracking-[0.2em]">{t('Operational_Status_Stable')}</p>
+            </div>
+          </div>
+
+          <div className="space-y-4 max-w-3xl">
+            <p className="text-sm md:text-base text-white/90 leading-relaxed font-mono uppercase">
+              {t('QuantMind_Description_1', { defaultValue: "QuantMind is a high-fidelity portfolio risk analysis and simulation platform. It enables investors to run institutional-grade Monte Carlo simulations on their portfolios, visualize potential tail risks, and receive AI-driven insights via the 'Portfolio Doctor' assistant." })}
+            </p>
+            <p className="text-sm text-[#848D97] leading-relaxed font-mono uppercase">
+              {t('QuantMind_Description_2', { defaultValue: "Our mission is to provide institutional-grade tools to every investor through advanced data orchestration and AI. By merging probability with modern investing, we empower users to navigate complex market environments with clarity." })}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4">
+            {[
+              { label: 'CORE_ENGINE', value: 'RUST_PYTHON_HYBRID' },
+              { label: 'SECURITY_LAYER', value: 'AES_256_E2EE' },
+              { label: 'AI_ORCHESTRATOR', value: 'ASTERIX_NODE' }
+            ].map((stat) => (
+              <div key={stat.label} className="p-4 bg-white/5 rounded-xl border border-white/5">
+                <p className="text-[8px] font-bold text-[#848D97] uppercase tracking-widest mb-1">{stat.label}</p>
+                <p className="text-[10px] font-bold text-white font-mono">{stat.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </GlassCard>
+    </div>
+  );
+}
+
+function HowToUseSection() {
+  const { profile } = useUser();
+  const t = useTranslation(profile?.interface_language || 'ENGLISH_INTL');
+
+  const steps = [
+    { title: 'INITIALIZE_PROFILE', desc: 'Configure your identity and preferences (Language, Region) to optimize the terminal experience.' },
+    { title: 'CALIBRATE_AI', desc: 'Select your Cognitive Persona and tune the AI engine to match your investment style.' },
+    { title: 'CONSTRUCT_PORTFOLIO', desc: 'Use the Portfolio Builder to input or sync your assets for analysis.' },
+    { title: 'RUN_SIMULATIONS', desc: 'Trigger Monte Carlo kernels to project 10,000+ paths and identify tail risks.' },
+    { title: 'CONSULT_DOCTOR', desc: 'Engage with the Portfolio Doctor for deep-dive analysis and optimization strategies.' }
+  ];
+
+  return (
+    <div className="space-y-6 md:space-y-8 animate-in slide-in-from-right-4 duration-500">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <h2 className="text-lg md:text-xl font-bold text-white uppercase font-mono tracking-tight">{t('Operational_Manual')}</h2>
+      </div>
+
+      <div className="space-y-4">
+        {steps.map((step, index) => (
+          <GlassCard key={step.title} className="p-6 group hover:border-[#00D9FF]/30 transition-all duration-500" intensity="low">
+            <div className="flex gap-6 items-start">
+              <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0 font-mono text-[#00D9FF] font-bold shadow-inner">
+                0{index + 1}
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-white font-bold text-sm uppercase font-mono tracking-wider group-hover:text-[#00D9FF] transition-colors">{step.title}</h3>
+                <p className="text-xs text-[#848D97] leading-relaxed font-mono uppercase">{step.desc}</p>
+              </div>
+            </div>
+          </GlassCard>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SupportSection() {
+  const { profile } = useUser();
+  const t = useTranslation(profile?.interface_language || 'ENGLISH_INTL');
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText('support@quantmind.co.ke');
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="space-y-6 md:space-y-8 animate-in slide-in-from-right-4 duration-500">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <h2 className="text-lg md:text-xl font-bold text-white uppercase font-mono tracking-tight">{t('Institutional_Uplink')}</h2>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
+        <GlassCard className="p-8 md:p-10 space-y-8 relative overflow-hidden" intensity="high">
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-[#00D9FF]/10 via-transparent to-transparent pointer-events-none" />
+          
+          <div className="space-y-6 relative z-10">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-[#00D9FF]/20 flex items-center justify-center border border-[#00D9FF]/40 shadow-[0_0_30px_rgba(0,217,255,0.2)]">
+                <LifeBuoy className="text-[#00D9FF] animate-spin-slow" size={28} />
+              </div>
+              <div>
+                <h3 className="text-white font-bold text-xl uppercase font-mono tracking-tight text-glow">SUPPORT_BRIDGE_ACTIVE</h3>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#32D74B] animate-pulse" />
+                  <p className="text-[#32D74B] text-[9px] font-bold font-mono uppercase tracking-widest">{t('All_Systems_Nominal')}</p>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-sm text-[#848D97] leading-relaxed font-mono uppercase max-w-md">
+              {t('Support_Desc', { defaultValue: "Connect directly to our institutional support kernels. Our AI-augmented response teams are standing by for parameters calibration and terminal assistance." })}
+            </p>
+
+            <div className="space-y-4">
+              <div className="p-4 bg-[#05070A] border border-white/10 rounded-2xl flex items-center justify-between group">
+                <div className="flex items-center gap-3">
+                  <Mail className="text-[#848D97] group-hover:text-[#00D9FF] transition-colors" size={18} />
+                  <span className="text-sm font-mono text-white tracking-wider">support@quantmind.co.ke</span>
+                </div>
+                <button 
+                  onClick={handleCopy}
+                  className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-[9px] font-bold text-[#848D97] hover:text-white uppercase tracking-widest transition-all font-mono border border-white/5"
+                >
+                  {copied ? 'COPIED' : 'COPY'}
+                </button>
+              </div>
+
+              <a 
+                href="mailto:support@quantmind.co.ke"
+                className="w-full h-14 flex items-center justify-center bg-[#00D9FF] text-[#05070A] rounded-2xl text-xs font-bold uppercase tracking-[0.2em] hover:bg-[#00D9FF]/90 transition-all font-mono shadow-[0_4px_20px_rgba(0,217,255,0.4)]"
+              >
+                INITIALIZE_UPLINK
+              </a>
+            </div>
+          </div>
+        </GlassCard>
+
+        <div className="space-y-6">
+          <GlassCard className="p-6 md:p-8 space-y-6" intensity="low">
+             <div className="flex items-center gap-3">
+                <ShieldCheck className="text-[#00D9FF]" size={20} />
+                <h3 className="text-[10px] uppercase font-bold tracking-[0.2em] text-white">SECURE_COMMUNICATION</h3>
+             </div>
+             <p className="text-[11px] text-[#848D97] leading-relaxed uppercase font-mono">
+                {t('Security_Notice', { defaultValue: "All communications across the support bridge are protected by military-grade AES-256 encryption. Your data integrity is our priority." })}
+             </p>
+          </GlassCard>
+
+          <GlassCard className="p-6 md:p-8 space-y-6" intensity="low">
+             <div className="flex items-center gap-3">
+                <Zap className="text-[#FFD60A]" size={20} />
+                <h3 className="text-[10px] uppercase font-bold tracking-[0.2em] text-white">RESPONSE_LATENCY</h3>
+             </div>
+             <div className="space-y-1">
+                <div className="flex justify-between items-center text-[10px] font-mono tracking-widest uppercase">
+                   <span className="text-[#848D97]">ESTIMATED_RESPONSE</span>
+                   <span className="text-white">&lt; 4 HOURS</span>
+                </div>
+                <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden mt-2">
+                   <div className="w-[85%] h-full bg-[#32D74B] opacity-50" />
+                </div>
+             </div>
+          </GlassCard>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function ProfileSection() {

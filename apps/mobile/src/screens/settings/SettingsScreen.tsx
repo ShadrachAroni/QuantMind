@@ -23,9 +23,11 @@ import {
   CheckCircle2,
   Lock,
   Fingerprint,
+  HelpCircle,
   Globe,
   MapPin,
-  History
+  History,
+  Info
 } from 'lucide-react-native';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { GlowEffect } from '../../components/ui/GlowEffect';
@@ -63,6 +65,7 @@ export function SettingsScreen() {
   const PaletteIcon = Palette as any;
   const CheckIcon = CheckCircle2 as any;
   const FingerprintIcon = Fingerprint as any;
+  const InfoIcon = Info as any;
 
   const handleSignOut = async () => {
     Alert.alert(
@@ -311,8 +314,22 @@ export function SettingsScreen() {
         <Typography variant="mono" style={[dynamicStyles.sectionHeader, { color: theme.textSecondary }]}>// {t('EXTERNAL_LINKS')}</Typography>
         <GlassCard style={dynamicStyles.section}>
           <SettingRow 
+            icon={InfoIcon} 
+            title={t('About_Protocol')} 
+            subtitle={t('About_Protocol_Sub')} 
+            onPress={() => navigation.navigate('AboutApp')}
+            color={theme.primary}
+          />
+          <SettingRow 
+            icon={HelpCircle} 
+            title={t('Operational_Manual')} 
+            subtitle={t('Operational_Manual_Sub')} 
+            onPress={() => navigation.navigate('HowToUse')}
+            color={theme.primary}
+          />
+          <SettingRow 
             icon={LifeBuoy} 
-            title={t('SUPPORT_BRIDGE')} 
+            title={t('Institutional_Care')} 
             subtitle={t('SUPPORT_BRIDGE_SUB')} 
             onPress={() => navigation.navigate('Support')}
             color="#10B981"
