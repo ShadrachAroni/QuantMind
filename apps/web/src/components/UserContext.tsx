@@ -33,6 +33,7 @@ interface UserContextType {
   refreshProfile: () => Promise<void>;
   isOnline: boolean;
   isMaintenanceMode: boolean;
+  authMethod: 'supabase' | 'mojoauth' | null;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -56,20 +57,32 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const fetchProfile = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      
+      // Check for MojoAuth session first (as it takes precedence for OmniWealth)
+      const mojoToken = typeof window !== 'undefined' ? localStorage.getItem('mojoauth_token') : null;
+      
+      if (mojoToken) {
+        // In a real flow, we would verify this token with the backend
+        // and link it to a user profile in Supabase
+        console.log('MojoAuth session detected');
+      }
+
+      if (!user && !mojoToken) {
         setProfile(null);
         setLoading(false);
         return;
       }
 
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+      if (user) {
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
 
-      if (data) {
-        setProfile({ ...data, email: user.email } as any);
+        if (data) {
+          setProfile({ ...data, email: user.email } as any);
+        }
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -107,7 +120,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <UserContext.Provider value={{ profile: profile as any, loading, refreshProfile: fetchProfile, isOnline, isMaintenanceMode }}>
+    <UserContext.Provider value={{ 
+      profile: profile as any, 
+      loading, 
+      refreshProfile: fetchProfile, 
+      isOnline, 
+      isMaintenanceMode,
+      authMethod: profile ? 'supabase' : null // Placeholder logic
+    }}>
       {children}
     </UserContext.Provider>
   );

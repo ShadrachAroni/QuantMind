@@ -1,9 +1,8 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { getQuantMindTemplate } from '../_shared/email.ts';
+import { getQuantMindTemplate, sendEmail, getInstitutionalSender } from '../_shared/email.ts';
 
 
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -14,7 +13,7 @@ serve(async (req: Request) => {
     // 1. Fetch campaigns that need to be sent
     const { data: campaigns, error: fetchError } = await supabase
       .from('email_campaigns')
-      .select('*, public.email_templates(*)')
+      .select('*, email_templates(*)')
       .eq('status', 'scheduled')
       .lte('scheduled_at', new Date().toISOString());
 
@@ -56,7 +55,12 @@ serve(async (req: Request) => {
         // A/B Variant Logic
         const variant = Math.random() < (campaign.ab_test_ratio || 0.5) ? 'A' : 'B';
         const subject = variant === 'B' && campaign.subject_b ? campaign.subject_b : campaign.subject_a;
-        const htmlBody = variant === 'B' && campaign.content_b ? campaign.content_b : (campaign.content_a || campaign.public.email_templates.html_content);
+        const htmlBody = variant === 'B' && campaign.content_b ? campaign.content_b : (campaign.content_a || (campaign.email_templates as any)?.html_content || '');
+
+        if (!htmlBody) {
+          console.warn(`[Campaign Executor]: Missing HTML body for variant ${variant} in campaign ${campaign.id}`);
+          continue;
+        }
 
         // Inject tracking pixel and link wrapping
         const trackingPixel = `<img src="${SUPABASE_URL}/functions/v1/email-tracker/open?c=${campaign.id}&u=${recipient.id}" width="1" height="1" style="display:none" />`;
@@ -69,21 +73,13 @@ serve(async (req: Request) => {
 
 
         try {
-          const res = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${RESEND_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              from: Deno.env.get('RESEND_FROM_EMAIL') || 'QuantMind <offers@resend.dev>',
-              to: recipient.email,
-              subject,
-              html: finalHtml,
-            }),
-          });
-
-          if (!res.ok) throw new Error(await res.text());
+          await sendEmail({
+            from: getInstitutionalSender('offers'),
+            to: recipient.email,
+            subject,
+            html: finalHtml,
+            userId: recipient.id
+          }, supabase);
 
           await supabase.from('campaign_recipients').upsert({
             campaign_id: campaign.id,

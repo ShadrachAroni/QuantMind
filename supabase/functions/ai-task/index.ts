@@ -59,6 +59,7 @@ serve(async (req: Request) => {
       .single();
 
     let result = {};
+    let aiResponse: any = null;
 
     if (task_type === 'portfolio_doctor') {
       // 1. Haiku classifies risk areas (omitted for brevity, doing single Sonnet call for robust MVP)
@@ -68,35 +69,42 @@ serve(async (req: Request) => {
       Format your response as structured JSON: { "summary": string, "weaknesses": string[], "strengths": string[], "recommendation_type": string }
       DO NOT provide specific buy/sell tickers. Focus on diversification, correlation, and risk metrics.`;
       
-      const message = `Portfolio: ${JSON.stringify(portfolio.assets)}
-      Metrics: ${JSON.stringify(metadata?.metrics)}`;
+      const message = `Portfolio: ${JSON.stringify(portfolio?.assets || [])}
+      Metrics: ${JSON.stringify(metadata?.metrics || {})}`;
 
-      const data = await callClaude(model, system, message);
-      result = JSON.parse(data.content[0].text);
+      aiResponse = await callClaude(model, system, message);
+      if (aiResponse?.content?.[0]?.text) {
+        result = JSON.parse(aiResponse.content[0].text);
+      }
     } 
     else if (task_type === 'stress_debrief') {
       // Analyze simulation shocks
       const model = MODELS.sonnet;
       const system = `Explain the impact of market shocks on this portfolio. Reference the 2008 and COVID-19 scenarios.`;
-      const message = `Simulation Results: ${JSON.stringify(metadata?.metrics)}`;
-      const data = await callClaude(model, system, message);
-      result = { explanation: data.content[0].text };
+      const message = `Simulation Results: ${JSON.stringify(metadata?.metrics || {})}`;
+      aiResponse = await callClaude(model, system, message);
+      if (aiResponse?.content?.[0]?.text) {
+        result = { explanation: aiResponse.content[0].text };
+      }
     }
 
     // Log to ai_sessions and increment quota using system RPC
-    await supabase.rpc('log_ai_session_with_quota', {
-      user_id_val: user.id,
-      model_id_val: user.tier === 'pro' ? MODELS.opus : MODELS.sonnet,
-      tokens_in_val: data.usage?.input_tokens || 0,
-      tokens_out_val: data.usage?.output_tokens || 0,
-    });
+    if (aiResponse) {
+      await supabase.rpc('log_ai_session_with_quota', {
+        user_id_val: user.id,
+        model_id_val: user.tier === 'pro' ? MODELS.opus : MODELS.sonnet,
+        tokens_in_val: aiResponse.usage?.input_tokens || 0,
+        tokens_out_val: aiResponse.usage?.output_tokens || 0,
+      });
+    }
 
     return new Response(JSON.stringify(result), {
       headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
     });
 
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
     });

@@ -101,8 +101,8 @@ Deno.serve(async (req: Request) => {
           .single();
         
         if (userProfile?.email) {
-          const { sendEmail, getFX1Template } = await import('../_shared/email.ts');
-          const emailHtml = getFX1Template(
+          const { sendEmail, getQuantMindTemplate } = await import('../_shared/email.ts');
+          const emailHtml = getQuantMindTemplate(
             `<p>Our AI Assistant has provided a first-pass reply to your ticket: <strong>${subject}</strong></p>
              <div style="background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; margin: 20px 0;">
                ${replyContent}
@@ -113,8 +113,9 @@ Deno.serve(async (req: Request) => {
           await sendEmail({
             to: userProfile.email,
             subject: `Re: ${subject}`,
-            html: emailHtml
-          });
+            html: emailHtml,
+            userId: ticket.user_id
+          }, supabase);
         }
       }
     } catch (emailErr) {

@@ -109,13 +109,14 @@ serve(async (req: Request) => {
 
       if (msgError) throw msgError
 
-      // 6. Send Auto-Reply Confirmation
+      // 6. Send Auto-Reply Confirmation with Institutional Verification
       await sendEmail({
         from: getInstitutionalSender('support'),
         to: fromAddress,
         subject: `[Re: ${subject}] Support Session Initialized - QuantMind`,
-        html: getSupportTicketReceivedTemplate(ticketId.split('-')[0].toUpperCase(), subject)
-      })
+        html: getSupportTicketReceivedTemplate(ticketId.split('-')[0].toUpperCase(), subject),
+        userId: userId || undefined
+      }, supabase)
 
       console.log(`[Support] Handled inbound email from ${fromAddress}. Ticket: ${ticketId}`)
       return new Response(JSON.stringify({ success: true, ticket_id: ticketId }), {

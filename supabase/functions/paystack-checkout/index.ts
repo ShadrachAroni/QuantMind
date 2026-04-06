@@ -56,9 +56,9 @@ serve(async (req: Request) => {
     const PAYSTACK_SECRET_KEY = Deno.env.get('PAYSTACK_SECRET_KEY');
     if (!PAYSTACK_SECRET_KEY) throw new Error('Server configuration error: missing Paystack API key');
 
-    // Call Paystack Initialize Transaction API
+    const APP_URL = Deno.env.get('APP_URL') || "https://quantmind.co.ke";
     const platform = req.headers.get('origin') ? 'web' : 'mobile';
-    const callbackUrl = `https://Quantmind.co.ke/api/paystack/callback?platform=${platform}`;
+    const callbackUrl = `${APP_URL}/api/paystack/callback?platform=${platform}`;
 
     const response = await fetch('https://api.paystack.co/transaction/initialize', {
       method: 'POST',

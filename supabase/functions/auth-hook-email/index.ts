@@ -1,13 +1,15 @@
-// QuantMind Edge Function: auth-hook-email
-// Overrides default Supabase Auth email sending with custom Resend integration.
-
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { 
   sendEmail, 
   getQuantMindVerificationTemplate, 
   getQuantMindRecoveryTemplate,
   getInstitutionalSender
 } from '../_shared/email.ts';
+
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 serve(async (req: Request) => {
   try {
@@ -41,17 +43,14 @@ serve(async (req: Request) => {
       throw new Error(`Unsupported email action type: ${email_action_type}`);
     }
 
-    // Send via Resend
+    // Send via Resend with Institutional Verification
     await sendEmail({
       to: user.email,
       from: getInstitutionalSender(type),
       subject,
       html,
-      tags: [
-        { name: 'user_id', value: user.id },
-        { name: 'email_type', value: type }
-      ]
-    });
+      userId: user.id
+    }, supabase);
 
     return new Response(JSON.stringify({ status: 'success' }), { 
       status: 200, 

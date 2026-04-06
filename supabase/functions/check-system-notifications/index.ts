@@ -31,7 +31,7 @@ serve(async (req: Request) => {
               await sendEmail(user.email, 'password_expiry_reminder', { 
                 daysLeft: 7, 
                 abTest: Math.random() > 0.5 ? 'variant_a' : 'variant_b' 
-              });
+              }, profile.id);
               await sendPush(profile.id, 'SECURITY_PROTOCOL_v4.2', 'Access key rotation due in 7 days. Avoid terminal lockout.');
               await supabase.from('user_profiles').update({ password_expiry_notified_at: now.toISOString() }).eq('id', profile.id);
               results.password++;
@@ -74,7 +74,7 @@ serve(async (req: Request) => {
              await sendEmail(user.email, 'subscription_expired', {
                planName: sub.tier,
                expiryDate: periodEnd.toLocaleDateString()
-             });
+             }, sub.user_id);
              
              await sendPush(sub.user_id, 'TERM_EXPIRED', `Your ${sub.tier.toUpperCase()} node access has expired. Reverted to Standard.`);
              results.subscription++;
@@ -95,7 +95,7 @@ serve(async (req: Request) => {
               planName: sub.tier,
               expiryDate: periodEnd.toLocaleDateString(),
               discountCode: daysLeft === 1 ? 'RENEW20' : null // Urgency discount
-            });
+            }, sub.user_id);
             await sendPush(sub.user_id, 'TERM_EXPIRY_ALERT', `Your ${sub.tier.toUpperCase()} protocol access expires in ${daysLeft} days.`);
             await supabase.from('subscriptions').update({ last_expiry_notified_at: now.toISOString() }).eq('user_id', sub.user_id);
             results.subscription++;
@@ -114,14 +114,14 @@ serve(async (req: Request) => {
   }
 });
 
-async function sendEmail(to: string, type: string, details: any) {
+async function sendEmail(to: string, type: string, details: any, userId?: string) {
   await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-email`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ to, type, details })
+    body: JSON.stringify({ to, type, details, userId })
   });
 }
 

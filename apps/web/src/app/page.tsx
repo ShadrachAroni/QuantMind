@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, Cpu, X, Smartphone, Apple, ArrowUp, ArrowRight, Shield, Play } from 'lucide-react';
+import { CheckCircle2, Cpu, X, Menu, Smartphone, Apple, ArrowUp, ArrowRight, Shield, Play } from 'lucide-react';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { DownloadModal } from '@/components/ui/DownloadModal';
 import { createClient } from '@/lib/supabase';
@@ -21,11 +21,14 @@ export default function HomePage() {
   const [showBackToTop, setShowBackToTop] = useState(false);
   const { profile } = useUser();
   const t = useTranslation(profile?.interface_language || 'ENGLISH_INTL');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const supabase = createClient();
 
   const particleCanvasRef = useRef<HTMLCanvasElement>(null);
   const fanChartCanvasRef = useRef<HTMLCanvasElement>(null);
-  const mouseRef = useRef({ x: 0, y: 0 });
+  const mouseRef = useRef({ x: 0, y: 0 }); // Mouse tracker for particles
+  const distributionChartCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [aiInsight, setAiInsight] = useState('STABLE_REGIME_DETECTED');
 
   // Intersection Observer for Reveal Animations
   useEffect(() => {
@@ -57,7 +60,26 @@ export default function HomePage() {
   }, []);
 
   const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const duration = 1200; // Premium 1.2s glide
+    const start = window.scrollY;
+    const startTime = performance.now();
+
+    const easeInOutCubic = (t: number) => 
+      t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1;
+
+    const animateScroll = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const easedProgress = easeInOutCubic(progress);
+
+      window.scrollTo(0, start * (1 - easedProgress));
+
+      if (progress < 1) {
+        requestAnimationFrame(animateScroll);
+      }
+    };
+
+    requestAnimationFrame(animateScroll);
   };
 
   // Particles Background with Mouse Interaction
@@ -184,88 +206,154 @@ export default function HomePage() {
 
   // Fan Chart Logic
   useEffect(() => {
-    const canvas = fanChartCanvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const fCanvas = fanChartCanvasRef.current;
+    const dCanvas = distributionChartCanvasRef.current;
+    if (!fCanvas || !dCanvas) return;
+    const fCtx = fCanvas.getContext('2d');
+    const dCtx = dCanvas.getContext('2d');
+    if (!fCtx || !dCtx) return;
 
-    const animateFanChart = () => {
-      const container = canvas.parentElement;
-      if (!container) return;
+    let animationId: number;
+    let frame = 0;
 
-      let animationId: number;
-      let frame = 0;
+    // AI Insight logic based on volatility
+    const getInsight = (v: number) => {
+      if (v < 15) return 'STABLE REGIME DETECTED';
+      if (v < 25) return 'VOLATILITY EXPANSION PHASE';
+      if (v < 40) return 'SIGNIFICANT TAIL RISK WARNING';
+      return 'SYSTEMIC EXTREME STRESS IDENTIFIED';
+    };
+    setAiInsight(getInsight(volatility));
 
-      const draw = () => {
-        const w = container.clientWidth;
-        const h = container.clientHeight;
-        if (canvas.width !== w || canvas.height !== h) {
-          canvas.width = w;
-          canvas.height = h;
-        }
+    const draw = () => {
+      const fContainer = fCanvas.parentElement;
+      const dContainer = dCanvas.parentElement;
+      if (!fContainer || !dContainer || !livePrice) return;
 
-        const centerY = h / 2;
-        const steps = 60;
-        const paths = 40;
+      const fw = fContainer.offsetWidth || 800;
+      const fh = fContainer.offsetHeight || 450;
+      const dw = dContainer.offsetWidth || 400;
+      const dh = dContainer.offsetHeight || 450;
 
-        ctx.clearRect(0, 0, w, h);
-        frame += 0.015;
+      if (fCanvas.width !== fw || fCanvas.height !== fh) {
+        fCanvas.width = fw;
+        fCanvas.height = fh;
+      }
+      if (dCanvas.width !== dw || dCanvas.height !== dh) {
+        dCanvas.width = dw;
+        dCanvas.height = dh;
+      }
 
-        // Grid
-        ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+      const centerY = fh / 2;
+      const steps = 80; // More steps for smoother paths
+      const paths = 50; // More paths for denser terminal look
+      const endpoints: number[] = [];
+
+      fCtx.clearRect(0, 0, fw, fh);
+      dCtx.clearRect(0, 0, dw, dh);
+      frame += 0.015;
+
+      // Realistic Stochastic Parameters (Annualized)
+      const sigma = (volatility / 100) * 1.2 + 0.1; // 10% to 130% Vol
+      const mu = 0.05; // 5% Drift
+      const horizon = 60 / 365; // 60-day visual horizon
+      const expectedStdDev = livePrice * sigma * Math.sqrt(horizon);
+      const verticalRange = expectedStdDev * 3.5; 
+      const priceToY = (p: number) => centerY - ((p - livePrice) / verticalRange) * (fh * 0.45);
+
+      // Premium Grid for both
+      const drawGrid = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.03)';
         ctx.lineWidth = 1;
-        for (let i = 0; i < w; i += w / 10) {
+        for (let i = 0; i < w; i += 40) {
           ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, h); ctx.stroke();
         }
-
-        // Fan Paths
-        for (let i = 0; i < paths; i++) {
-          ctx.beginPath();
-          ctx.moveTo(0, centerY);
-
-          const opacity = (1 - Math.abs(i - paths / 2) / (paths / 2)) * 0.3;
-          ctx.strokeStyle = `rgba(0, 240, 255, ${opacity})`;
-
-          for (let j = 1; j <= steps; j++) {
-            const x = (j / steps) * w;
-            const drift = (j / steps) * -20;
-            const spread = (volatility / 50) * (j / steps) * 80;
-
-            // Deterministic but time-varying noise
-            const tOffset = Math.sin(frame + i * 0.7 + j * 0.1) * 1.5;
-            const spreadFactor = volatility / 50;
-            const driftRange = (livePrice || 100) * 0.05; // 5% drift range
-            const staticNoise = (Math.sin(i * 13.5 + j * 7.2) * 0.5) * spreadFactor * 80;
-
-            const currentY = centerY + drift + (staticNoise + tOffset) * (i - paths / 2) * 0.15;
-            ctx.lineTo(x, currentY);
-          }
-          ctx.stroke();
+        for (let i = 0; i < h; i += 40) {
+          ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(w, i); ctx.stroke();
         }
-
-        // Median Line
-        ctx.beginPath();
-        ctx.moveTo(0, centerY);
-        ctx.strokeStyle = 'rgba(0, 240, 255, 1)';
-        ctx.lineWidth = 2;
-        for (let j = 1; j <= steps; j++) {
-          const x = (j / steps) * w;
-          const drift = (j / steps) * -20;
-          ctx.lineTo(x, centerY + drift + Math.sin(frame * 1.5 + j * 0.1) * 2);
-        }
-        ctx.stroke();
-
-        animationId = requestAnimationFrame(draw);
       };
+      drawGrid(fCtx, fw, fh);
+      drawGrid(dCtx, dw, dh);
 
-      draw();
-      return () => cancelAnimationFrame(animationId);
+      // Fan Paths with Particles and Glow
+      for (let i = 0; i < paths; i++) {
+        fCtx.beginPath();
+        fCtx.moveTo(0, centerY);
+
+        const distFromCenter = Math.abs(i - paths / 2) / (paths / 2);
+        const opacity = (1 - distFromCenter) * 0.4;
+        
+        // Dynamic cyan-to-purple gradient based on risk
+        const hue = 180 + (volatility / 50) * 100; 
+        fCtx.strokeStyle = `hsla(${hue}, 100%, 50%, ${opacity})`;
+        fCtx.lineWidth = 1;
+
+        if (i === Math.floor(paths / 2)) {
+          fCtx.shadowBlur = 15;
+          fCtx.shadowColor = `hsla(${hue}, 100%, 50%, 0.8)`;
+          fCtx.lineWidth = 2;
+        } else {
+          fCtx.shadowBlur = 0;
+        }
+
+        const pathZ = ((i - (paths / 2)) / (paths / 2)) * 2.2;
+        let lastY = centerY;
+        for (let j = 1; j <= steps; j++) {
+          const x = (j / steps) * fw;
+          const t = j * horizon / steps;
+          const wiggle = Math.sin(frame + i * 0.3 + j * 0.1) * 0.05;
+          const noise = (Math.sin(i * 11 + j * 7) * 0.6 + Math.cos(j * 0.5) * 0.4) * 0.1;
+          const z_t = pathZ + wiggle + noise;
+          const price_t = livePrice * Math.exp((mu - 0.5 * sigma**2) * t + sigma * Math.sqrt(t) * z_t);
+          const y = priceToY(price_t);
+          fCtx.lineTo(x, y);
+          lastY = y;
+        }
+        fCtx.stroke();
+        endpoints.push(lastY);
+      }
+
+      // Draw Distribution Profile (Right Chart)
+      const bucketCount = 20;
+      const buckets = new Array(bucketCount).fill(0);
+      endpoints.forEach(y => {
+        const idx = Math.floor(((y / fh)) * bucketCount);
+        if (idx >= 0 && idx < bucketCount) buckets[idx]++;
+      });
+
+      const maxVal = Math.max(...buckets, 1);
+      buckets.forEach((count, idx) => {
+        const barH = (dh / bucketCount);
+        const barW = (count / maxVal) * dw * 0.8;
+        const yPos = idx * barH;
+        
+        const gradient = dCtx.createLinearGradient(0, yPos, barW, yPos);
+        const hue = 180 + (volatility / 50) * 100;
+        gradient.addColorStop(0, `hsla(${hue}, 100%, 50%, 0.1)`);
+        gradient.addColorStop(1, `hsla(${hue}, 100%, 50%, 0.6)`);
+        
+        dCtx.fillStyle = gradient;
+        dCtx.fillRect(2, yPos + 2, barW, barH - 4);
+        
+        // Glowing tip
+        dCtx.fillStyle = `hsla(${hue}, 100%, 70%, 0.8)`;
+        dCtx.fillRect(barW - 2, yPos + 2, 4, barH - 4);
+      });
+
+      // Scanline Effect
+      const scanY = (frame * 150) % fh;
+      fCtx.strokeStyle = 'rgba(0, 240, 255, 0.1)';
+      fCtx.lineWidth = 1;
+      fCtx.beginPath();
+      fCtx.moveTo(0, scanY);
+      fCtx.lineTo(fw, scanY);
+      fCtx.stroke();
+
+      animationId = requestAnimationFrame(draw);
     };
 
-    const cleanup = animateFanChart();
-    return () => {
-      if (cleanup) cleanup();
-    };
+    draw();
+    return () => cancelAnimationFrame(animationId);
   }, [volatility]);
 
   // Card Tilt Handler
@@ -291,7 +379,6 @@ export default function HomePage() {
     <div className="landing-wrap">
       <canvas ref={particleCanvasRef} className="particle-canvas" />
 
-      {/* Navigation */}
       <nav className="main-nav">
         <div className="nav-container max-width">
           <Link href="/" className="brand">
@@ -307,9 +394,32 @@ export default function HomePage() {
             <Link href="#about" className="nav-link-item">{t('NAV_ABOUT')}</Link>
             <Link href="#contact" className="nav-link-item">{t('NAV_CONTACT')}</Link>
           </div>
-          <Link href="/auth/login" className="nav-cta shimmer">{t('CLIENT_LOGIN')}</Link>
+          <div className="nav-actions">
+            <Link href="/auth/login" className="nav-cta shimmer hidden-mobile">{t('CLIENT LOGIN')}</Link>
+            <button 
+              className="menu-toggle"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              aria-label="Toggle Menu"
+            >
+              {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
         </div>
       </nav>
+
+      {/* Mobile Menu Drawer */}
+      <div className={`mobile-nav-drawer ${isMobileMenuOpen ? 'open' : ''}`}>
+        <div className="mobile-nav-content">
+          <div className="mobile-nav-links">
+            <Link href="#features" onClick={() => setIsMobileMenuOpen(false)}>{t('MASTER_COMPLEXITY')}</Link>
+            <Link href="#engine" onClick={() => setIsMobileMenuOpen(false)}>{t('NAV_ENGINE')}</Link>
+            <Link href="#pricing" onClick={() => setIsMobileMenuOpen(false)}>{t('NAV_PRICING')}</Link>
+            <Link href="#about" onClick={() => setIsMobileMenuOpen(false)}>{t('NAV_ABOUT')}</Link>
+            <Link href="#contact" onClick={() => setIsMobileMenuOpen(false)}>{t('NAV_CONTACT')}</Link>
+          </div>
+          <Link href="/auth/login" className="mobile-social-cta" onClick={() => setIsMobileMenuOpen(false)}>{t('CLIENT LOGIN')}</Link>
+        </div>
+      </div>
 
       <main>
         {/* Hero Section */}
@@ -318,23 +428,23 @@ export default function HomePage() {
           <div className="hero-container max-width reveal slide-up">
             <div className="hero-content">
               <h1 className="hero-title">
-                {t('HERO_TITLE_FORSIGHT')}<br />
-                <span className="hero-title-white">{t('HERO_TITLE_HINDSIGHT')}</span>
+                {t('INVEST WITH FORESIGHT')}<br />
+                <span className="hero-title-white">{t('NOT JUST HINDSIGHT')}</span>
               </h1>
               <p className="hero-lead">
-                {t('HERO_LEAD')}
+                {t('Experience the final word in institutional risk architecture. Simulate thousands of stochastic outcomes in real-time with our high-fidelity Monte Carlo engine. Your sovereign path to quantitative dominance begins here.')}
               </p>
               <div className="hero-buttons">
                 <button
                   onClick={() => setIsDownloadModalOpen(true)}
                   className="btn-primary shimmer"
                 >
-                  {t('DOWNLOAD_APP')}
+                  {t('DOWNLOAD APP')}
                   <ArrowRight size={18} />
                 </button>
                 <Link href="/auth/signup" className="btn-secondary">
                   <Shield size={18} />
-                  <span>{t('CREATE_VAULT')}</span>
+                  <span>{t('CREATE VAULT')}</span>
                 </Link>
               </div>
             </div>
@@ -343,7 +453,7 @@ export default function HomePage() {
               <div className="phone-mockup">
                 <img
                   alt="App Preview"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuC1IO8x1ubI3t3yBwpQZfuv2Zl73EWVlN2CEKJQk-_fLzYa1HKXHzNoL7Ny4Rrva0JUUpyblX4pCTYKsqr7ddfatD7OCy_frI9IPgEkEuto5tFp2zY_FSUm57HG1zHaqkCZ1jJRz0cRbVLspelm3Lt6qTTa0pYhM_D3xZ6cWS4ZqkWgLwWdYxfefFNL6nDhJwJDLSW12g1bYtMUReS2-EkJ28SHiXDT1pnrQuiz6lFNS0-03qrWfcn46wWBpyRMHEkO6VBN_gM3VD63"
+                  src="/app_preview_mobile.png"
                 />
               </div>
             </div>
@@ -354,9 +464,9 @@ export default function HomePage() {
         <section className="stats-section">
           <div className="stats-container max-width">
             {[
-              { val: '$1.2B', label: t('ASSETS_MODELED'), icon: 'M12 6v6m0 0v6m0-6h6m-6 0H6' },
+              { val: '$1.2B', label: t('ASSETS MODELED'), icon: 'M12 6v6m0 0v6m0-6h6m-6 0H6' },
               { val: '450K', label: t('SIMULATIONS'), icon: 'M9.75 17L9 20l-1.5-4h3L9.75 17z' },
-              { val: '4.9', label: t('APP_RATING'), icon: 'M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z' }
+              { val: '4.9', label: t('APP RATING'), icon: 'M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z' }
             ].map((stat, i) => (
               <div
                 key={i}
@@ -430,35 +540,52 @@ export default function HomePage() {
                   title={t('MARKET_VOLATILITY')}
                 />
               </div>
-              <div className="chart-wrapper">
-                <canvas ref={fanChartCanvasRef} />
-                <div className="chart-overlay">
-                  <div className="stat-row">
-                    <span className="stat-label">{t('LIVE_ASSET')}</span>
-                    <span className="stat-value text-cyan">{liveSymbol} @ ${livePrice?.toLocaleString() ?? t('FETCHING')}</span>
-                  </div>
-                  <div className="stat-row">
-                    <span className="stat-label">{t('DAILY_VAR_99')}</span>
-                    <span className="stat-value text-red">
-                      -${((livePrice ?? 1000) * (volatility / 1000) * 2.33).toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="stat-row">
-                    <span className="stat-label">{t('MONTE_CARLO_PATHS')}</span>
-                    <span className="stat-value">10,000</span>
-                  </div>
-                  <div className="stat-row">
-                    <span className="stat-label">{t('NODE_LATENCY')}</span>
-                    <span className="stat-value text-green">12ms</span>
-                  </div>
+            <div className="terminal-container glass-card">
+              <div className="terminal-header">
+                <div className="terminal-status">
+                  <div className="status-indicator animate-pulse"></div>
+                  <span className="status-text">{aiInsight}</span>
                 </div>
-                <div className="chart-timestamp">
-                  {t('GLOBAL_SYNC_ACTIVE')} // {mounted ? new Date().toLocaleTimeString() : t('INITIALIZING_STREAM')}
+                <div className="terminal-coords font-mono">
+                  QUANT_CORE_v4.2 // PROB_MATRIX_v2.0
                 </div>
               </div>
+
+              <div className="terminal-grid">
+                <div className="chart-main">
+                  <canvas ref={fanChartCanvasRef} />
+                  <div className="chart-label">{t('MONTE_CARLO_PATHS')}</div>
+                </div>
+                <div className="chart-side">
+                  <canvas ref={distributionChartCanvasRef} />
+                  <div className="chart-label">DENSITY_PROFILE</div>
+                </div>
+              </div>
+
+              <div className="chart-overlay">
+                <div className="stat-row">
+                  <span className="stat-label">{t('LIVE ASSET')}</span>
+                  <span className="stat-value text-cyan">{liveSymbol} @ ${livePrice?.toLocaleString() ?? t('FETCHING')}</span>
+                </div>
+                <div className="stat-row">
+                  <span className="stat-label">{t('DAILY VAR 99')}</span>
+                  <span className="stat-value text-red">
+                    -${((livePrice ?? 1000) * (volatility / 1000) * 2.33).toFixed(2)}
+                  </span>
+                </div>
+                <div className="stat-row">
+                  <span className="stat-label">{t('NODE LATENCY')}</span>
+                  <span className="stat-value text-green">12ms</span>
+                </div>
+              </div>
+
+              <div className="chart-timestamp">
+                {t('GLOBAL_SYNC_ACTIVE')} // {mounted ? new Date().toLocaleTimeString() : t('INITIALIZING_STREAM')}
+              </div>
+            </div>
               <div className="demo-footer">
                 <Link href="#" className="flex-center gap-2">
-                  <span>{t('RUN_PATHS_IN_APP')}</span> <span className="arrow">→</span>
+                  <span>{t('RUN PATHS IN APP')}</span> <span className="arrow">→</span>
                 </Link>
               </div>
             </div>
@@ -469,7 +596,7 @@ export default function HomePage() {
         <section id="pricing" className="pricing-section">
           <div className="pricing-container max-width">
             <div className="pricing-header reveal slide-up">
-              <h2 className="section-title">{t('SELECT_INTELLIGENCE')}</h2>
+              <h2 className="section-title">{t('SELECT INTELLIGENCE')}</h2>
               <div className="pricing-toggle-wrap">
                 <span>{t('MONTHLY')}</span>
                 <button 
@@ -538,8 +665,8 @@ export default function HomePage() {
             <div className="about-layout">
               <div className="about-content">
                 <div className="about-header">
-                  <span className="about-tag">{t('SINCE_2008')}</span>
-                  <h2 className="about-title">{t('INSTITUTIONAL_ROOTS')}</h2>
+                  <span className="about-tag">{t('SINCE 2008')}</span>
+                  <h2 className="about-title">{t('INSTITUTIONAL ROOTS')}</h2>
                   <div className="about-divider"></div>
                 </div>
  
@@ -573,12 +700,12 @@ export default function HomePage() {
                     <div className="card-content">
                       <div className="node-status">
                         <div className="status-dot animate-pulse"></div>
-                        <span>{t('SYSTEM_STABLE')}</span>
+                        <span>{t('SYSTEM STABLE')}</span>
                       </div>
                       <Cpu size={64} className="node-icon" />
                       <div className="node-info">
-                        <span className="node-label">Quant_Core_v4.2</span>
-                        <h4 className="node-name">{t('ACTIVE_SOVEREIGN_CONTROL')}</h4>
+                        <span className="node-label">Quant Core v4.2</span>
+                        <h4 className="node-name">{t('ACTIVE SOVEREIGN CONTROL')}</h4>
                       </div>
                       <div className="node-stats-grid">
                         <div className="n-stat">
@@ -603,36 +730,39 @@ export default function HomePage() {
         <section id="contact" className="contact-section">
           <div className="contact-container max-width reveal slide-up">
             <div className="contact-header text-center mb-12">
-              <h2 className="section-title">{t('ESTABLISH_CONNECTIVITY')}</h2>
+              <h2 className="section-title">Connect With Us</h2>
             </div>
- 
             <div className="contact-grid">
               <div className="contact-form-side">
                 <GlassCard className="contact-card" intensity="low">
                   <form className="contact-form" onSubmit={(e) => {
                     e.preventDefault();
-                    alert(t('CONNECTIVITY_ESTABLISHED'));
+                    const target = e.target as HTMLFormElement;
+                    alert("Message Received. Our team will contact you shortly.");
+                    target.reset();
                   }}>
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>{t('INSTITUTIONAL_IDENTIFIER')}</label>
-                        <input type="text" placeholder="John_Doe_Fund" className="form-input" required />
+                    <div className="form-fields">
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label className="form-label">Name / Institution</label>
+                          <input type="text" placeholder="e.g. John Doe" className="form-input" required />
+                        </div>
+                        <div className="form-group">
+                          <label className="form-label">Email Address</label>
+                          <input type="email" placeholder="email@example.com" className="form-input" required />
+                        </div>
                       </div>
                       <div className="form-group">
-                        <label>{t('EMAIL_ADDRESS')}</label>
-                        <input type="email" placeholder="terminal@quantmind.io" className="form-input" required />
+                        <label className="form-label">Subject</label>
+                        <input type="text" placeholder="How can we help?" className="form-input" required />
                       </div>
-                    </div>
-                    <div className="form-group">
-                      <label>{t('SUBJECT_PROTOCOLS')}</label>
-                      <input type="text" placeholder="Institutional_Inquiry" className="form-input" required />
-                    </div>
-                    <div className="form-group">
-                      <label>{t('MESSAGE_BODY')}</label>
-                      <textarea placeholder="..." className="form-input text-area" required></textarea>
+                      <div className="form-group">
+                        <label className="form-label">Message</label>
+                        <textarea placeholder="Your message..." className="form-input form-textarea" rows={5} required></textarea>
+                      </div>
                     </div>
                     <button type="submit" className="btn-primary shimmer w-full justify-center">
-                      {t('INITIALIZE_HANDSHAKE')}
+                      Send Message
                     </button>
                   </form>
                 </GlassCard>
@@ -640,7 +770,7 @@ export default function HomePage() {
  
               <div className="contact-info-side">
                 <div className="info-block">
-                  <h3 className="info-title">Global_Access_Nodes</h3>
+                  <h3 className="info-title">Global Access Nodes</h3>
                   <div className="info-list">
                     <p className="info-item">NY::Wall_Street_v1</p>
                     <p className="info-item">LDN::Canary_Wharf_v3</p>
@@ -648,10 +778,10 @@ export default function HomePage() {
                   </div>
                 </div>
                 <div className="info-block">
-                  <h3 className="info-title">Direct_Communications</h3>
+                  <h3 className="info-title">Direct Communications</h3>
                   <div className="info-list">
-                    <p className="info-item highlight">shadracking7@gmail.com</p>
-                    <p className="info-item highlight">+254746741690</p>
+                    <p className="info-item highlight">support@quantmind.co.ke</p>
+                    <p className="info-item highlight">+254 746 741 690</p>
                   </div>
                 </div>
               </div>
@@ -665,55 +795,56 @@ export default function HomePage() {
           <div className="footer-main">
             <div className="footer-brand-side">
               <Link href="/" className="footer-logo mb-6">
-                <img src="/logo.png" alt="QuantMind" />
-                <span className="logo-text">QuantMind</span>
+                <img src="/logo.png" alt="QuantMind" className="brand-logo-img" />
               </Link>
-              <p className="footer-tagline">
-                {t('FOOTER_TAGLINE')}
-              </p>
             </div>
  
-            <div className="footer-links-grid">
+            <div className="footer-grid">
               <div className="footer-col">
                 <label>{t('PLATFORM')}</label>
-                <Link href="/dashboard">{t('INSTITUTIONAL_DASHBOARD')}</Link>
-                <Link href="#engine">{t('ENGINE_MODELS')}</Link>
-                <Link href="/docs">{t('SIM_API')}</Link>
-                <Link href="#download">{t('MOBILE_TERMINALS')}</Link>
+                <Link href="/dashboard">{t('INSTITUTIONAL DASHBOARD')}</Link>
+                <Link href="#engine">{t('ENGINE MODELS')}</Link>
+                <Link href="/docs">{t('SIM API')}</Link>
+                <Link href="#download">{t('MOBILE TERMINALS')}</Link>
               </div>
               <div className="footer-col">
                 <label>{t('RESOURCES')}</label>
-                <Link href="/status">{t('SYSTEM_STATUS')}</Link>
+                <Link href="/status">{t('SYSTEM STATUS')}</Link>
                 <Link href="/whitepaper">{t('WHITEGUST')}</Link>
                 <Link href="/methodology">{t('METHODOLOGY')}</Link>
-                <Link href="/support">{t('SUPPORT_LOGS')}</Link>
+                <Link href="/support">{t('SUPPORT LOGS')}</Link>
               </div>
               <div className="footer-col">
-                <label>{t('LEGAL_GOVERNANCE')}</label>
-                <Link href="/legal/privacy">{t('PRIVACY_ENCRYPTION')}</Link>
-                <Link href="/legal/terms">{t('TERMS_OF_SERVICE')}</Link>
-                <Link href="/legal/cookies">{t('COOKIE_PROTOCOLS')}</Link>
-                <button 
-                   onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                   className="footer-link-btn"
-                >
-                  {t('BACK_TO_TOP')}
-                </button>
+                <label>{t('LEGAL GOVERNANCE')}</label>
+                <Link href="/legal/privacy">{t('PRIVACY ENCRYPTION')}</Link>
+                <Link href="/legal/terms">{t('TERMS OF SERVICE')}</Link>
+                <Link href="/legal/cookies">{t('COOKIE PROTOCOLS')}</Link>
               </div>
             </div>
           </div>
  
           <div className="footer-bottom">
             <div className="footer-copyright">
-              © {new Date().getFullYear()} QUANTMIND_INTL. {t('ALL_RIGHTS_RESERVED')}
+              © {new Date().getFullYear()} QUANTMIND_INTL. {t('ALL RIGHTS RESERVED')}
             </div>
-            <div className="footer-status-label">
-              <span className="status-indicator"></span>
-              {t('GLOBAL_SYNC_ACTIVE')}
+            <div className="social-links">
+               <span className="status-indicator"></span>
+               {t('GLOBAL SYNC ACTIVE')}
             </div>
           </div>
         </div>
       </footer>
+
+      {showBackToTop && (
+        <button 
+          className="back-to-top" 
+          onClick={scrollToTop}
+          aria-label="Back to Top"
+          title="Back to Top"
+        >
+          <ArrowUp size={24} />
+        </button>
+      )}
 
       <DownloadModal
         isOpen={isDownloadModalOpen}
@@ -721,6 +852,10 @@ export default function HomePage() {
       />
 
       <style jsx>{`
+        :global(html) {
+          /* Custom JS-driven smooth scroll used for 'Back to Top' */
+        }
+
         .landing-wrap {
           background-color: #080810;
           color: white;
@@ -728,7 +863,6 @@ export default function HomePage() {
           font-family: 'DM Sans', sans-serif;
           overflow-x: hidden;
           position: relative;
-          scroll-behavior: smooth;
         }
 
         .flex-center { display: flex; align-items: center; justify-content: center; }
@@ -1051,9 +1185,112 @@ export default function HomePage() {
           color: white;
           transition: none;
         }
-        :global(.brand:hover .brand-name) {
-          letter-spacing: 0.05em;
-          text-shadow: none;
+
+        :global(.nav-actions) {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+        }
+
+        .menu-toggle {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          border: 1px solid rgba(0, 240, 255, 0.2);
+          background: rgba(255, 255, 255, 0.05);
+          color: white;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          z-index: 1001;
+        }
+
+        .menu-toggle:hover {
+          background: rgba(0, 240, 255, 0.1);
+          border-color: rgba(0, 240, 255, 0.5);
+          color: #00F0FF;
+        }
+
+        @media (min-width: 1000px) {
+          .menu-toggle { display: none; }
+        }
+
+        .hidden-mobile {
+          display: none !important;
+        }
+        @media (min-width: 500px) {
+          .hidden-mobile { display: inline-flex !important; }
+        }
+
+        /* Mobile Nav Drawer */
+        .mobile-nav-drawer {
+          position: fixed;
+          top: 0;
+          right: 0;
+          width: 100%;
+          height: 100%;
+          background: rgba(8, 8, 16, 0.98);
+          backdrop-filter: blur(20px);
+          z-index: 999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transform: translateY(-100%);
+          transition: transform 0.6s cubic-bezier(0.85, 0, 0.15, 1);
+          opacity: 0;
+          pointer-events: none;
+        }
+
+        .mobile-nav-drawer.open {
+          transform: translateY(0);
+          opacity: 1;
+          pointer-events: all;
+        }
+
+        .mobile-nav-content {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 3rem;
+          width: 100%;
+          padding: 2rem;
+        }
+
+        .mobile-nav-links {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 2rem;
+        }
+
+        .mobile-nav-links a {
+          font-family: 'Space Grotesk', sans-serif;
+          font-size: 1.5rem;
+          font-weight: 700;
+          color: white;
+          text-decoration: none;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+          transition: all 0.3s ease;
+        }
+
+        .mobile-nav-links a:hover {
+          color: #00F0FF;
+          transform: scale(1.1);
+        }
+
+        .mobile-social-cta {
+          padding: 1rem 3rem;
+          background: #00F0FF;
+          color: #080810;
+          border-radius: 100px;
+          font-weight: 800;
+          text-decoration: none;
+          text-transform: uppercase;
+          letter-spacing: 0.2em;
+          box-shadow: 0 0 30px rgba(0, 240, 255, 0.4);
         }
 
         :global(.nav-links) {
@@ -1209,12 +1446,12 @@ export default function HomePage() {
         }
 
         @media (min-width: 1024px) {
-          .hero-container { grid-template-columns: 1.2fr 0.8fr; }
+          .hero-container { grid-template-columns: 1.4fr 0.6fr; }
         }
 
         .hero-title {
           font-family: 'Cormorant Garamond', serif;
-          font-size: 3.5rem;
+          font-size: clamp(2rem, 8vw, 3.8rem);
           font-weight: 600;
           color: #D4A017;
           line-height: 1.1;
@@ -1228,7 +1465,7 @@ export default function HomePage() {
         }
 
         @media (min-width: 768px) {
-          .hero-title { font-size: 5rem; }
+          .hero-title { font-size: 3.8rem; }
         }
 
         .hero-title-white { color: white; }
@@ -1245,10 +1482,16 @@ export default function HomePage() {
         :global(.hero-buttons) {
           display: flex !important;
           flex-wrap: wrap !important;
-          gap: 2rem 3rem !important; /* Increased horizontal gap to 3rem (48px) */
-          margin-top: 4rem !important;
+          gap: 1.5rem !important;
+          margin-top: 3rem !important;
           justify-content: flex-start !important;
           align-items: center !important;
+        }
+        @media (min-width: 768px) {
+          :global(.hero-buttons) {
+            gap: 2rem 3rem !important;
+            margin-top: 4rem !important;
+          }
         }
 
         :global(.btn-link-wrap) {
@@ -1613,25 +1856,112 @@ export default function HomePage() {
            outline: none;
         }
 
-        .chart-wrapper {
-           height: 380px;
-           background: rgba(8, 8, 16, 0.6);
-           border-radius: 1.5rem;
-           border: 1px solid rgba(0, 240, 255, 0.15);
-           overflow: hidden;
-           margin-bottom: 2rem;
-           box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.6);
-           position: relative;
+        .terminal-container {
+          position: relative;
+          background: rgba(8, 8, 16, 0.8);
+          border-radius: 2rem;
+          border: 1px solid rgba(0, 240, 255, 0.2);
+          overflow: hidden;
+          box-shadow: 0 40px 100px rgba(0, 0, 0, 0.6), inset 0 0 40px rgba(0, 240, 255, 0.05);
+          margin-bottom: 2rem;
+        }
+
+        .terminal-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 1rem;
+          background: rgba(0, 240, 255, 0.03);
+          border-bottom: 1px solid rgba(0, 240, 255, 0.1);
+        }
+        @media (min-width: 768px) {
+          .terminal-header { padding: 1.25rem 2rem; }
+        }
+
+        .terminal-status {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+        }
+
+        .status-indicator {
+          width: 8px;
+          height: 8px;
+          background: #00F0FF;
+          border-radius: 50%;
+          box-shadow: 0 0 10px #00F0FF;
+        }
+
+        .status-text {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.65rem;
+          font-weight: 700;
+          color: #00F0FF;
+          letter-spacing: 0.1em;
+        }
+
+        .terminal-coords {
+          font-size: 0.65rem;
+          color: rgba(144, 144, 184, 0.4);
+          letter-spacing: 0.1em;
+        }
+
+        .terminal-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          min-height: 450px;
+          width: 100%;
+          overflow: hidden;
+        }
+
+        @media (min-width: 768px) {
+          .terminal-grid {
+            grid-template-columns: 1.3fr 0.7fr;
+          }
+        }
+
+        .chart-main, .chart-side {
+          position: relative;
+          height: 450px;
+          width: 100%;
+          border-right: 1px solid rgba(0, 240, 255, 0.05);
+          overflow: hidden;
+        }
+
+        .chart-main canvas, .chart-side canvas {
+          width: 100% !important;
+          height: 100% !important;
+          display: block;
+        }
+
+        .chart-label {
+          position: absolute;
+          top: 1rem;
+          right: 1.5rem;
+          font-family: 'Space Grotesk', sans-serif;
+          font-size: 0.55rem;
+          font-weight: 800;
+          color: rgba(144, 144, 184, 0.3);
+          letter-spacing: 0.2em;
+          text-transform: uppercase;
+          pointer-events: none;
+        }
+
+        .terminal-grid canvas {
+          width: 100%;
+          height: 100%;
+          display: block;
         }
 
         .chart-overlay {
           position: absolute;
-          top: 1.5rem;
-          left: 1.5rem;
+          bottom: 2rem;
+          left: 2rem;
           display: flex;
           flex-direction: column;
           gap: 0.75rem;
           pointer-events: none;
+          z-index: 10;
         }
 
         .stat-row {
@@ -1669,8 +1999,6 @@ export default function HomePage() {
           letter-spacing: 0.1em;
           pointer-events: none;
         }
-
-        .chart-wrapper canvas { width: 100%; height: 100%; }
 
         .demo-footer { text-align: center; }
         .flex-center { display: flex; align-items: center; justify-content: center; }
@@ -1929,27 +2257,72 @@ export default function HomePage() {
           cursor: not-allowed;
         }
 
-        /* Footer */
-        .main-footer {
-          padding: 8rem 0 4rem;
+        /* Footer Section */
+        .footer-terminal {
           background: #080810;
+          padding: 100px 0 60px;
           border-top: 1px solid rgba(255, 255, 255, 0.05);
           position: relative;
           z-index: 10;
         }
 
-        .footer-grid {
+        .footer-main {
           display: grid;
           grid-template-columns: 1fr;
           gap: 4rem;
           margin-bottom: 6rem;
         }
 
-        @media (min-width: 768px) {
-          .footer-grid { grid-template-columns: 2fr 1fr 1fr; }
+        @media (min-width: 1024px) {
+          .footer-main { grid-template-columns: 1.2fr 1.8fr; }
         }
 
-        .brand-text { color: #9090B8; max-width: 24rem; line-height: 1.7; font-size: 1rem; }
+        .footer-grid {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 3rem;
+        }
+
+        @media (min-width: 640px) {
+          .footer-grid { grid-template-columns: 1fr 1fr; }
+        }
+
+        @media (min-width: 1024px) {
+          .footer-grid { grid-template-columns: 1fr 1fr 1fr; }
+        }
+
+        .footer-brand-side {
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
+        }
+
+        .footer-logo {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          text-decoration: none;
+        }
+
+        .footer-logo .brand-logo-img {
+          height: 32px;
+          width: auto;
+        }
+
+        .logo-text {
+          font-family: 'Space Grotesk', sans-serif;
+          font-size: 1.25rem;
+          font-weight: 800;
+          color: white;
+          letter-spacing: -0.02em;
+        }
+
+        .footer-tagline {
+          color: #9090B8;
+          font-size: 0.9375rem;
+          line-height: 1.6;
+          max-width: 320px;
+        }
 
         .footer-col { display: flex; flex-direction: column; gap: 1.25rem; }
         .footer-col label {
@@ -1983,16 +2356,8 @@ export default function HomePage() {
           .footer-bottom { flex-direction: row; justify-content: space-between; }
         }
 
-        .confidential-tag {
-          font-family: 'JetBrains Mono', monospace;
-          font-size: 0.7rem;
-          color: rgba(255, 255, 255, 0.2);
-          text-transform: uppercase;
-          letter-spacing: 0.15em;
-        }
-
-        .social-links { display: flex; gap: 2rem; }
-        .social-links a { 
+        .social-links { display: flex; gap: 2rem; align-items: center; }
+        .social-links { 
           font-size: 0.8rem; 
           color: #9090B8; 
           transition: all 0.2s; 
@@ -2001,7 +2366,40 @@ export default function HomePage() {
           text-transform: uppercase;
           letter-spacing: 0.1em;
         }
-        .social-links a:hover { color: #00F0FF; transform: scale(1.1); }
+
+        .back-to-top {
+          position: fixed;
+          bottom: 30px;
+          right: 30px;
+          width: 50px;
+          height: 50px;
+          background: #00F0FF;
+          color: #080810;
+          border: none;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          z-index: 100;
+          box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          animation: slideUpFadeIn 0.4s ease-out;
+        }
+
+        .back-to-top:hover {
+          transform: translateY(-5px) scale(1.1);
+          box-shadow: 0 0 30px rgba(0, 240, 255, 0.6);
+        }
+
+        .back-to-top:active {
+          transform: scale(0.9);
+        }
+
+        @keyframes slideUpFadeIn {
+          from { transform: translateY(20px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
 
         /* Contact Section */
         .contact-grid {
@@ -2016,8 +2414,20 @@ export default function HomePage() {
           .contact-grid { grid-template-columns: 1.2fr 0.8fr; }
         }
 
-        :global(.contact-form-card) {
-          padding: 3rem !important;
+        :global(.contact-card) {
+          padding: 2rem !important;
+        }
+        @media (min-width: 768px) {
+          :global(.contact-card) { padding: 3rem !important; }
+        }
+
+        .form-row {
+          display: grid;
+          grid-template-columns: 1fr;
+          gap: 1.5rem;
+        }
+        @media (min-width: 640px) {
+          .form-row { grid-template-columns: 1fr 1fr; }
         }
 
         .form-fields {

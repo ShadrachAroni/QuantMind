@@ -210,6 +210,38 @@ serve(async (req: Request) => {
             } catch (emailErr) {
               console.error('[RECEIPT_FAILURE] Failed to dispatch automated receipt:', emailErr);
             }
+
+            // 4. Trigger Subscription Allocation Email (Terminal Allocated)
+            if (data.plan) {
+              try {
+                const nextBillingDate = new Date();
+                nextBillingDate.setDate(nextBillingDate.getDate() + 30);
+                const formattedNextBilling = nextBillingDate.toLocaleDateString('en-GB', { 
+                  day: '2-digit', month: 'short', year: 'numeric' 
+                }).toUpperCase();
+
+                await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-email`, {
+                  method: 'POST',
+                  headers: {
+                    'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    to: data.customer.email,
+                    type: 'subscription_update',
+                    userId: supabaseUserId,
+                    details: {
+                      tier: tierLabel,
+                      amount: `${data.amount / 100} ${data.currency}`,
+                      nextBilling: formattedNextBilling
+                    }
+                  })
+                });
+                console.log(`[SUBSCRIPTION_NOTICE_SENT] Terminal allocation update dispatched to ${data.customer.email}`);
+              } catch (subErr) {
+                console.error('[SUBSCRIPTION_NOTICE_FAILURE] Failed to dispatch allocation notice:', subErr);
+              }
+            }
         }
         break;
       }

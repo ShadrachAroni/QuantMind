@@ -6,9 +6,11 @@ import { biometricService, BiometricType } from '../services/biometric';
 import { storage } from '../utils/storage';
 import { CONFIG } from '../constants/config';
 import { SecureKeys } from '../constants/keys';
+import { mojoAuth } from '../services/mojoauth';
+import { warrantService } from '../services/warrant-client';
 import { usePortfolioStore } from './portfolioStore';
 
-const SESSION_TIMEOUT = 24 * 60 * 60 * 1000; // 24 Hours in ms
+const SESSION_TIMEOUT = 1 * 60 * 60 * 1000; // 1 Hour (Synchronized with Supabase)
 const CACHE_TTL = 5 * 60 * 1000; // 5 Minutes in ms
 
 export type AIPersona = 'DEFAULT' | 'AGGRESSIVE' | 'CONSERVATIVE' | 'INSTITUTIONAL';
@@ -124,6 +126,9 @@ interface AuthState {
   updateMFAPasskey: (enabled: boolean) => Promise<void>;
   onboardingCompleted: boolean;
   setOnboardingCompleted: (completed: boolean) => void;
+  sendMojoMagicLink: (email: string) => Promise<boolean>;
+  verifyMojoOTP: (email: string, otp: string, stateId: string) => Promise<void>;
+  checkMojoPermission: (relation: any, objectType: any, objectId: string) => Promise<boolean>;
 }
 
 const DEFAULT_AI_PREFS: AIPrefs = {
@@ -399,8 +404,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     
     usePortfolioStore.getState().unsubscribeFromChanges();
     
+    // Revoke Supabase
     await supabase.auth.signOut();
+    
+    // Revoke MojoAuth context if applicable
+    // Note: MojoAuth mobile context is primarily handled via deep-link/token expiry.
+    
     set({ user: null, tier: 'free', aiPrefs: null, initialized: false, profileSubscription: null });
+    await storage.deleteItemAsync(SecureKeys.AUTH.LAST_ACTIVITY);
   },
 
   completeOnboarding: async () => {
@@ -519,5 +530,39 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   fetchChangelog: async () => {
     const { data } = await supabase.from('changelog').select('*').order('created_at', { ascending: false });
     set({ changelog: data || [] });
+  },
+
+  sendMojoMagicLink: async (email: string) => {
+    return await mojoAuth.sendMagicLink(email);
+  },
+
+  verifyMojoOTP: async (email: string, otp: string, stateId: string) => {
+    set({ isLoading: true });
+    try {
+      const authData = await mojoAuth.verifyOTP(email, otp, stateId);
+      if (authData?.user) {
+        // Manual Bridge: Successful MojoAuth verification results in Supabase profile update
+        // In this manual flow, we ensure the user exists in user_profiles
+        // and link the MojoAuth identity to the Supabase UID if not already linked.
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('email', email)
+          .single();
+
+        if (profile) {
+          set({ user: mapSupabaseUser({ ...authData.user, id: profile.id }) });
+          await get().recordActivity();
+        }
+      }
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
+  checkMojoPermission: async (relation, objectType, objectId) => {
+    const { user } = get();
+    if (!user) return false;
+    return await warrantService.isAuthorized(user.id, relation, objectType, objectId);
   },
 }));

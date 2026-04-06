@@ -1,86 +1,83 @@
-// Auth validation shared utilities for Edge Functions
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { corsHeaders } from './cors.ts';
+/**
+ * OmniWealth Unified Auth & Security Diagnostics
+ * 
+ * Provides standardized error handling, audit logging, and identity bridging
+ * for MojoAuth, Supabase, and Warrant (ReBAC) interactions.
+ */
 
-export interface AuthenticatedUser {
-  id: string;
-  email: string;
-  tier: string;
-  is_admin: boolean;
-  role?: string;
+export enum AuthService {
+  SUPABASE = 'SUPABASE',
+  MOJOAUTH = 'MOJOAUTH',
+  WARRANT = 'WARRANT',
+  LOCAL_REBAC = 'LOCAL_REBAC'
 }
 
-export async function requireAuth(req: Request): Promise<AuthenticatedUser> {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    throw new Error('Missing or invalid Authorization header');
-  }
+export enum SecurityEvent {
+  LOGIN_SUCCESS = 'LOGIN_SUCCESS',
+  LOGIN_FAILURE = 'LOGIN_FAILURE',
+  SESSION_REFRESH = 'SESSION_REFRESH',
+  LOGOUT = 'LOGOUT',
+  REBAC_DENIED = 'REBAC_DENIED',
+  MFA_STEPUP = 'MFA_STEPUP'
+}
 
-  const token = authHeader.replace('Bearer ', '');
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('ANON_KEY')!;
+export interface AuthDiagnostic {
+  service: AuthService;
+  event: SecurityEvent;
+  userId?: string;
+  metadata?: Record<string, any>;
+  timestamp: string;
+}
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  if (error || !user) {
-    throw new Error('Unauthorized: Invalid or expired token');
-  }
-
-  // Get profile details from user_profiles
-  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SERVICE_ROLE_KEY')!;
-  const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
-
-  const { data: profile } = await supabaseAdmin
-    .from('user_profiles')
-    .select('tier, is_admin')
-    .eq('id', user.id)
-    .single();
-
-  return {
-    id: user.id,
-    email: user.email!,
-    tier: profile?.tier || 'free',
-    is_admin: !!profile?.is_admin,
-    role: user.app_metadata?.role,
+/**
+ * Audit Logger: Standardizes how security events are recorded for institutional review.
+ */
+export async function logSecurityAudit(diagnostic: AuthDiagnostic) {
+  const payload = {
+    ...diagnostic,
+    timestamp: diagnostic.timestamp || new Date().toISOString(),
+    environment: Deno.env.get('ENVIRONMENT') || 'development'
   };
+
+  console.log(`[SECURITY_AUDIT][${payload.service}][${payload.event}]: User ${payload.userId || 'anonymous'}`);
+  
+  // In production, this would also write to a dedicated audit_logs table or external SIEM
+  /*
+  const { supabaseAdmin } = await import('./supabaseAdmin.ts');
+  await supabaseAdmin.from('security_audit_logs').insert(payload);
+  */
 }
 
-export function unauthorizedResponse(message = 'Unauthorized', origin: string | null = null): Response {
-  return new Response(JSON.stringify({ error: message }), {
+/**
+ * Error Facade: Standardizes auth errors returned to the client 
+ * while preserving detailed diagnostics for developers.
+ */
+export function handleAuthError(error: any, service: AuthService): Response {
+  const correlationId = crypto.randomUUID();
+  
+  logSecurityAudit({
+    service,
+    event: SecurityEvent.LOGIN_FAILURE,
+    metadata: { error: error.message, correlationId },
+    timestamp: new Date().toISOString()
+  });
+
+  return new Response(JSON.stringify({
+    status: 'error',
+    code: 'AUTH_FAILED',
+    message: 'Authentication or authorization failed. Please contact your system administrator.',
+    correlationId
+  }), {
     status: 401,
-    headers: { 
-      'Content-Type': 'application/json',
-      ...corsHeaders(origin)
-    },
+    headers: { 'Content-Type': 'application/json' }
   });
 }
 
-export function forbiddenResponse(message = 'Forbidden', origin: string | null = null): Response {
-  return new Response(JSON.stringify({ error: message }), {
-    status: 403,
-    headers: { 
-      'Content-Type': 'application/json',
-      ...corsHeaders(origin)
-    },
-  });
-}
-
-// Validate redirect URLs against allow-list
-const ALLOWED_REDIRECTS = new Set([
-  'http://localhost:3000/auth/callback',
-  'https://quantmind-dashboard.vercel.app/auth/callback',
-  'https://quantmind.app/auth/callback',
-  'https://admin.quantmind.app/auth/callback',
-  'https://dashboard.quantmind.app/auth/callback',
-  'quantmind://auth/callback',
-]);
-
-export function validateRedirectUrl(url: string): string {
-  try {
-    if (ALLOWED_REDIRECTS.has(url)) return url;
-    return 'https://quantmind.app';
-  } catch {
-    return 'https://quantmind.app';
-  }
-}
+/**
+ * Session Configuration: Synchronized TTL settings
+ */
+export const SECURITY_CONFIG = {
+  SESSION_TTL_SECONDS: 3600, // 1 Hour (User requested sync)
+  MFA_THRESHOLD_SECONDS: 86400, // 24 Hours
+  BIOMETRIC_STRICT_MODE: true
+};

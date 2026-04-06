@@ -1,5 +1,5 @@
 // Rate limiter using Upstash Redis
-import { Redis } from 'https://esm.sh/@upstash/redis@1.20.4';
+import { Redis } from '@upstash/redis';
 
 const redis = new Redis({
   url: Deno.env.get('UPSTASH_REDIS_URL')!,

@@ -17,6 +17,7 @@
   "devDependencies": {
     "@alloc/quick-lru": "^5.2.0",
     "@swc/helpers": "0.5.15",
+    "@types/deno": "^2.5.0",
     "babel-plugin-module-resolver": "^5.0.3",
     "chalk": "^4.1.2",
     "dlv": "^1.1.3",

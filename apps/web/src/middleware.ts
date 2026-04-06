@@ -1,5 +1,6 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { createServerClient } from '@supabase/ssr';
+import { warrantService } from './lib/services/warrant-client';
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -61,6 +62,20 @@ export async function middleware(request: NextRequest) {
       redirectResponse.cookies.set(cookie);
     });
     return redirectResponse;
+  }
+
+  // 3. Local ReBAC Gate (Warrant)
+  if (session && isDashboardPage) {
+    const isAuthorized = await warrantService.isAuthorized(session.user.id, {
+      objectType: 'portfolio',
+      objectId: 'default',
+      relation: 'viewer'
+    });
+
+    if (!isAuthorized) {
+      const url = new URL('/unauthorized', request.url);
+      return NextResponse.redirect(url);
+    }
   }
 
   // 3. Password Expiry Gate (Section 11.3)

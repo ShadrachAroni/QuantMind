@@ -55,6 +55,7 @@ import { Toaster } from "sonner";
 import { UserProvider } from "@/components/UserContext";
 import { MaintenanceGuard } from "@/components/MaintenanceGuard";
 import { ConnectivityListener } from "@/components/ConnectivityListener";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export default function RootLayout({
   children,
@@ -103,6 +104,7 @@ export default function RootLayout({
               {children}
             </MaintenanceGuard>
             <Toaster position="bottom-right" theme="dark" closeButton />
+            <SpeedInsights />
           </UserProvider>
         </ThemeProvider>
       </body>

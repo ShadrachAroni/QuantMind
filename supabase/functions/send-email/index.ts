@@ -1,17 +1,23 @@
-// QuantMind Edge Function: send-email
-// Single Source of Truth for Institutional QuantMind Templates.
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+
 import { 
   getQuantMindRiskAlertTemplate, 
   getQuantMindWelcomeTemplate, 
   getQuantMindSubscriptionTemplate, 
+  getQuantMindSubscriptionExpiryTemplate,
+  getQuantMindSubscriptionExpiredTemplate,
   getQuantMindPasswordReminderTemplate, 
   getQuantMindOTPTemplate,
   getQuantMindTemplate,
-  getQuantMindReceiptTemplate
+  getQuantMindReceiptTemplate,
+  getInstitutionalSender,
+  sendEmail
 } from '../_shared/email.ts';
 
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 serve(async (req: Request) => {
   try {
@@ -40,22 +46,10 @@ serve(async (req: Request) => {
       html = getQuantMindOTPTemplate(details.code);
       finalSubject = subject || `[SECURITY] Admin Authorization Key: ${details.code}`;
     } else if (type === 'subscription_expiry') {
-      // Reusing subscription template or generic for now, as it's similar
-      html = getQuantMindTemplate(
-        `<p>Your ${details.planName} protocol access is scheduled for termination on <strong>${details.expiryDate}</strong>.</p>
-         <p>T-Minus ${details.daysLeft} Days remaining.</p>
-         <a href="https://quantmind.app/terminal/subscription" class="btn">Renew Node Access</a>`,
-        "Node Access Expiring"
-      );
+      html = getQuantMindSubscriptionExpiryTemplate(details);
       finalSubject = subject || `[TERM_ALERT] Node Subscription Termination Approaching (${details.daysLeft}d)`;
     } else if (type === 'subscription_expired') {
-      html = getQuantMindTemplate(
-        `<p>Your ${details.planName} protocol access has expired as of <strong>${details.expiryDate}</strong>.</p>
-         <p>Your account has been automatically reverted to the <strong>STND (Free) Tier</strong>. All elite node access and priority simulation bandwidth have been restricted.</p>
-         <p>To restore institutional-grade access, please initialize a new subscription via the terminal.</p>
-         <a href="https://quantmind.app/terminal/subscription" class="btn">Renew Node Access</a>`,
-        "Node Access Expired"
-      );
+      html = getQuantMindSubscriptionExpiredTemplate(details);
       finalSubject = subject || `[TERM_ALERT] Node Subscription Token Expired - Reverted to Standard`;
     } else if (type === 'payment_receipt') {
       html = getQuantMindReceiptTemplate(details);
@@ -68,28 +62,26 @@ serve(async (req: Request) => {
       );
     }
 
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + RESEND_API_KEY,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: Deno.env.get('RESEND_FROM_EMAIL') || 'QuantMind <onboarding@resend.dev>',
-        to,
-        subject: finalSubject,
-        html
-      })
-    });
+    // Determine the institutional sender based on type
+    const from = getInstitutionalSender(type || 'system');
 
-    const resData = await res.json();
+    // Dispatch using shared utility with explicit Supabase client for validation
+    const resData = await sendEmail({
+      from,
+      to,
+      subject: finalSubject,
+      html,
+      userId
+    }, supabase);
+
     return new Response(JSON.stringify(resData), { 
-      status: res.status, 
+      status: 200, 
       headers: { 'Content-Type': 'application/json' } 
     });
 
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error('[send-email error]:', errorMessage);
     return new Response(JSON.stringify({ error: errorMessage }), { status: 500 });
   }
 });

@@ -1,19 +1,23 @@
 import { create } from 'zustand';
 import { api } from '../services/api';
+import { financialEngine, AssetPosition, ValuationResult } from '../services/financial-engine';
 
 interface AssetStore {
   watchlist: string[];
   isLoading: boolean;
   error: string | null;
+  valuation: ValuationResult | null;
   fetchWatchlist: () => Promise<void>;
   addToWatchlist: (ticker: string) => Promise<void>;
   removeFromWatchlist: (ticker: string) => Promise<void>;
+  calculatePortfolioValue: (positions: AssetPosition[]) => Promise<void>;
 }
 
 export const useAssetStore = create<AssetStore>((set, get) => ({
   watchlist: [],
   isLoading: false,
   error: null,
+  valuation: null,
 
   fetchWatchlist: async () => {
     set({ isLoading: true, error: null });
@@ -52,6 +56,18 @@ export const useAssetStore = create<AssetStore>((set, get) => ({
       await api.updateWatchlist(next);
     } catch (e: any) {
       set({ watchlist: current, error: e.message }); // Rollback
+    }
+  },
+
+  calculatePortfolioValue: async (positions) => {
+    set({ isLoading: true });
+    try {
+      const valuation = await financialEngine.valuePortfolio(positions);
+      set({ valuation });
+    } catch (e: any) {
+      set({ error: e.message });
+    } finally {
+      set({ isLoading: false });
     }
   },
 }));

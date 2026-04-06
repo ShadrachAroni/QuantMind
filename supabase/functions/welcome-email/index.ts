@@ -1,12 +1,14 @@
-// QuantMind Edge Function: welcome-email
-// Triggered by Database Webhooks when a user confirms their email.
-
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
 import { 
   sendEmail, 
   getQuantMindWelcomeTemplate, 
   getInstitutionalSender 
 } from '../_shared/email.ts';
+
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 serve(async (req: Request) => {
   try {
@@ -28,11 +30,8 @@ serve(async (req: Request) => {
         from: getInstitutionalSender('welcome'),
         subject,
         html,
-        tags: [
-          { name: 'user_id', value: record.id },
-          { name: 'email_type', value: 'welcome' }
-        ]
-      });
+        userId: record.id
+      }, supabase);
 
       return new Response(JSON.stringify({ status: 'sent' }), { 
         status: 200,
@@ -55,11 +54,8 @@ serve(async (req: Request) => {
         from: getInstitutionalSender('welcome'),
         subject,
         html,
-        tags: [
-          { name: 'user_id', value: record.id },
-          { name: 'email_type', value: 'welcome' }
-        ]
-      });
+        userId: record.id
+      }, supabase);
 
       return new Response(JSON.stringify({ status: 'sent_insert' }), { 
         status: 200,

@@ -1,88 +1,68 @@
-Here's your enhanced, implementation-ready prompt:
+# QuantMind OmniWealth: Identity & Governance Spec
+
+This document outlines the institutional-grade security architecture of the QuantMind OmniWealth platform, ensuring high-performance authorization and biometric-first identity across Web, Dashboard, and Mobile.
 
 ---
 
-# Authentication & Security Flow — Implementation Spec
+## 1. Identity & Authentication (MojoAuth)
+QuantMind utilizes **MojoAuth** as its primary identity provider, implementing a biometric-first, passwordless philosophy.
 
-## 1. Sign Up Methods
-Users can register via:
-- **Google OAuth**
-- **Apple OAuth**
-- **Email + Password** (manual account creation)
+### **Multi-Platform Methods**
+*   **Passkeys (WebAuthn)**: Primary login method on Web and Mobile (Secure Enclave/Keystore).
+*   **Magic Links**: OTP-less email verification for seamless cross-device onboarding.
+*   **Email OTP**: 6-digit secondary fallback for low-trust environments.
+*   **OAuth Bridge**: Google & Apple identity verification linked to the MojoAuth profile.
 
----
-
-## 2. Login Methods
-Users can authenticate via:
-- **Google OAuth**
-- **Apple OAuth**
-- **Email + Password**
-- Email + Password
-- **Biometrics / Passkey** *(Mobile native or WebAuthn on Web)*
+### **Biometric Bridge (Mobile)**
+On the mobile platform (`apps/mobile`), MojoAuth sessions are bridged with native hardware using `expo-local-authentication`. 
+- **FaceID/TouchID** serves as a pre-verified AAL2 factor.
+- Sessions are cached securely in the device's keychain, allowing for instant biometric re-authentication without round-trips to the identity provider.
 
 ---
 
-## 3. Two-Factor Authentication (2FA) Options
-The following 2FA methods can be configured in **Settings**:
+## 2. Governance & Authorization (Warrant)
+QuantMind implements a **Relationship-Based Access Control (ReBAC)** model using a local architecture for maximum performance and zero external API latency.
 
-| Method | Platform Availability | Notes |
+### **The Warrant Local Mesh**
+- **Architecture**: The `WarrantService` operates as a local logic layer within the application boundary.
+- **Relational Model**:
+    - **Objects**: Portfolios, Assets, Organizations.
+    - **Relations**: `viewer`, `editor`, `owner`.
+- **Enforcement**: 
+    - **Web**: Next.js Middleware gates routes based on local relation checks.
+    - **Mobile**: The `authStore` provides an `isAuthorized` hook for granular UI component visibility (e.g., hiding "Liquidate" buttons for `viewers`).
+
+---
+
+## 3. Financial Engine Security
+Data integrity and privacy for the unified market data mesh:
+- **Provider Aggregation**: Signed requests to **Finage** and **Marketstack** via backend proxies.
+- **Encryption**: API keys are managed via **Vercel Env** and **Supabase Vault**, never exposed to the client.
+- **Offline Integrity**: Mobile exchange rates are cached via `AsyncStorage` with a 1-hour TTL and cryptographic validation.
+
+---
+
+## 4. Multi-Factor Authentication (MFA)
+QuantMind enforces a strict **AAL2 (Authenticator Assurance Level 2)** requirement for all institutional accounts.
+
+| Factor | Implementation | Platform |
 |---|---|---|
-| Email OTP | Web + Mobile | 6-digit code sent via SMTP |
-| Authenticator App (TOTP) | Web + Mobile | RFC 6238 compliant (Google Auth / Authy) |
-| Biometrics / Passkey | Web + Mobile | WebAuthn (Web) or Secure Enclave (Mobile) |
+| **Biometric Passkey** | MojoAuth / WebAuthn | Web + Mobile |
+| **Authenticator (TOTP)** | RFC 6238 Standard | Web + Mobile |
+| **Hardware Key** | FIDO2 / Yubikey | Web (Production) |
 
 ---
 
-## 4. Cross-Platform MFA Philosophy
-- **Parity First**: Both Web and Mobile offer identical security posture.
-- **Biometric Bypass**: Biometric login (Passkey/FaceID) serves as a pre-verified AAL2 factor, bypassing subsequent MFA challenges for maximum UX fluidity.
-- **Mandatory Enforcement**: If a user has enrolled in any MFA factor, dashboard access is gated by an AAL2 requirement.
+## 5. Deployment & Secrets Management
+Identity and security configurations are synchronized across the ecosystem automatically:
+- **Vercel**: `quantmind` and `quantmind-dashboard` production environments.
+- **Supabase**: Edge Functions utilizing the modern `sb_publishable_` keys and Vault secrets.
+- **GitHub Actions**: CI/CD pipeline verifies security parity before deployment.
 
 ---
 
-## 5. Post-Login 2FA Challenge Logic
-
-After successful credential verification, the system enforces AAL2 assurance:
-
-```
-User submits credentials (password or OAuth)
-        │
-        ▼
-Session initialized (AAL1)
-        │
-        ▼
-Does user have MFA factors enabled? (Supabase or Profile-based)
-    ├── NO  → Grant access directly (Dashboard)
-    └── YES → Check current Level:
-                  │
-                  ├── Session is AAL2? (Biometric Login)
-                  │       → Grant access directly
-                  │
-                  └── Session is AAL1?
-                          → Trigger MFAChallengeModal / MfaGuardian
-                          → User verifies via TOTP, Email, or Passkey
-                          → Grant access (AAL2)
-```
-
----
-
-## 8. Platform Feature Matrix (Verified)
-
-| Feature | Web | Mobile |
-|---|---|---|
-| Sign up with Google / Apple | ✅ | ✅ |
-| Sign up with Email | ✅ | ✅ |
-| Login with Google / Apple | ✅ | ✅ |
-| Login with Email + Password | ✅ | ✅ |
-| Login with Biometrics / Passkey | ✅ | ✅ |
-| 2FA via Email OTP | ✅ | ✅ |
-| 2FA via Authenticator App | ✅ | ✅ |
-| 2FA via Biometrics / Passkey | ✅ | ✅ |
-| MFA Setup in Settings | ✅ | ✅ |
-
----
-
-## 9. Security Roadmap
-- **V1.2.0**: SMS OTP Fallback Integration.
-- **V1.3.0**: Risk-based Session Fingerprinting.
-- **V1.4.0**: Hardware Security Key (FIDO2) support for Mobile.
+## 6. Security Roadmap
+- **Q3 2026**: Implementation of Risk-based Session Fingerprinting.
+- **Q4 2026**: Hardware Security Key support for Native Mobile.
+- **Q1 2027**: Zero-Knowledge (ZK) Proofs for privacy-preserving portfolio auditing.
+

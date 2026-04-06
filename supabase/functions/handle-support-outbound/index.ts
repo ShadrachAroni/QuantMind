@@ -71,8 +71,9 @@ serve(async (req: Request) => {
       from: getInstitutionalSender('support'),
       to: recipientEmail,
       subject: `Re: ${ticket.subject} [Ticket ID: QS-${ticketTag}]`,
-      html: getSupportReplyTemplate(ticketTag, content)
-    })
+      html: getSupportReplyTemplate(ticketTag, content),
+      userId: ticket.user_id
+    }, supabase)
 
     // 5. Log Transmission & Update State
     const { error: msgError } = await supabase.from('support_messages').insert({
