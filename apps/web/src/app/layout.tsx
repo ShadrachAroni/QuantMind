@@ -17,10 +17,24 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://quantmind.co.ke'),
   title: "QuantMind | Institutional Portfolio Intelligence",
   description: "Advanced portfolio risk modeling powered by Monte Carlo simulation. Experience the future of investment foresight today.",
-  keywords: ["QuantMind", "Portfolio Risk", "Monte Carlo Simulation", "Financial Intelligence", "Risk Modeling", "VaR", "CVaR"],
+  keywords: [
+    "QuantMind", "Portfolio Risk", "Monte Carlo Simulation", "Financial Intelligence", 
+    "Risk Modeling", "VaR", "CVaR", "Institutional Portfolio Management", 
+    "Quantitative Analysis", "Wealth Management", "Financial Risk Software"
+  ],
   authors: [{ name: "QuantMind Engineering" }],
+  alternates: {
+    canonical: '/',
+  },
+  verification: {
+    google: "YOUR_GOOGLE_VERIFICATION_CODE",
+    other: {
+      "msvalidate.01": "YOUR_BING_VERIFICATION_CODE",
+    },
+  },
   openGraph: {
     title: "QuantMind | Institutional Portfolio Intelligence",
     description: "Advanced portfolio risk modeling powered by Monte Carlo simulation. Professional-grade foresight for the modern investor.",

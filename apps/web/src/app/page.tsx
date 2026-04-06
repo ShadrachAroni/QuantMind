@@ -9,7 +9,7 @@ import { createClient } from '@/lib/supabase';
 import { useTranslation } from '@/lib/i18n';
 import { useUser } from '@/components/UserContext';
 import { cn } from '@/lib/utils';
-
+import { StructuredData } from '@/components/StructuredData';
 
 export default function HomePage() {
   const [isYearly, setIsYearly] = useState(false);
@@ -377,6 +377,7 @@ export default function HomePage() {
 
   return (
     <div className="landing-wrap">
+      <StructuredData />
       <canvas ref={particleCanvasRef} className="particle-canvas" />
 
       <nav className="main-nav">
