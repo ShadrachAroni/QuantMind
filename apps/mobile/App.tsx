@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Platform, Appearance, TouchableOpacity, Text, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, Appearance, TouchableOpacity, Text, useWindowDimensions } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -119,15 +119,7 @@ function AppContent() {
 
 export default function App() {
   useEffect(() => {
-    if (Platform.OS === 'web') {
-      import('@shopify/react-native-skia/lib/module/web').then(({ LoadSkiaWeb }) => {
-        LoadSkiaWeb().then(() => {
-          console.log('[Skia] Graphics engine initialized for web');
-        }).catch(err => {
-          console.error('[Skia] Failed to initialize for web:', err);
-        });
-      });
-    }
+    // Skia web initialisation removed — SVG renderer is used instead
   }, []);
 
   return (
