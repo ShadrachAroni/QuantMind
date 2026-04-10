@@ -29,7 +29,7 @@ import { blockchainService } from '../../services/blockchain';
 import { MarketTick, OnChainTransaction, GasMetrics, DeFiPosition } from '@quantmind/shared-types';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { Canvas, Path, Skia, LinearGradient as SkiaGradient, vec } from '@shopify/react-native-skia';
+import { Svg, Path as SvgPath, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
 
@@ -91,8 +91,8 @@ export function AnalyticsOverviewScreen({ navigation }: any) {
     fetchTerminalData();
   }, [tier]);
 
-  // Skia Path generation from real data
-  const chartPath = Skia.Path.Make();
+  // SVG Path generation from real data
+  let chartD = "M 0 50 L 200 5";
   if (klines.length > 0) {
     const prices = klines.map(k => k.close);
     const min = Math.min(...prices);
@@ -100,16 +100,12 @@ export function AnalyticsOverviewScreen({ navigation }: any) {
     const range = max - min;
     const chartWidth = width - 48; // Padding correction
     
-    klines.forEach((tick, i) => {
+    const points = klines.map((tick, i) => {
       const x = (i / (klines.length - 1)) * chartWidth;
       const y = 80 - ((tick.close - min) / (range || 1)) * 60; // Scale to height
-      if (i === 0) chartPath.moveTo(x, y);
-      else chartPath.lineTo(x, y);
+      return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
     });
-  } else {
-    // Fallback path
-    chartPath.moveTo(0, 50);
-    chartPath.lineTo(200, 5);
+    chartD = points.join(' ');
   }
 
   const isPro = tier === 'pro';
@@ -188,22 +184,22 @@ export function AnalyticsOverviewScreen({ navigation }: any) {
                    </View>
                 </View>
                 
-                {/* Skia Chart Implementation */}
+                 {/* SVG Chart Implementation */}
                 <View style={styles.chartContainer}>
-                   <Canvas style={{ flex: 1 }}>
-                      <Path
-                        path={chartPath}
-                        color={theme.primary}
-                        style="stroke"
+                   <Svg width={width - 48} height={120}>
+                      <Defs>
+                        <SvgGradient id="chartGrad" x1="0" y1="0" x2="1" y2="0">
+                          <Stop offset="0%" stopColor={theme.primary} />
+                          <Stop offset="100%" stopColor={theme.secondary} />
+                        </SvgGradient>
+                      </Defs>
+                      <SvgPath
+                        d={chartD}
+                        stroke="url(#chartGrad)"
                         strokeWidth={2}
-                      >
-                         <SkiaGradient
-                           start={vec(0, 0)}
-                           end={vec(200, 50)}
-                           colors={[theme.primary, theme.secondary]}
-                         />
-                      </Path>
-                   </Canvas>
+                        fill="none"
+                      />
+                   </Svg>
                 </View>
 
                 <View style={styles.statGrid}>

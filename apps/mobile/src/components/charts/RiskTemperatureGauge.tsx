@@ -1,8 +1,10 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { Canvas, Path, Skia, Group, LinearGradient, vec } from '@shopify/react-native-skia';
-import { useDerivedValue, useSharedValue, withSpring } from 'react-native-reanimated';
+import { Svg, Path as SvgPath, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Animated, { useAnimatedProps, useSharedValue, withSpring } from 'react-native-reanimated';
 import { theme } from '../../constants/theme';
+
+const AnimatedPath = Animated.createAnimatedComponent(SvgPath);
 
 interface RiskTemperatureGaugeProps {
   value: number; // 0 to 1
@@ -22,56 +24,59 @@ export const RiskTemperatureGauge: React.FC<RiskTemperatureGaugeProps> = ({
     animatedValue.value = withSpring(value);
   }, [value]);
 
-  const path = useDerivedValue(() => {
-    const startAngle = Math.PI * 0.8; // 144 degrees
-    const endAngle = Math.PI * 2.2;   // 396 degrees
-    const totalAngle = endAngle - startAngle;
-    const currentAngle = startAngle + totalAngle * animatedValue.value;
+  const describeArc = (x: number, y: number, radius: number, startAngle: number, endAngle: number) => {
+    const start = polarToCartesian(x, y, radius, endAngle);
+    const end = polarToCartesian(x, y, radius, startAngle);
+    const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+    return [
+      "M", start.x, start.y, 
+      "A", radius, radius, 0, largeArcFlag, 0, end.x, end.y
+    ].join(" ");
+  };
 
-    const skPath = Skia.Path.Make();
-    skPath.addArc(
-      Skia.XYWHRect(center.x - radius, center.y - radius, radius * 2, radius * 2),
-      (startAngle * 180) / Math.PI,
-      (currentAngle - startAngle) * 180 / Math.PI
-    );
-    return skPath;
+  const polarToCartesian = (centerX: number, centerY: number, radius: number, angleInDegrees: number) => {
+    const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
+    return {
+      x: centerX + (radius * Math.cos(angleInRadians)),
+      y: centerY + (radius * Math.sin(angleInRadians))
+    };
+  };
+
+  const backgroundD = describeArc(center.x, center.y, radius, 144, 396);
+
+  const animatedProps = useAnimatedProps(() => {
+    const startAngle = 144;
+    const totalAngle = 252;
+    const endAngle = startAngle + totalAngle * animatedValue.value;
+    return {
+      d: describeArc(center.x, center.y, radius, startAngle, endAngle),
+    };
   });
-
-  const backgroundPath = useMemo(() => {
-    const skPath = Skia.Path.Make();
-    skPath.addArc(
-      Skia.XYWHRect(center.x - radius, center.y - radius, radius * 2, radius * 2),
-      144,
-      252
-    );
-    return skPath;
-  }, [radius]);
 
   return (
     <View style={[styles.container, { width: size, height: size }]}>
-      <Canvas style={{ flex: 1 }}>
-        <Path
-          path={backgroundPath}
-          color={theme.colors.borderSubtle}
-          style="stroke"
+      <Svg width={size} height={size}>
+        <Defs>
+          <LinearGradient id="gaugeGradient" x1="0" y1="0" x2="1" y2="1">
+            <Stop offset="0%" stopColor={theme.colors.primary} />
+            <Stop offset="100%" stopColor={theme.colors.secondary} />
+          </LinearGradient>
+        </Defs>
+        <SvgPath
+          d={backgroundD}
+          stroke={theme.colors.borderSubtle}
           strokeWidth={strokeWidth}
-          strokeCap="round"
+          strokeLinecap="round"
+          fill="none"
         />
-        <Group>
-          <Path
-            path={path}
-            style="stroke"
-            strokeWidth={strokeWidth}
-            strokeCap="round"
-          >
-            <LinearGradient
-              start={vec(0, 0)}
-              end={vec(size, size)}
-              colors={[theme.colors.primary, theme.colors.secondary]}
-            />
-          </Path>
-        </Group>
-      </Canvas>
+        <AnimatedPath
+          animatedProps={animatedProps}
+          stroke="url(#gaugeGradient)"
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          fill="none"
+        />
+      </Svg>
       <View style={styles.overlay}>
         <Text style={styles.valueText}>{Math.round(value * 100)}</Text>
         <Text style={styles.label}>RISK LEVEL</Text>

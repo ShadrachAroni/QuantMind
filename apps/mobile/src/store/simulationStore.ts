@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { zustandMMKVStorage } from '../services/storage/mmkv';
 import { SimulationParams, SimulationResult } from '@quantmind/shared-types';
 import { api } from '../services/api';
 import { supabase } from '../services/supabase';
@@ -90,7 +90,7 @@ export const useSimulationStore = create<SimulationState>()(
     }),
     {
       name: 'quantmind-simulation-storage',
-      storage: createJSONStorage(() => AsyncStorage),
+      storage: createJSONStorage(() => zustandMMKVStorage),
       partialize: (state) => ({ 
         result: state.result, 
         currentStatus: state.currentStatus, 

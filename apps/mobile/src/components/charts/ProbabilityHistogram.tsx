@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import { Canvas, Path, Group, Text as SkiaText, useFont, vec } from '@shopify/react-native-skia';
+import { Svg, Path as SvgPath, G } from 'react-native-svg';
 import { theme } from '../../constants/theme';
 
 interface ProbabilityHistogramProps {
@@ -43,18 +43,20 @@ export const ProbabilityHistogram: React.FC<ProbabilityHistogramProps> = ({
   return (
     <View style={[styles.container, { width, height }]}>
       <Text style={styles.title}>Probability Distribution</Text>
-      <Canvas style={{ flex: 1 }}>
-        <Group>
-          {chartData.map((bin, i) => (
-            <Path
-              key={i}
-              path={`M ${bin.x} ${height} L ${bin.x} ${bin.y} L ${bin.x + bin.w} ${bin.y} L ${bin.x + bin.w} ${height} Z`}
-              color={theme.colors.primary}
-              opacity={0.7}
-            />
-          ))}
-        </Group>
-      </Canvas>
+      <View style={{ flex: 1 }}>
+        <Svg width={width} height={height - 40}>
+          <G>
+            {chartData.map((bin, i) => (
+              <SvgPath
+                key={i}
+                d={`M ${bin.x} ${height - 40} L ${bin.x} ${bin.y - 40} L ${bin.x + bin.w} ${bin.y - 40} L ${bin.x + bin.w} ${height - 40} Z`}
+                fill={theme.colors.primary}
+                fillOpacity={0.7}
+              />
+            ))}
+          </G>
+        </Svg>
+      </View>
       <View style={styles.footer}>
         <Text style={styles.label}>Loss</Text>
         <Text style={styles.label}>Median</Text>

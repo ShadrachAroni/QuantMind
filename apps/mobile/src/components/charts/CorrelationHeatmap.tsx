@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
-import { Canvas, Rect, Group } from '@shopify/react-native-skia';
+import { Svg, Rect as SvgRect, G } from 'react-native-svg';
 import { Info, TrendingUp, TrendingDown, Layers, Lock } from 'lucide-react-native';
 import { supabase } from '../../services/supabase';
 import { useAuthStore } from '../../store/authStore';
@@ -149,22 +149,24 @@ export const CorrelationHeatmap: React.FC<CorrelationHeatmapProps> = ({
           ))}
         </View>
         
-        <Canvas style={{ width: size - 60, height: size - 60 }}>
-          <Group>
-            {matrix.map((row, i) => (
-              row.map((val, j) => (
-                <Rect
-                    key={`${i}-${j}`}
-                    x={j * cellSize}
-                    y={i * cellSize}
-                    width={cellSize - 1}
-                    height={cellSize - 1}
-                    color={getColor(val)}
-                />
-              ))
-            ))}
-          </Group>
-        </Canvas>
+        <View style={{ width: size - 60, height: size - 60 }}>
+          <Svg width={size - 60} height={size - 60}>
+            <G>
+              {matrix.map((row, i) => (
+                row.map((val, j) => (
+                  <SvgRect
+                      key={`${i}-${j}`}
+                      x={j * cellSize}
+                      y={i * cellSize}
+                      width={cellSize - 1}
+                      height={cellSize - 1}
+                      fill={getColor(val)}
+                  />
+                ))
+              ))}
+            </G>
+          </Svg>
+        </View>
       </View>
 
       {/* X-axis Labels */}

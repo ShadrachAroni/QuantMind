@@ -7,7 +7,7 @@ import { PersistedClient, Persister } from '@tanstack/react-query-persist-client
  */
 export const queryPersister: Persister = {
   persistClient: async (client: PersistedClient) => {
-    storage.set('react-query-cache', JSON.stringify(client));
+    await storage.set('react-query-cache', JSON.stringify(client));
   },
   restoreClient: async () => {
     const cache = await storage.getItemAsync('react-query-cache');
@@ -15,6 +15,6 @@ export const queryPersister: Persister = {
     return JSON.parse(cache) as PersistedClient;
   },
   removeClient: async () => {
-    storage.delete('react-query-cache');
+    await storage.delete('react-query-cache');
   },
 };

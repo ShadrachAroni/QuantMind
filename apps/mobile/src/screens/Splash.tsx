@@ -1,37 +1,29 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Dimensions } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Typography } from '../components/ui/Typography';
-import {
-  Canvas,
-  Circle,
-  Group,
-  Fill,
-  BlurMask,
-  vec,
-  RadialGradient,
-  Points,
-} from '@shopify/react-native-skia';
+import { Svg, Circle as SvgCircle } from 'react-native-svg';
 import Animated, {
   useSharedValue,
   useDerivedValue,
   useAnimatedStyle,
+  useAnimatedProps,
   withTiming,
   Easing,
   withDelay,
   withRepeat,
   withSequence,
   interpolate,
-  interpolateColor,
   FadeIn,
-  runOnJS,
   SharedValue,
 } from 'react-native-reanimated';
 
 import { useResponsive } from '../hooks/useResponsive';
 import { usePerformance } from '../context/PerformanceContext';
+
+const AnimatedCircle = Animated.createAnimatedComponent(SvgCircle);
 
 // Constants for the 4-second sequence
 const SPIN_DURATION = 1500;
@@ -56,7 +48,6 @@ const Character = ({ char, index, total, shimmerProgress }: { char: string, inde
       easing: Easing.out(Easing.back(1.5))
     }));
 
-    // Intensified initial glitch pulse (6px offset)
     glitch.value = withDelay(delay, withSequence(
       withTiming(1, { duration: 150 }),
       withTiming(0, { duration: 100 }),
@@ -64,7 +55,6 @@ const Character = ({ char, index, total, shimmerProgress }: { char: string, inde
       withTiming(0, { duration: 200 })
     ));
 
-    // Digital Power-On Flicker
     flicker.value = withDelay(delay, withRepeat(
       withSequence(
         withTiming(0.4, { duration: 50 }),
@@ -74,7 +64,6 @@ const Character = ({ char, index, total, shimmerProgress }: { char: string, inde
       true
     ));
 
-    // Periodic subtle re-sync glitch
     const interval = setInterval(() => {
       glitch.value = withSequence(
         withTiming(0.3, { duration: 70 }),
@@ -85,7 +74,6 @@ const Character = ({ char, index, total, shimmerProgress }: { char: string, inde
     return () => clearInterval(interval);
   }, []);
 
-  // Sequential Neural Pulse (based on shimmerProgress)
   const isPulsing = useDerivedValue(() => {
     const sectionWidth = 1 / total;
     const center = index * sectionWidth;
@@ -93,7 +81,6 @@ const Character = ({ char, index, total, shimmerProgress }: { char: string, inde
     return interpolate(distance, [0, 0.15], [1, 0], 'clamp');
   });
 
-  // Pass 3: Sharp High-Fidelity Text
   const mainStyle = useAnimatedStyle(() => ({
     opacity: opacity.value * flicker.value,
     transform: [{ scale: scale.value * (1 + 0.08 * isPulsing.value) }],
@@ -104,7 +91,7 @@ const Character = ({ char, index, total, shimmerProgress }: { char: string, inde
     opacity: glitch.value * 0.6 * opacity.value,
     transform: [
       { scale: scale.value },
-      { translateX: -6 * glitch.value } // Hard glitch offset
+      { translateX: -6 * glitch.value }
     ],
     color: '#FF0055',
     position: 'absolute',
@@ -114,7 +101,7 @@ const Character = ({ char, index, total, shimmerProgress }: { char: string, inde
     opacity: glitch.value * 0.6 * opacity.value,
     transform: [
       { scale: scale.value },
-      { translateX: 6 * glitch.value } // Hard glitch offset
+      { translateX: 6 * glitch.value }
     ],
     color: '#00FFFF',
     position: 'absolute',
@@ -132,8 +119,8 @@ const Character = ({ char, index, total, shimmerProgress }: { char: string, inde
 };
 
 export const SplashScreen = ({ onAnimationComplete }: SplashScreenProps) => {
-  const { width, height, isLandscape } = useResponsive();
-  const { isLowEnd, particleCount, enableGlows } = usePerformance();
+  const { width, height } = useResponsive();
+  const { particleCount } = usePerformance();
   
   const rotation = useSharedValue(0);
   const logoScale = useSharedValue(0);
@@ -142,7 +129,6 @@ export const SplashScreen = ({ onAnimationComplete }: SplashScreenProps) => {
   const bgPulse = useSharedValue(1);
   const shimmerProgress = useSharedValue(0);
 
-  // Starfield logic
   const stars = useMemo(() => {
     return Array.from({ length: particleCount }).map(() => ({
       x: Math.random() * width,
@@ -152,19 +138,15 @@ export const SplashScreen = ({ onAnimationComplete }: SplashScreenProps) => {
     }));
   }, [width, height, particleCount]);
 
-  const starOpacity = useSharedValue(0.3);
   const driftX = useSharedValue(0);
-  const driftTransform = useDerivedValue(() => [{ translateX: driftX.value }]);
 
   useEffect(() => {
-    // Phase 1: Logo Entrance & Spin
     logoScale.value = withTiming(1, { duration: 800, easing: Easing.out(Easing.back(1.5)) });
     rotation.value = withTiming(360, {
       duration: SPIN_DURATION,
       easing: Easing.inOut(Easing.quad)
     });
 
-    // Phase 2: Ripple & Burst at 1.5s
     setTimeout(() => {
       rippleRadius.value = withTiming(width * 0.8, { duration: 1000, easing: Easing.out(Easing.quad) });
       rippleOpacity.value = withSequence(
@@ -173,7 +155,6 @@ export const SplashScreen = ({ onAnimationComplete }: SplashScreenProps) => {
       );
     }, SPIN_DURATION);
 
-    // Phase 3: Background pulse sync with text
     bgPulse.value = withDelay(TEXT_START, withRepeat(
       withSequence(
         withTiming(1.05, { duration: 1500 }),
@@ -183,22 +164,11 @@ export const SplashScreen = ({ onAnimationComplete }: SplashScreenProps) => {
       true
     ));
 
-    // Phase 4: Shimmer & Particles
     shimmerProgress.value = withDelay(TEXT_START, withRepeat(
       withTiming(1, { duration: 3000, easing: Easing.inOut(Easing.sin) }),
       -1,
       true
     ));
-
-    // Phase 4: Drift & Twinkle stars
-    starOpacity.value = withRepeat(
-      withSequence(
-        withTiming(0.7, { duration: 2000, easing: Easing.inOut(Easing.sin) }),
-        withTiming(0.3, { duration: 2000, easing: Easing.inOut(Easing.sin) })
-      ),
-      -1,
-      true
-    );
 
     driftX.value = withRepeat(
       withSequence(
@@ -209,7 +179,6 @@ export const SplashScreen = ({ onAnimationComplete }: SplashScreenProps) => {
       true
     );
 
-    // Phase 5: Exit trigger at 4s (Snappier)
     const timer = setTimeout(() => {
       if (onAnimationComplete) {
         onAnimationComplete();
@@ -231,11 +200,19 @@ export const SplashScreen = ({ onAnimationComplete }: SplashScreenProps) => {
     transform: [{ scale: bgPulse.value }],
   }));
 
+  const animatedDriftStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: driftX.value }],
+  }));
+
+  const rippleProps = useAnimatedProps(() => ({
+    r: rippleRadius.value,
+    opacity: rippleOpacity.value,
+  }));
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" translucent />
 
-      {/* Dynamic Futuristic Background */}
       <Animated.View style={[StyleSheet.absoluteFill, animatedBgStyle]}>
         <LinearGradient
           colors={['#060B1A', '#004D4D', '#032F2F']}
@@ -245,37 +222,33 @@ export const SplashScreen = ({ onAnimationComplete }: SplashScreenProps) => {
         />
       </Animated.View>
 
-      {/* Starfield Layer */}
-      <Canvas style={StyleSheet.absoluteFill}>
-        <Fill color="transparent" />
-        <Group transform={driftTransform}>
-          {stars.map((star: any, i: number) => (
-            <Circle
-              key={i}
-              cx={star.x}
-              cy={star.y}
-              r={star.size}
-              color="white"
-              opacity={starOpacity}
-            >
-              {enableGlows && <BlurMask blur={1} style="normal" />}
-            </Circle>
-          ))}
-        </Group>
+      <View style={StyleSheet.absoluteFill}>
+        <Animated.View style={[StyleSheet.absoluteFill, animatedDriftStyle]}>
+          <Svg width={width} height={height}>
+            {stars.map((star: any, i: number) => (
+              <SvgCircle
+                key={i}
+                cx={star.x}
+                cy={star.y}
+                r={star.size}
+                fill="white"
+                fillOpacity={0.4}
+              />
+            ))}
+          </Svg>
+        </Animated.View>
+      </View>
 
-        {/* Quantum Ripple Effect */}
-        <Group>
-          <Circle
+      <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Svg width={width} height={height}>
+          <AnimatedCircle
             cx={width / 2}
             cy={height / 2 - 40}
-            r={rippleRadius}
-            opacity={rippleOpacity}
-            color="#00F5FF"
-          >
-            {enableGlows && <BlurMask blur={10} style="normal" />}
-          </Circle>
-        </Group>
-      </Canvas>
+            animatedProps={rippleProps}
+            fill="#00F5FF"
+          />
+        </Svg>
+      </View>
 
       <View style={styles.centerContent}>
         <Animated.View style={[styles.logoContainer, animatedLogoStyle]}>
@@ -292,12 +265,6 @@ export const SplashScreen = ({ onAnimationComplete }: SplashScreenProps) => {
               <Character key={i} char={char} index={i} total={9} shimmerProgress={shimmerProgress} />
             )))}
           </View>
-
-          <Animated.View
-            entering={FadeIn.delay(TEXT_START + 500).duration(800)}
-            style={styles.taglineWrapper}
-          >
-          </Animated.View>
         </View>
       </View>
     </View>
@@ -344,13 +311,5 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 4,
     fontFamily: 'Outfit-Bold',
-  },
-  taglineWrapper: {
-    marginTop: 16,
-  },
-  tagline: {
-    color: 'rgba(0, 245, 255, 0.5)',
-    fontSize: 10,
-    letterSpacing: 3,
   },
 });

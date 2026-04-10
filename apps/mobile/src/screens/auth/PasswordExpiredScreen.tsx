@@ -3,11 +3,11 @@ import { View, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
 import { Typography } from '../../components/ui/Typography';
 import { GlassCard } from '../../components/ui/GlassCard';
 import { GlowEffect } from '../../components/ui/GlowEffect';
-import { Canvas, LinearGradient, Rect, vec, BlurMask, Circle } from '@shopify/react-native-skia';
 import { Lock, RefreshCw, AlertTriangle } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { sharedTheme } from '../../constants/theme';
 import { useAuthStore } from '../../store/authStore';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
 
@@ -29,20 +29,22 @@ export function PasswordExpiredScreen({ navigation }: any) {
   return (
     <View style={[dynamicStyles.container, { backgroundColor: theme.background }]}>
       <View style={StyleSheet.absoluteFill}>
-        <Canvas style={{ flex: 1 }}>
-          <Rect x={0} y={0} width={width} height={height}>
-            <LinearGradient
-              start={vec(0, 0)}
-              end={vec(width, height)}
-              colors={isDark ? ['#05060B', '#1A0F0F', '#05060B'] : [theme.background, '#FFF5F5', theme.background]}
-            />
-          </Rect>
-          <Circle cx={width * 0.5} cy={height * 0.3} r={150} color="#FF444408">
-            <BlurMask blur={80} style="normal" />
-          </Circle>
-        </Canvas>
+        <LinearGradient
+          colors={isDark ? ['#05060B', '#1A0F0F', '#05060B'] : [theme.background, '#FFF5F5', theme.background]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={{ 
+          position: 'absolute', 
+          top: height * 0.1, 
+          left: width * 0.25, 
+          width: 300, 
+          height: 300, 
+          borderRadius: 150, 
+          backgroundColor: '#FF444408',
+        }} />
       </View>
-
       <View style={dynamicStyles.content}>
         <GlassCard intensity="high" style={[dynamicStyles.card, { borderColor: '#FF44444D' }]}>
           <View style={dynamicStyles.header}>

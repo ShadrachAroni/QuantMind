@@ -10,20 +10,29 @@ export function initGlobalHandlers() {
   if (Platform.OS !== 'web') {
     // Native (React Native)
     const globalHandler = (error: any, isFatal: boolean) => {
-      terminalDebugger.logFatal(error, isFatal);
+      // JSI errors sometimes come back as opaque objects or with less detail 
+      // in the standard console. Try to extract more if possible.
+      let debugMessage = error;
+      if (error && typeof error === 'object' && !error.message && !error.stack) {
+        try {
+          debugMessage = `JSI_OPAQUE_ERROR: ${JSON.stringify(error)}`;
+        } catch (e) {
+          debugMessage = 'JSI_OPAQUE_ERROR (Unserializable)';
+        }
+      }
+
+      terminalDebugger.logFatal(debugMessage, isFatal);
       
       // Still show the original error in development
-      if (__DEV__) {
-        // We don't want to swallow it entirely in dev, so we let it propagate
-        // However, some setups might prefer to silence the red screen.
+      if (__DEV__ && isFatal) {
+        // Log original object for potential native debugging connection
+        console.error('DEBUG_ORIGINAL_ERROR:', error);
       }
     };
     
     // Internal RN error handler
-    // @ts-ignore
-    if (global.ErrorUtils) {
-      // @ts-ignore
-      global.ErrorUtils.setGlobalHandler(globalHandler);
+    if ((global as any).ErrorUtils) {
+      (global as any).ErrorUtils.setGlobalHandler(globalHandler);
     }
   } else {
     // Web

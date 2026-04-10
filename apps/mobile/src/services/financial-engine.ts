@@ -1,5 +1,5 @@
 import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { storage } from './storage/mmkv';
 
 export interface AssetPosition {
   id: string;
@@ -23,7 +23,7 @@ export interface ValuationResult {
 /**
  * Mobile Financial Engine
  * Multi-asset price aggregation and currency normalization.
- * Includes AsyncStorage caching for exchange rates.
+ * Includes resilient storage caching for exchange rates.
  */
 class MobileFinancialEngine {
   private static instance: MobileFinancialEngine;
@@ -102,14 +102,14 @@ class MobileFinancialEngine {
   }
 
   /**
-   * Currency conversion helper with AsyncStorage caching.
+   * Currency conversion helper with resilient storage caching.
    */
   async getExchangeRate(from: string, to: string): Promise<number> {
     const cacheKey = `${this.exchangeRateCacheKey}:${from}_${to}`;
     
     try {
       // 1. Check local cache
-      const cached = await AsyncStorage.getItem(cacheKey);
+      const cached = await storage.getItemAsync(cacheKey);
       if (cached) {
         const { value, timestamp } = JSON.parse(cached);
         // Cache for 1 hour
@@ -127,7 +127,7 @@ class MobileFinancialEngine {
       const rate = response.data.result || 1;
 
       // 3. Save to cache
-      await AsyncStorage.setItem(cacheKey, JSON.stringify({
+      await storage.set(cacheKey, JSON.stringify({
         value: rate,
         timestamp: Date.now()
       }));
