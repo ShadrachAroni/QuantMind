@@ -20,7 +20,7 @@ def test_compute_portfolio_params():
         Asset(ticker="AAPL", name="Apple", weight=0.6, expected_return=0.1, volatility=0.2),
         Asset(ticker="MSFT", name="Microsoft", weight=0.4, expected_return=0.05, volatility=0.15)
     ]
-    mu, sigma = compute_portfolio_params(assets)
+    mu, sigma = compute_portfolio_params(assets, corr_matrix=np.eye(len(assets)))
     
     # mu = 0.6*0.1 + 0.4*0.05 = 0.06 + 0.02 = 0.08
     assert mu == pytest.approx(0.08)
