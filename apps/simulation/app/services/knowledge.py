@@ -1,5 +1,46 @@
-from graphrag.index import GraphIndex
+from camel.agents import KnowledgeGraphAgent
 from neo4j import GraphDatabase
+
+class GraphIndex:
+    def __init__(self, driver):
+        self.driver = driver
+        # Initialize the CAMEL KnowledgeGraphAgent for entity extraction
+        self.agent = KnowledgeGraphAgent()
+
+    async def extract_entities(self, text: str):
+        """
+        Uses CAMEL-AI to extract entities and relationships.
+        Returns a structure compatible with the ingestor's expectations.
+        """
+        # The agent.run typically returns a graph-like structure or a list of triples
+        # We adapt it here to return nodes and relationships
+        graph = await self.agent.run(text)
+        return graph.nodes, graph.relationships
+
+    async def merge_into_graph(self, nodes, relations):
+        """
+        Merges extracted entities into Neo4j using the provided driver.
+        """
+        with self.driver.session() as session:
+            for node in nodes:
+                session.run(
+                    "MERGE (n:Entity {id: $id}) SET n.name = $name, n.label = $label, n += $props",
+                    id=getattr(node, 'id', node.name), 
+                    name=node.name, 
+                    label=getattr(node, 'label', 'Concept'),
+                    props=node.properties
+                )
+            for rel in relations:
+                session.run(
+                    "MATCH (a:Entity {id: $source}), (b:Entity {id: $target}) "
+                    "MERGE (a)-[r:RELATED {type: $type}]->(b) SET r += $props",
+                    source=rel.source, 
+                    target=rel.target, 
+                    type=rel.type, 
+                    props=rel.properties
+                )
+
+
 
 class KnowledgeIngestor:
     def __init__(self, uri, auth_str):
