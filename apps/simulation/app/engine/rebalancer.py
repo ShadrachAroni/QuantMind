@@ -23,7 +23,7 @@ def rebalance_by_sentiment(assets: List[Asset], sentiment_shock: float) -> List[
 
     # Bearish Shock: Shift from Growth to Defensive
     if sentiment_shock <= -0.02:
-        adjustment_factor = min(abs(sentiment_shock) * 5, 0.5) # Max 50% shift
+        adjustment_factor = min(abs(sentiment_shock) * 5, 0.5)  # Max 50% shift
         for asset in assets:
             new_weight = asset.weight
             if asset.sector in growth_sectors:

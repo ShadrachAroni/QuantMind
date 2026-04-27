@@ -18,8 +18,8 @@ export function useInactivity({
   const [isWarning, setIsWarning] = useState(false);
   const [timeLeft, setTimeLeft] = useState(warningThresholdMs / 1000);
   const lastActivityRef = useRef<number>(Date.now());
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const countdownRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const channelRef = useRef<BroadcastChannel | null>(null);
 
   const resetTimer = useCallback((broadcast = true) => {

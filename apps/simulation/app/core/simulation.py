@@ -28,16 +28,16 @@ def load_personas():
             "retail_trader": {
                 "traits": ["High Sentiment Bias", "Short-term Horizon"],
                 "behavior_rules": [
-                  "If Sentiment > 0.8 AND Price_Momentum > 0.05 THEN BUY",
-                  "Panic sell if other agents in social_graph signal SELL"
+                    "If Sentiment > 0.8 AND Price_Momentum > 0.05 THEN BUY",
+                    "Panic sell if other agents in social_graph signal SELL"
                 ],
                 "prompt": "You are a retail investor with 5 years experience. You react strongly to social media trends."
             },
             "institutional_mm": {
                 "traits": ["Low Risk", "Market Maker"],
                 "behavior_rules": [
-                  "Provide liquidity when spread is wide",
-                  "Mean reversion strategy"
+                    "Provide liquidity when spread is wide",
+                    "Mean reversion strategy"
                 ],
                 "prompt": "You are an institutional market maker."
             }

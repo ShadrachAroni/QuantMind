@@ -29,8 +29,6 @@ async def run_simulation(
     loop.run_in_executor(executor, lambda: asyncio.run(process_simulation(job)))
     return {"accepted": True, "simulation_id": job.simulation_id}
 
-
-
 @router.post("/simulate/mirofish")
 async def run_mirofish(
     job: MiroFishJob,
@@ -74,7 +72,7 @@ async def run_mirofish(
         payload = {
             "id": job.simulation_id,
             "user_id": job.user_id,
-            "portfolio_snapshot": {}, # Assuming empty for now or extract from context
+            "portfolio_snapshot": {},  # Assuming empty for now or extract from context
             "news_seed": job.seed_context,
             "storage_path": storage_path,
             "created_at": datetime.now(timezone.utc).isoformat()
