@@ -11,7 +11,9 @@ import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 import { sharedTheme } from '../../constants/theme';
 import { SentimentIndicator } from '../../components/ui/SentimentIndicator';
+import { DoctorDiagnostics } from '../../components/ui/DoctorDiagnostics';
 import { useChatHistory, Message } from '../../hooks/queries/useChat';
+import { useQuery } from '@tanstack/react-query';
 import Animated, { useSharedValue, useAnimatedStyle, withRepeat, withTiming, withSequence, Easing } from 'react-native-reanimated';
 
 const { width } = Dimensions.get('window');
@@ -50,6 +52,16 @@ export function AIChatScreen({ route, navigation }: any) {
     } as Message,
     ...localMessages
   ];
+
+  // Fetch simulation result if in doctor mode
+  const { data: simResult } = useQuery({
+    queryKey: ['simulation-status', simulationResultId],
+    queryFn: () => api.getSimulationStatus(simulationResultId),
+    enabled: !!simulationResultId && workflow === 'portfolio_doctor'
+  });
+
+  const sentimentShock = simResult?.result?.model_info?.sentiment_shock || 0;
+  const rebalanceSuggestions = simResult?.result?.metrics?.sentiment_rebalance_suggestion || [];
 
   useEffect(() => {
     if (!isHistLoading && initialMessage && messages.length <= 1) {
@@ -243,6 +255,13 @@ export function AIChatScreen({ route, navigation }: any) {
         </View>
         <SentimentIndicator />
       </View>
+
+      {workflow === 'portfolio_doctor' && (
+        <DoctorDiagnostics 
+          sentimentShock={sentimentShock} 
+          suggestions={rebalanceSuggestions} 
+        />
+      )}
 
       <FlatList
         ref={flatListRef}

@@ -108,6 +108,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     // Audit Note: Manual Bridge Sync - Revoking primary Supabase session.
     // Secondary MojoAuth revocation handled at account level or step-up expiry.
+    
+    // Abort all pending network requests
+    if (typeof window !== 'undefined') {
+      const { AbortManager } = require('../../lib/abort-manager');
+      AbortManager.abortAll();
+    }
+
     await supabase.auth.signOut();
     
     setUser(null);
@@ -116,6 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAdminMfaVerified(false);
     window.location.href = '/login';
   };
+
 
   return (
     <AuthContext.Provider value={{ user, isAdmin, loading, mfaVerified, adminMfaVerified, signOut }}>

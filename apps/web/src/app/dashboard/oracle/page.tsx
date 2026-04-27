@@ -464,7 +464,7 @@ export default function OraclePage() {
                           </span>
                        </div>
                        <p className="text-[10px] text-white/50 leading-relaxed italic line-clamp-2">
-                          "{sentiment.summary}"
+                          &quot;{sentiment.summary}&quot;
                        </p>
                     </div>
                  </div>

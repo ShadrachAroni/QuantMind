@@ -854,7 +854,7 @@ export default function SimulatePage() {
                   <Database size={20} className="text-[#7C3AED] group-hover:scale-110 transition-transform" />
                   <div>
                      <h4 className="text-[10px] font-bold text-white uppercase tracking-widest mb-1">Historical_Bootstrap</h4>
-                     <p className="text-[10px] text-[#848D97] leading-relaxed">Resamples from historical returns to capture "fat-tail" risk events accurately.</p>
+                     <p className="text-[10px] text-[#848D97] leading-relaxed">Resamples from historical returns to capture &quot;fat-tail&quot; risk events accurately.</p>
                   </div>
                </GlassCard>
             </div>

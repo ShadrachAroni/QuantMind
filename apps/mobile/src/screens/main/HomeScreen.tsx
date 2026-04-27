@@ -73,7 +73,7 @@ export function HomeScreen({ navigation }: any) {
           ? `Simulation Result_${s.id.substring(0, 8)} finalized with optimal convergence.` 
           : s.status === 'failed'
           ? `Pipeline interruption detected on simulation_${s.id.substring(0, 8)}.`
-          : `Simulation_${s.id.substring(0, 8)} enqueued to institutional compute.`,
+          : `Simulation_${s.id.substring(0, 8)} enqueued to Secure compute.`,
         time: s.created_at
       }));
     }
@@ -90,7 +90,7 @@ export function HomeScreen({ navigation }: any) {
         id: `p-${p.id}`,
         type: 'success',
         category: 'DEPLOYMENT',
-        message: `Institutional Vault_${p.name.toUpperCase()} successfully initialized.`,
+        message: `Secure Vault_${p.name.toUpperCase()} successfully initialized.`,
         time: p.created_at,
         metadata: { label: 'CAPITAL', value: `$${(p.total_value || 0).toLocaleString()}` }
       }));
@@ -148,7 +148,7 @@ export function HomeScreen({ navigation }: any) {
               <Typography variant="h1" style={dynamicStyles.mainTitle}>
                 CONSOLE_<Typography variant="h1" style={{ color: theme.primary }}>{operatorName}</Typography>
               </Typography>
-              <Typography variant="caption" style={dynamicStyles.subtitle}>Institutional Portfolio Command & Control</Typography>
+              <Typography variant="caption" style={dynamicStyles.subtitle}>Secure Portfolio Command & Control</Typography>
             </View>
             <TierBadge tier={tier as any} />
           </View>
@@ -194,7 +194,7 @@ export function HomeScreen({ navigation }: any) {
           </View>
         </GlassCard>
 
-        {/* Vault Insights Section */}
+        {/* Portfolio Insights Section */}
         <View style={dynamicStyles.sectionHeader}>
           <Typography variant="monoBold" style={dynamicStyles.sectionTitle}>VAULT_INSIGHTS</Typography>
           <TrendingUp size={14} color={theme.primary} />
@@ -228,7 +228,7 @@ export function HomeScreen({ navigation }: any) {
             width={dynamicStyles.moduleWidth}
           />
           <ModuleItem 
-            title="VAULT"
+            title="PORTFOLIO"
             sub="Holdings"
             Icon={Shield}
             color={theme.textSecondary}
@@ -252,7 +252,7 @@ export function HomeScreen({ navigation }: any) {
             width={dynamicStyles.moduleWidth}
           />
           <ModuleItem 
-            title="ORACLE"
+            title="ASSISTANT"
             sub="AI Intel"
             Icon={Cpu}
             color="#10B981"
@@ -270,7 +270,7 @@ export function HomeScreen({ navigation }: any) {
             </View>
             <View style={styles.securityContent}>
               <Typography variant="monoBold" style={styles.securityTitle}>UPGRADE_RECOMMENDED</Typography>
-              <Typography variant="caption" style={styles.securitySubtitle}>Aactivate 14D Plus clearance to access institutional modules.</Typography>
+              <Typography variant="caption" style={styles.securitySubtitle}>Aactivate 14D Plus clearance to access Secure modules.</Typography>
             </View>
             <ChevronRight size={16} color={theme.primary} />
           </TouchableOpacity>

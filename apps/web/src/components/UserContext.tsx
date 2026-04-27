@@ -1,9 +1,11 @@
-'use client';
-
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { createClient } from '@/lib/supabase';
 import { useSyncStore } from '@/store/syncStore';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+import { useInactivity } from '@/hooks/useInactivity';
+import { SessionWarningModal } from './auth/SessionWarningModal';
+import { AbortManager } from '@/lib/abort-manager';
+import { toast } from 'sonner';
 
 interface UserProfile {
   id: string;
@@ -34,6 +36,7 @@ interface UserContextType {
   isOnline: boolean;
   isMaintenanceMode: boolean;
   authMethod: 'supabase' | 'mojoauth' | null;
+  signOut: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -44,6 +47,51 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
   const supabase = createClient();
+
+  const signOut = useCallback(async () => {
+    try {
+      // 1. Abort all pending network requests
+      AbortManager.abortAll();
+
+      // 2. Clear authentication state in Supabase
+      await supabase.auth.signOut();
+
+      // 3. Clear local storage and session storage
+      localStorage.clear();
+      sessionStorage.clear();
+
+      // 4. Clear cookies (Supabase handles its own, but we can clear others)
+      document.cookie.split(";").forEach((c) => {
+        document.cookie = c
+          .replace(/^ +/, "")
+          .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+      });
+
+      // 5. Update local state
+      setProfile(null);
+      
+      // 6. Broadcast logout to other tabs
+      const channel = new BroadcastChannel('auth_session');
+      channel.postMessage({ type: 'LOGOUT' });
+      channel.close();
+
+      toast.info('Session Terminated', {
+        description: 'You have been logged out due to inactivity or manual request.',
+      });
+
+      // 7. Redirect to login
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Error during sign out:', error);
+      window.location.href = '/login';
+    }
+  }, [supabase, setProfile]);
+
+  const { isWarning, timeLeft, extendSession } = useInactivity({
+    timeoutMs: 15 * 60 * 1000,
+    warningThresholdMs: 60 * 1000,
+    onLogout: signOut,
+  });
 
   const fetchMaintenanceStatus = async () => {
     const { data } = await supabase
@@ -58,15 +106,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
-      // Check for MojoAuth session first (as it takes precedence for OmniWealth)
       const mojoToken = typeof window !== 'undefined' ? localStorage.getItem('mojoauth_token') : null;
       
-      if (mojoToken) {
-        // In a real flow, we would verify this token with the backend
-        // and link it to a user profile in Supabase
-        console.log('MojoAuth session detected');
-      }
-
       if (!user && !mojoToken) {
         setProfile(null);
         setLoading(false);
@@ -126,9 +167,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       refreshProfile: fetchProfile, 
       isOnline, 
       isMaintenanceMode,
-      authMethod: profile ? 'supabase' : null // Placeholder logic
+      authMethod: (typeof window !== 'undefined' && localStorage.getItem('mojoauth_token')) ? 'mojoauth' : (profile ? 'supabase' : null),
+      signOut
     }}>
       {children}
+      <SessionWarningModal 
+        isOpen={isWarning && !!profile} 
+        timeLeft={timeLeft} 
+        onExtend={extendSession} 
+      />
     </UserContext.Provider>
   );
 }
@@ -140,3 +187,4 @@ export function useUser() {
   }
   return context;
 }
+

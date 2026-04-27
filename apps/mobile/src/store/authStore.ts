@@ -10,7 +10,8 @@ import { mojoAuth } from '../services/mojoauth';
 import { warrantService } from '../services/warrant-client';
 import { usePortfolioStore } from './portfolioStore';
 
-const SESSION_TIMEOUT = 1 * 60 * 60 * 1000; // 1 Hour (Synchronized with Supabase)
+const SESSION_TIMEOUT = 15 * 60 * 1000; // 15 Minutes (Configurable per requirements)
+const WARNING_THRESHOLD = 60 * 1000; // 1 Minute warning
 const CACHE_TTL = 5 * 60 * 1000; // 5 Minutes in ms
 
 export type AIPersona = 'DEFAULT' | 'AGGRESSIVE' | 'CONSERVATIVE' | 'INSTITUTIONAL';
@@ -404,14 +405,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     
     usePortfolioStore.getState().unsubscribeFromChanges();
     
-    // Revoke Supabase
+    // 1. Revoke Supabase Session
     await supabase.auth.signOut();
     
-    // Revoke MojoAuth context if applicable
-    // Note: MojoAuth mobile context is primarily handled via deep-link/token expiry.
-    
-    set({ user: null, tier: 'free', aiPrefs: null, initialized: false, profileSubscription: null });
+    // 2. Clear Secure Storage and Cache
     await storage.deleteItemAsync(SecureKeys.AUTH.LAST_ACTIVITY);
+    await storage.deleteItemAsync(SecureKeys.SIM.POWERSHIFT_RESET);
+    await storage.deleteItemAsync(SecureKeys.SIM.POWERSHIFT_COUNT);
+    
+    // 3. Reset Local State
+    set({ 
+      user: null, 
+      tier: 'free', 
+      aiPrefs: null, 
+      initialized: false, 
+      profileSubscription: null,
+      lastActivityAt: null,
+      mfaEnabled: false,
+      mfaEmailEnabled: false,
+      mfaPasskeyEnabled: false
+    });
+    
+    // 4. Note: Mobile doesn't have BroadcastChannel, but clearing storage handles sync across app instances if any
   },
 
   completeOnboarding: async () => {

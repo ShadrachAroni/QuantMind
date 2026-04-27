@@ -50,6 +50,7 @@ export function UpgradeModal({ isOpen, onClose, requiredTier, featureName }: Upg
         <button 
           onClick={onClose}
           className="absolute top-4 right-4 p-2 text-[#848D97] hover:text-white transition-colors z-10"
+          aria-label="Close modal"
         >
           <X size={20} />
         </button>
@@ -97,7 +98,7 @@ export function UpgradeModal({ isOpen, onClose, requiredTier, featureName }: Upg
 
           {/* Testimonial */}
           <div className="mt-12 p-4 bg-white/5 rounded-xl border border-white/5 italic">
-            <p className="text-[10px] text-[#848D97] leading-relaxed mb-3">"{testimonials[0].text}"</p>
+            <p className="text-[10px] text-[#848D97] leading-relaxed mb-3">&quot;{testimonials[0].text}&quot;</p>
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-full bg-[#00D9FF] flex items-center justify-center text-[8px] font-bold text-black">{testimonials[0].avatar}</div>
               <div>

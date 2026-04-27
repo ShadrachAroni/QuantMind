@@ -64,3 +64,39 @@ export async function checkPasswordResetLimit(email: string): Promise<boolean> {
   if (count === 1) await redis.expire(key, WINDOW_SECS);
   return count <= MAX_ATTEMPTS;
 }
+
+// ─── DDoS PROTECTIONS ───────────────────────────────────────────────────────
+
+/**
+ * Limits requests by IP address.
+ * Standard DDoS prevention for public or semi-public endpoints.
+ */
+export async function rateLimitByIP(
+  req: Request,
+  limit: number,
+  windowSecs: number
+): Promise<RateLimitResult> {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+  return rateLimit(`ip:${ip}`, limit, windowSecs);
+}
+
+/**
+ * Limits requests by User ID.
+ * Prevents account-based floods and cost-draining attacks.
+ */
+export async function rateLimitByUser(
+  userId: string,
+  limit: number,
+  windowSecs: number
+): Promise<RateLimitResult> {
+  return rateLimit(`user:${userId}`, limit, windowSecs);
+}
+
+/**
+ * Global "Panic" Switch
+ * If enabled, blocks all non-essential traffic.
+ */
+export async function checkGlobalPanicMode(): Promise<boolean> {
+  const panic = await redis.get('global:panic_mode');
+  return panic === 'enabled';
+}

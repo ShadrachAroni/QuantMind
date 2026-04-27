@@ -1,3 +1,5 @@
+import { AbortManager } from '../abort-manager';
+
 /**
  * QuantMind Financial Engine
  * 
@@ -47,14 +49,21 @@ export class FinancialEngine {
   async getExchangeRate(from: string, to: string = this.primaryCurrency): Promise<number> {
     try {
       if (from === to) return 1;
-      const response = await fetch(`https://api.exchangerate.host/convert?from=${from}&to=${to}`);
+      const response = await fetch(`https://api.exchangerate.host/convert?from=${from}&to=${to}`, {
+        signal: AbortManager.getSignal()
+      });
       const data = await response.json();
       return data.result || 1;
-    } catch (error) {
-      console.error('Exchange rate error:', error);
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log('Fetch aborted: getExchangeRate');
+      } else {
+        console.error('Exchange rate error:', error);
+      }
       return 1;
     }
   }
+
 
   /**
    * Universal Valuator: Converts any asset position into the primary currency.

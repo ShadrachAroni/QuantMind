@@ -15,7 +15,15 @@ import {
   CreditCard,
   ChevronRight,
   Mail,
-  X
+  X,
+  Shield,
+  Database,
+  Newspaper,
+  Workflow,
+  SlidersHorizontal,
+  FileText,
+  ShieldAlert,
+  Layers
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { TierBadge } from '@/components/ui/TierBadge';
@@ -32,6 +40,15 @@ const sidebarItems = [
   { label: 'Nav_Oracle', route: '/dashboard/oracle', icon: Cpu, gated: true },
   { label: 'Nav_Assets', route: '/dashboard/assets', icon: TrendingUp },
   { label: 'Nav_Results', route: '/dashboard/results', icon: BarChart3 },
+  { label: 'Risk_Assessment', route: '/dashboard/risk', icon: Shield, gated: true },
+  { label: 'News_Feed', route: '/dashboard/news', icon: Newspaper, gated: true },
+  { label: 'Stock_Screener', route: '/dashboard/screener', icon: SlidersHorizontal, gated: true },
+  { label: 'Earnings_AI', route: '/dashboard/earnings', icon: FileText, gated: true },
+  { label: 'Big_Data', route: '/dashboard/analytics/big-data', icon: Database, gated: true },
+  { label: 'Nav_Market_Compare', route: '/dashboard/analytics/compare', icon: BarChart3, gated: true },
+  { label: 'Automations', route: '/dashboard/automations', icon: Workflow },
+  { label: 'Risk_Manager', route: '/dashboard/risk-management', icon: ShieldAlert, gated: true },
+  { label: 'MiroFish_Engine', route: '/dashboard/mirofish', icon: Layers, gated: true },
 ];
 
 const bottomItems = [

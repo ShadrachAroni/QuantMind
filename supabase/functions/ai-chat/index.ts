@@ -4,7 +4,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders, handleCors } from '../_shared/cors.ts';
 import { requireAuth } from '../_shared/auth.ts';
-import { rateLimit, rateLimitResponse } from '../_shared/rateLimiter.ts';
+import { rateLimit, rateLimitResponse, rateLimitByIP, checkGlobalPanicMode } from '../_shared/rateLimiter.ts';
 
 const TIER_AI_LIMITS: Record<string, number> = {
   free: 10,
@@ -46,15 +46,15 @@ You are performing a deep diagnostic on the user's portfolio and simulation resu
 1. Identify the top 3 risk factors (e.g., high concentration, high max drawdown, poor Sortino ratio).
 2. Suggest general structural adjustments (e.g., "Increasing exposure to non-correlated assets like Bonds or Gold could dampen the Max Drawdown").
 3. Analyze how the portfolio might behave in the specific stress scenario if provided.
-4. Keep the tone clinical, institutional, and objective.
+4. Keep the tone clinical, Secure, and objective.
 `;
 
 const PERSONA_PROMPTS: Record<string, string> = {
-  ANALYTICAL_COLD: "Your tone is clinical, institutional, and purely data-driven. Minimize emotive language. Focus on statistical significance and mathematical rigour.",
+  ANALYTICAL_COLD: "Your tone is clinical, Secure, and purely data-driven. Minimize emotive language. Focus on statistical significance and mathematical rigour.",
   ADVISORY_SUPPORTIVE: "Your tone is professional yet encouraging. Act as a high-level research assistant. Explain complex concepts clearly and provide constructive feedback on risk structures.",
   CRITICAL_ADVERSARIAL: "Your tone is skeptical and rigorous. Act as a 'Red Team' analyst. Challenge assumptions, highlight potential tail-risk failures, and look for what could go wrong.",
-  HEDGE_FUND_VIBE: "Your tone is fast-paced, decisive, and focused on alpha and edge. Use institutional jargon. Prioritize risk-adjusted returns and market efficiency.",
-  QUANTI_MAXIMALIST: "Your tone is obsessed with models and Greek parameters. Reference VaR, CVaR, and correlation matrices frequently. Everything is a stochastic process."
+  HEDGE_FUND_VIBE: "Your tone is fast-paced, decisive, and focused on alpha and edge. Use Secure jargon. Prioritize risk-adjusted returns and market efficiency.",
+  QUANTI_MAXIMALIST: "Your tone is obsessed with models and Greek parameters. Reference VaR, CVaR, and correlation matrices frequently. Everything is a Statistical process."
 };
 
 const SENSITIVITY_PROMPTS: Record<string, string> = {
@@ -93,6 +93,18 @@ serve(async (req: Request) => {
   const origin = req.headers.get('Origin');
   const corsRes = handleCors(req);
   if (corsRes) return corsRes;
+
+  // 1. DDoS Prevention: Global Panic Switch
+  if (await checkGlobalPanicMode()) {
+    return new Response(JSON.stringify({ error: 'System is currently undergoing maintenance or high-security lockdown.' }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
+    });
+  }
+
+  // 2. DDoS Prevention: IP Rate Limiting (100 req/min/IP)
+  const ipLimit = await rateLimitByIP(req, 100, 60);
+  if (!ipLimit.allowed) return rateLimitResponse(ipLimit);
 
   try {
     const user = await requireAuth(req);
@@ -218,6 +230,7 @@ Assets: ${JSON.stringify(portfolio.assets, null, 2)}`;
     let aiModel = MODELS[user.tier] || MODELS.free;
     let aiProvider = 'google';
 
+    const nvidiaKey = Deno.env.get('NVIDIA_API_KEY');
     const isPremium = ['plus', 'pro'].includes(user.tier);
     
     if (isPremium) {
@@ -246,15 +259,24 @@ Assets: ${JSON.stringify(portfolio.assets, null, 2)}`;
 
       // Pro handling for internal models if no custom config
       if (!customConfig && user.tier === 'pro') {
-        aiModel = workflow === 'portfolio_doctor' ? MODELS.pro_advanced : MODELS.pro_standard;
+        if (workflow === 'portfolio_doctor' && nvidiaKey) {
+          aiProvider = 'nvidia';
+          aiModel = 'minimaxai/minimax-m2.7';
+          apiServiceKey = nvidiaKey;
+        } else {
+          aiModel = workflow === 'portfolio_doctor' ? MODELS.pro_advanced : MODELS.pro_standard;
+        }
       }
     }
 
     if (!apiServiceKey) throw new Error('AI service unavailable');
 
-    // ─── Call AI Provider ──────────────────────────────────────────────────
+    // ─── Call AI Provider (Vercel AI Gateway Proxy Support) ─────────────────
     let responseText = '';
     let totalTokens = 0;
+
+    const gatewayUrl = Deno.env.get('AI_GATEWAY_URL') || 'https://ai-gateway.vercel.sh/v1';
+    const gatewayKey = Deno.env.get('AI_GATEWAY_API_KEY');
 
     const personaPrompt = PERSONA_PROMPTS[profile?.ai_persona as string] || PERSONA_PROMPTS.ANALYTICAL_COLD;
     const sensitivityPrompt = SENSITIVITY_PROMPTS[profile?.ai_risk_sensitivity as string] || SENSITIVITY_PROMPTS.BALANCED;
@@ -262,7 +284,34 @@ Assets: ${JSON.stringify(portfolio.assets, null, 2)}`;
 
     const fullPrompt = (workflow === 'portfolio_doctor' ? DOCTOR_PROMPT : '') + systemPrompt + sentimentBlock + contextBlock + "\n\nUSER_MESSAGE: " + message;
 
-    if (aiProvider === 'google') {
+    if (gatewayKey) {
+      console.log(`[ai-chat] Routing through Vercel AI Gateway: ${aiProvider}/${aiModel}`);
+      const gatewayResponse = await fetch(`${gatewayUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${gatewayKey}`,
+        },
+        body: JSON.stringify({
+          model: `${aiProvider}/${aiModel}`,
+          messages: [
+            { role: 'system', content: (workflow === 'portfolio_doctor' ? DOCTOR_PROMPT : '') + systemPrompt + contextBlock },
+            { role: 'user', content: message }
+          ],
+          temperature: 0.7,
+          max_tokens: 1500,
+        }),
+      });
+
+      if (!gatewayResponse.ok) {
+        console.error(`[ai-chat] Gateway error: ${gatewayResponse.statusText}`);
+        throw new Error(`AI Gateway error: ${gatewayResponse.statusText}`);
+      }
+
+      const data = await gatewayResponse.json();
+      responseText = data.choices?.[0]?.message?.content || 'No response generated.';
+      totalTokens = data.usage?.total_tokens || 0;
+    } else if (aiProvider === 'google') {
       const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${aiModel}:generateContent?key=${apiServiceKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -318,6 +367,28 @@ Assets: ${JSON.stringify(portfolio.assets, null, 2)}`;
       const data = await anthropicResponse.json();
       responseText = data.content?.[0]?.text || 'No response generated.';
       totalTokens = data.usage?.output_tokens + data.usage?.input_tokens || 0;
+    } else if (aiProvider === 'nvidia') {
+      const nvidiaResponse = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiServiceKey}`
+        },
+        body: JSON.stringify({
+          model: aiModel,
+          messages: [
+            { role: 'system', content: (workflow === 'portfolio_doctor' ? DOCTOR_PROMPT : '') + systemPrompt + contextBlock },
+            { role: 'user', content: message }
+          ],
+          max_tokens: 1500,
+          temperature: 0.7
+        }),
+      });
+
+      if (!nvidiaResponse.ok) throw new Error(`NVIDIA API error: ${nvidiaResponse.statusText}`);
+      const data = await nvidiaResponse.json();
+      responseText = data.choices?.[0]?.message?.content || 'No response generated.';
+      totalTokens = data.usage?.total_tokens || 0;
     }
 
     // Update usage count and log session details using centralized system RPC

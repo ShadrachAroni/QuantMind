@@ -25,6 +25,8 @@ import { AssetManagementScreen } from '../screens/portfolio/AssetManagementScree
 import { PortfolioDetailScreen } from '../screens/portfolio/PortfolioDetailScreen';
 import { SimulationScreen } from '../screens/simulation/SimulationScreen';
 import { SimulationResultsScreen } from '../screens/simulation/SimulationResultsScreen';
+import { MiroFishScreen } from '../screens/simulation/MiroFishScreen';
+import { SnapshotMarketplaceScreen } from '../screens/simulation/SnapshotMarketplaceScreen';
 import { BacktestScreen } from '../screens/simulation/BacktestScreen';
 import { AIChatScreen } from '../screens/ai/AIChatScreen';
 import { AnalyticsOverviewScreen } from '../screens/main/AnalyticsOverviewScreen';
@@ -44,7 +46,9 @@ import { ModelMethodologyScreen } from '../screens/settings/ModelMethodologyScre
 import { CustomAIIntegrationsScreen } from '../screens/settings/CustomAIIntegrationsScreen';
 import { ChangelogScreen } from '../screens/settings/ChangelogScreen';
 import { BillingHistoryScreen } from '../screens/settings/BillingHistoryScreen';
+import { RewardCenterScreen } from '../screens/main/RewardCenterScreen';
 import { PasswordExpiredScreen } from '../screens/auth/PasswordExpiredScreen';
+import { PortfolioDoctorScreen } from '../screens/main/PortfolioDoctorScreen';
 import { SessionWarningModal } from '../components/auth/SessionWarningModal';
 import { MaintenanceScene } from '../screens/MaintenanceScene';
 import { OfflineScene } from '../screens/OfflineScene';
@@ -96,6 +100,7 @@ function PortfolioNavigator() {
       </PortfolioStack.Screen>
       <PortfolioStack.Screen name="PortfolioBuilder" component={PortfolioBuilderScreen} />
       <PortfolioStack.Screen name="PortfolioDetail" component={PortfolioDetailScreen} />
+      <PortfolioStack.Screen name="PortfolioDoctor" component={PortfolioDoctorScreen} />
     </PortfolioStack.Navigator>
   );
 }
@@ -105,6 +110,8 @@ function SimulationNavigator() {
     <SimulationStack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_bottom' }}>
       <SimulationStack.Screen name="SimulationSetup" component={SimulationScreen} />
       <SimulationStack.Screen name="SimulationResults" component={SimulationResultsScreen} />
+      <SimulationStack.Screen name="MiroFish" component={MiroFishScreen} />
+      <SimulationStack.Screen name="Marketplace" component={SnapshotMarketplaceScreen} />
     </SimulationStack.Navigator>
   );
 }
@@ -140,6 +147,7 @@ function SettingsNavigator() {
       </SettingsStack.Screen>
       <SettingsStack.Screen name="Changelog" component={ChangelogScreen} />
       <SettingsStack.Screen name="BillingHistory" component={BillingHistoryScreen} />
+      <SettingsStack.Screen name="RewardCenter" component={RewardCenterScreen} />
     </SettingsStack.Navigator>
   );
 }
@@ -271,13 +279,17 @@ export default function AppNavigator() {
   const isUserAdmin = (user?.metadata as any)?.is_admin === true;
   const showMaintenance = isMaintenanceMode && !isUserAdmin;
 
-  // Constants for session logic
-  const SESSION_TIMEOUT = 24 * 60 * 60 * 1000;
-  const WARNING_THRESHOLD = SESSION_TIMEOUT - (10 * 60 * 1000); // 10 mins before 24h
+  // Constants for session logic (Configurable defaulting to 15m)
+  const SESSION_TIMEOUT = 15 * 60 * 1000;
+  const WARNING_THRESHOLD = SESSION_TIMEOUT - (60 * 1000); // 1 min warning
 
   // Activity Tracking via PanResponder
   const panResponder = useMemo(() => PanResponder.create({
     onStartShouldSetPanResponderCapture: () => {
+      if (user) recordActivity();
+      return false;
+    },
+    onMoveShouldSetPanResponderCapture: () => {
       if (user) recordActivity();
       return false;
     },
@@ -292,7 +304,7 @@ export default function AppNavigator() {
       appState.current = nextAppState;
     });
 
-    // Background check for warning (every minute)
+    // Background check for warning (every 10 seconds for precision)
     const interval = setInterval(() => {
       if (user && lastActivityAt) {
         const now = Date.now();
@@ -301,19 +313,20 @@ export default function AppNavigator() {
         if (inactiveTime > SESSION_TIMEOUT) {
           checkSessionExpiry();
         } else if (inactiveTime > WARNING_THRESHOLD) {
-          setTimeUntilExpiry(SESSION_TIMEOUT - inactiveTime);
+          setTimeUntilExpiry(Math.max(0, SESSION_TIMEOUT - inactiveTime));
           setShowWarning(true);
         } else {
           setShowWarning(false);
         }
       }
-    }, 60000); // Check every minute
+    }, 10000); 
 
     return () => {
       subscription.remove();
       clearInterval(interval);
     };
-  }, [user, lastActivityAt, checkSessionExpiry]);
+  }, [user, lastActivityAt, checkSessionExpiry, SESSION_TIMEOUT, WARNING_THRESHOLD]);
+
 
   const handleExtend = async () => {
     await recordActivity();

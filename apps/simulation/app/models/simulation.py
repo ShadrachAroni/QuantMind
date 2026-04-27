@@ -49,6 +49,8 @@ class SimulationJob(BaseModel):
     user_id: str
     portfolio_id: str
     assets: List[Asset]
+    correlation_matrix: Optional[List[List[float]]] = None
+    sentiment_shock: Optional[float] = 0.0
     params: SimParams
 
     @validator("assets")
@@ -88,3 +90,4 @@ class RiskMetrics(BaseModel):
     volatility_regimes: Optional[List[Dict[str, Any]]] = None
     sharpe_variation: Optional[Dict[str, Any]] = None
     optimization_suggestion: Optional[Dict[str, Any]] = None
+    sentiment_rebalance_suggestion: Optional[List[Dict[str, Any]]] = None

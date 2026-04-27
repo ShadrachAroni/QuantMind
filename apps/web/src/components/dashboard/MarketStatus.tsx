@@ -50,7 +50,7 @@ export function MarketStatus() {
 
   return (
     <div className={cn(
-      "flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-bold uppercase tracking-widest transition-all duration-500",
+      "flex items-center gap-2 px-2 py-0.5 rounded border text-[10px] font-bold uppercase tracking-widest transition-all duration-500",
       bg, border, color
     )}>
       <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", dot)} />

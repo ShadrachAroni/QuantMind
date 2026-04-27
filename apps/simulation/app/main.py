@@ -7,8 +7,12 @@ from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 import logging
 import os
+from dotenv import load_dotenv
 from app.routers.simulation import router as simulation_router
 from datetime import datetime, timezone
+
+# Load environment variables from .env
+load_dotenv()
 
 # ---------------------------------------------------------------------------
 # Suppress noisy /health ping access logs

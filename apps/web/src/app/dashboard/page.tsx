@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 
 import { 
@@ -52,39 +52,46 @@ export default function DashboardPage() {
     const [isFeedOpen, setIsFeedOpen] = useState(false);
     const { profile } = useUser();
     const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+    const [serviceStatus, setServiceStatus] = useState<'online' | 'offline' | 'checking'>('checking');
     const userTier = profile?.tier || 'free';
 
-   const supabase = createClient();
+   const supabase = useMemo(() => createClient(), []);
 
    const fetchData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-         const { data: profile } = await supabase.from('user_profiles').select('*').single();
-         setUserProfile(profile);
+      try {
+         setIsLoading(true);
+         const { data: { user } } = await supabase.auth.getUser();
+         if (!user) return;
 
-         // Fetch Portfolios and Prices for accurate AUM
-         const { data: portfolios } = await supabase
-            .from('portfolios')
-            .select('id, name, total_value, assets')
-            .eq('user_id', user.id);
+         // Execute independent queries in parallel for performance optimization
+         const [
+           profileRes,
+           portfoliosRes,
+           pricesRes,
+           insightsRes,
+           simsRes,
+           miroSimsRes,
+           notificationsRes
+         ] = await Promise.all([
+           supabase.from('user_profiles').select('*').eq('id', user.id).single(),
+           supabase.from('portfolios').select('*').eq('user_id', user.id),
+           supabase.from('prices').select('*').order('timestamp', { ascending: false }).limit(50),
+           supabase.from('system_events').select('*').order('created_at', { ascending: false }).limit(5),
+           supabase.from('simulations').select('id, status, result, created_at').eq('user_id', user.id),
+           supabase.from('simulation_runs').select('id, status, interaction_graph, created_at').eq('user_id', user.id),
+           supabase.from('user_notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5)
+         ]);
 
-         const { data: prices } = await supabase
-            .from('prices')
-            .select('symbol, price, open, timestamp')
-            .order('timestamp', { ascending: false });
+         if (profileRes.data) setUserProfile(profileRes.data);
          
-         if (portfolios) {
-            // Priority 1: Current market-adjusted sum from assets
-            // Deduplicate prices to keep only latest for each symbol
-            const priceMap: Record<string, number> = {};
-            (prices || []).forEach(p => {
-               if (!priceMap[p.symbol]) {
-                  priceMap[p.symbol] = Number(p.price);
-               }
-            });
-            
+         const priceMap: Record<string, number> = {};
+         (pricesRes.data || []).forEach(p => {
+            if (!priceMap[p.symbol]) priceMap[p.symbol] = Number(p.price);
+         });
+
+         if (portfoliosRes.data) {
             let marketSum = 0;
-            portfolios.forEach(p => {
+            portfoliosRes.data.forEach(p => {
                if (Array.isArray(p.assets)) {
                   (p.assets as any[]).forEach(a => {
                      marketSum += Number(a.quantity || 0) * (priceMap[a.symbol] || Number(a.avg_price) || 0);
@@ -93,145 +100,138 @@ export default function DashboardPage() {
                   marketSum += Number(p.total_value) || 0;
                }
             });
-
             setTotalAum(marketSum);
          }
 
-         // Fetch Simulation Stats
-         const { data: sims } = await supabase
-            .from('simulations')
-            .select('id, status, result, created_at')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false });
+         // Aggregate Insights from all sources
+         const allInsights: Insight[] = [];
 
-         // Fetch User Notifications
-         const { data: notifications } = await supabase
-            .from('user_notifications')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false })
-            .limit(10);
+         // 1. System Events
+         insightsRes.data?.forEach(e => allInsights.push({
+            id: e.id,
+            type: (e.event_type as any) || 'info',
+            category: (e.category as any) || 'SYSTEM',
+            message: e.message,
+            time: e.created_at
+         }));
 
-         if (sims) {
-            const active = sims.filter(s => s.status === 'pending' || s.status === 'running').length;
-            const completed = sims.filter(s => s.status === 'completed');
-            
-            // Calculate average VaR as a proxy for risk score
+         // 2. Simulations
+         const combinedSims = [...(simsRes.data || []), ...(miroSimsRes.data || [])].sort((a, b) => 
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+         );
+
+         combinedSims.slice(0, 5).forEach(s => allInsights.push({
+            id: s.id,
+            type: s.status === 'completed' ? 'success' : s.status === 'failed' ? 'error' : 'info',
+            category: 'SYSTEM',
+            message: ('interaction_graph' in s)
+               ? `MiroFish Swarm_${s.id.substring(0, 8)} evolution finalized.`
+               : (s.status === 'completed' 
+                  ? `Simulation_${s.id.substring(0, 8)} finalized.` 
+                  : `Simulation_${s.id.substring(0, 8)} status: ${s.status}.`),
+            time: s.created_at
+         }));
+
+         // 3. Portfolios
+         portfoliosRes.data?.slice(0, 2).forEach(p => allInsights.push({
+            id: `p-${p.id}`,
+            type: 'success',
+            category: 'DEPLOYMENT',
+            message: `Vault_${p.name.toUpperCase()} synced.`,
+            time: new Date().toISOString(),
+            metadata: { label: 'CAPITAL', value: formatCurrency(p.total_value || 0) }
+         }));
+
+         // 4. Notifications
+         notificationsRes.data?.forEach(n => allInsights.push({
+            id: `n-${n.id}`,
+            type: n.type === 'error' ? 'error' : n.type === 'warning' ? 'warning' : 'info',
+            category: 'SYSTEM',
+            message: `${n.title}: ${n.message}`,
+            time: n.created_at
+         }));
+
+         setInsights(allInsights.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()));
+
+         // Stats Calculation
+         if (simsRes.data) {
+            const allSims = [...simsRes.data, ...(miroSimsRes.data || [])];
+            const active = allSims.filter(s => s.status === 'pending' || s.status === 'running').length;
+            const completed = simsRes.data.filter(s => s.status === 'completed');
             let recentRisk = 0;
             if (completed.length > 0) {
-               const latest = completed[0];
-               // Check for value_at_risk in result, otherwise check metrics
-               const varValue = (latest.result as any).value_at_risk || (latest.result as any).metrics?.var95;
-               if (varValue) {
-                  // Normalize VaR (assuming 0-1 scale) to percentage
-                  recentRisk = Math.min(Math.round(varValue * 100), 100);
-               }
+               const varValue = (completed[0].result as any)?.value_at_risk || (completed[0].result as any)?.metrics?.var95;
+               if (varValue) recentRisk = Math.min(Math.round(varValue * 100), 100);
             }
 
             setStats({
+               riskScore: recentRisk || 15,
                activeSims: active,
-               deployments: portfolios?.length || 0,
-               riskScore: recentRisk
+               deployments: allSims.length
             });
-
-            // Aggregate Multi-Source Insights
-            const allInsights: Insight[] = [];
-
-            // 1. Simulation Insights
-            sims.slice(0, 5).forEach(s => allInsights.push({
-               id: s.id,
-               type: s.status === 'completed' ? 'success' : s.status === 'failed' ? 'error' : 'info',
-               category: 'SYSTEM',
-               message: s.status === 'completed' 
-                  ? `Simulation Result_${s.id.substring(0, 8)} finalized with optimal convergence.` 
-                  : s.status === 'failed'
-                  ? `Pipeline interruption detected on simulation_${s.id.substring(0, 8)}.`
-                  : `Simulation_${s.id.substring(0, 8)} enqueued to institutional compute.`,
-               time: s.created_at
-            }));
-
-            // 2. Portfolio Insights
-            portfolios?.slice(0, 3).forEach(p => allInsights.push({
-               id: `p-${p.id}`,
-               type: 'success',
-               category: 'DEPLOYMENT',
-               message: `Institutional Vault_${p.name.toUpperCase()} successfully initialized.`,
-               time: new Date().toISOString(), // Mock time for recent deploy if not in schema
-               metadata: { label: 'CAPITAL', value: formatCurrency(p.total_value || 0) }
-            }));
-
-            // 3. Market Insights (Intelligent Price Alerts)
-            prices?.slice(0, 5).forEach(pr => {
-               const price = Number(pr.price);
-               const open = Number(pr.open || price);
-               const change = ((price - open) / open) * 100;
-               
-               if (Math.abs(change) > 2) { // 2% movement threshold
-                  allInsights.push({
-                     id: `m-${pr.symbol}`,
-                     type: change > 0 ? 'success' : 'error',
-                     category: 'MARKET',
-                     message: `Market Volatility: ${pr.symbol} shifted ${change.toFixed(2)}% in current session.`,
-                     time: new Date().toISOString(),
-                     metadata: { label: 'SPOT_PRICE', value: `$${price.toLocaleString()}` }
-                  });
-               }
-            });
-
-            // 4. Personalized Notifications
-            notifications?.forEach(n => {
-               allInsights.push({
-                  id: `n-${n.id}`,
-                  type: n.type === 'error' ? 'error' : n.type === 'warning' ? 'warning' : 'info',
-                  category: 'SYSTEM',
-                  message: `${n.title}: ${n.message}`,
-                  time: n.created_at
-               });
-            });
-
-            // Sort by time descending
-            setInsights(allInsights.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()));
          }
+      } catch (error) {
+         console.error('Registry Sync Failure:', error);
+      } finally {
+         setIsLoading(false);
       }
    };
 
-   useEffect(() => {
-      fetchData();
-
-      // Subscribe to realtime changes
-      const channel = supabase
-         .channel('dashboard-sync')
-         .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'portfolios' },
-            () => fetchData()
-         )
-         .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'simulations' },
-            () => fetchData()
-         )
-         .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'prices' },
-            () => fetchData()
-         )
-         .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'user_notifications' },
-            () => fetchData()
-         )
-         .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'user_profiles' },
-            () => fetchData()
-         )
-         .subscribe();
-
-      return () => {
-         supabase.removeChannel(channel);
+      const checkHealth = async () => {
+         try {
+            const res = await fetch('/api/simulation/health');
+            const data = await res.json();
+            setServiceStatus(data.status);
+         } catch {
+            setServiceStatus('offline');
+         }
       };
-   }, [supabase]);
+
+    useEffect(() => {
+       fetchData();
+       checkHealth();
+       const healthInterval = setInterval(checkHealth, 30000); // Check every 30s
+
+       // Subscribe to realtime changes
+       const channel = supabase
+          .channel('dashboard-sync')
+          .on(
+             'postgres_changes',
+             { event: '*', schema: 'public', table: 'portfolios' },
+             () => fetchData()
+          )
+          .on(
+             'postgres_changes',
+             { event: '*', schema: 'public', table: 'simulations' },
+             () => fetchData()
+          )
+          .on(
+             'postgres_changes',
+             { event: '*', schema: 'public', table: 'simulation_runs' },
+             () => fetchData()
+          )
+          .on(
+             'postgres_changes',
+             { event: '*', schema: 'public', table: 'prices' },
+             () => fetchData()
+          )
+          .on(
+             'postgres_changes',
+             { event: '*', schema: 'public', table: 'user_notifications' },
+             () => fetchData()
+          )
+          .on(
+             'postgres_changes',
+             { event: '*', schema: 'public', table: 'user_profiles' },
+             () => fetchData()
+          )
+          .subscribe();
+
+       return () => {
+          supabase.removeChannel(channel);
+          clearInterval(healthInterval);
+       };
+    }, [supabase]);
 
    const modules = [
       { title: 'STATION', sub: 'Asset Management', icon: Database, route: '/dashboard/assets', tier: 'free' },
@@ -239,6 +239,15 @@ export default function DashboardPage() {
       { title: 'STRAT', sub: 'Strategy Builder', icon: Layout, route: '/dashboard/portfolios/new', tier: 'free' },
       { title: 'MODEL', sub: 'Simulate Reality', icon: Activity, route: '/dashboard/simulate', tier: 'free' },
       { title: 'ORACLE', sub: 'AI Intelligence', icon: Cpu, route: '/dashboard/oracle', tier: 'plus' },
+      { title: 'RISK', sub: 'Risk Assessment', icon: ShieldCheck, route: '/dashboard/risk', tier: 'pro' },
+      { title: 'NEWS', sub: 'Financial News', icon: Bell, route: '/dashboard/news', tier: 'plus' },
+      { title: 'SCREEN', sub: 'AI Screener', icon: Search, route: '/dashboard/screener', tier: 'pro' },
+      { title: 'EARN', sub: 'Earnings AI', icon: BarChart3, route: '/dashboard/earnings', tier: 'pro' },
+      { title: 'BIGDATA', sub: 'Market Analytics', icon: PieChart, route: '/dashboard/analytics/big-data', tier: 'pro' },
+      { title: 'COMPARE', sub: 'Live Benchmark', icon: TrendingUp, route: '/dashboard/analytics/compare', tier: 'pro' },
+      { title: 'AUTOMATE', sub: 'n8n Workflows', icon: Layers, route: '/dashboard/automations', tier: 'free' },
+      { title: 'GUARD', sub: 'Risk Manager', icon: Lock, route: '/dashboard/risk-management', tier: 'plus' },
+      { title: 'MIRO', sub: 'MiroFish Engine', icon: Layers, route: '/dashboard/mirofish', tier: 'pro' },
    ];
 
    const operatorName = userProfile?.first_name?.toUpperCase() || 'OPERATOR';
@@ -256,9 +265,18 @@ export default function DashboardPage() {
                         <Activity size={10} />
                         Terminal_Active
                      </div>
+                     <div className={cn(
+                        "flex items-center gap-2 px-2 py-0.5 border rounded text-[10px] font-bold uppercase tracking-widest",
+                        serviceStatus === 'online' ? "bg-green-500/10 border-green-500/20 text-green-500" :
+                        serviceStatus === 'offline' ? "bg-red-500/10 border-red-500/20 text-red-500" :
+                        "bg-yellow-500/10 border-yellow-500/20 text-yellow-500"
+                     )}>
+                        <Cpu size={10} />
+                        Compute_{serviceStatus.toUpperCase()}
+                     </div>
                      <MarketStatus />
                   </div>
-                  <h1 className="text-4xl font-black text-white uppercase tracking-tighter font-mono">
+                  <h1 className="text-3xl md:text-4xl font-black text-white uppercase tracking-tighter font-mono truncate max-w-[90vw]">
                      Console_<span className="text-[#00D9FF]">{operatorName}</span>
                   </h1>
                   <p className="text-[#848D97] text-sm font-mono uppercase tracking-widest">Institutional Portfolio Command & Control</p>
@@ -302,9 +320,11 @@ export default function DashboardPage() {
 
                   <div className="relative z-10">
                      <p className="text-[10px] uppercase tracking-[0.3em] text-[#848D97] font-bold mb-4">Total Assets Under Management</p>
-                     <h2 className="text-4xl md:text-6xl font-mono font-bold text-white tracking-tighter mb-8 flex items-baseline gap-2 overflow-hidden text-ellipsis">
-                        <span className="text-[#00D9FF] text-2xl md:text-4xl">$</span>
-                        {totalAum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                     <h2 className="text-3xl sm:text-4xl md:text-6xl font-mono font-bold text-white tracking-tighter mb-8 flex items-baseline gap-2 overflow-hidden">
+                        <span className="text-[#00D9FF] text-xl sm:text-2xl md:text-4xl">$</span>
+                        <span className="truncate">
+                           {totalAum.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
                      </h2>
 
                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 md:gap-8 pt-8 border-t border-white/5">
@@ -332,6 +352,8 @@ export default function DashboardPage() {
                         <button 
                            onClick={() => setIsFeedOpen(true)}
                            className="p-1.5 rounded-lg hover:bg-white/5 text-[#848D97] hover:text-white transition-all"
+                           title="Expand Insight Feed"
+                           aria-label="Expand Insight Feed"
                         >
                            <Maximize2 size={14} />
                         </button>
@@ -376,7 +398,7 @@ export default function DashboardPage() {
             {/* Module Grid (Section 6.2) */}
              <div>
                <h3 className="text-xs uppercase font-bold tracking-[0.2em] text-[#848D97] mb-6">Functional_Modules</h3>
-               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                   {modules.map((m, i) => (
                     <div key={i}>
                       {m.tier !== 'free' ? (

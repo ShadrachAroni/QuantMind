@@ -5,7 +5,7 @@ import { checkAIQuota, logAIUsage } from '@/lib/ai/quota';
 const ENCRYPTION_SECRET = process.env.ENCRYPTION_SECRET;
 
 /**
- * AI Oracle API Route - STREAMING
+ * AI Assistant API Route - STREAMING
  * Supports dynamic multi-provider (Gemini, OpenAI, Anthropic) and quota management.
  */
 export async function POST(req: Request) {
@@ -77,10 +77,10 @@ export async function POST(req: Request) {
       market_vitals: marketRes.data || []
     };
 
-    const systemPrompt = `You are the QuantMind AI Oracle, an institutional-grade financial assistant. 
+    const systemPrompt = `You are the QuantMind AI Assistant, an Secure-grade financial assistant. 
     Your goal is to provide deep insights into the user's specific financial situation.
     CONTEXT: ${JSON.stringify(contextData)}
-    GUIDELINES: 1. Reference portfolios/simulations by name. 2. Use live market_vitals. 3. Use institutional tone and markdown.`;
+    GUIDELINES: 1. Reference portfolios/simulations by name. 2. Use live market_vitals. 3. Use Secure tone and markdown.`;
 
     // 4. Provider-Specific Request Handling
     if (provider === 'google') {
@@ -97,7 +97,7 @@ export async function POST(req: Request) {
         body: JSON.stringify({
           contents: [
             { role: 'user', parts: [{ text: systemPrompt }] },
-            { role: 'model', parts: [{ text: "Understood. Synchronizing cognitive buffers..." }] },
+            { role: 'model', parts: [{ text: "Understood. Preparing AI response..." }] },
             ...contents
           ],
           generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
@@ -133,6 +133,61 @@ export async function POST(req: Request) {
                   try {
                     const data = JSON.parse(line.substring(6));
                     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                    if (text) controller.enqueue(encoder.encode(text));
+                  } catch (e) {}
+                }
+              }
+            }
+          } catch (err) { controller.error(err); } finally { controller.close(); }
+        },
+      });
+
+      return new Response(stream, { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-cache', 'Connection': 'keep-alive' } });
+    } else if (provider === 'nvidia') {
+      const response = await fetch('https://integrate.api.nvidia.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${targetApiKey}`,
+        },
+        body: JSON.stringify({
+          model: modelId,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...messages
+          ],
+          stream: true,
+          temperature: 0.7,
+        }),
+      });
+
+      if (!response.ok) {
+        return new Response(JSON.stringify({ error: 'COGNITIVE_RELAY_FAILURE' }), { status: 500 });
+      }
+
+      if (!isUsingCustomNode) {
+        await logAIUsage(supabase, user.id, modelId, Math.floor(JSON.stringify(messages).length / 4));
+      }
+
+      const encoder = new TextEncoder();
+      const decoder = new TextDecoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          const reader = response.body?.getReader();
+          if (!reader) { controller.close(); return; }
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              const chunk = decoder.decode(value);
+              const lines = chunk.split('\n');
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const dataStr = line.substring(6).trim();
+                  if (dataStr === '[DONE]') break;
+                  try {
+                    const data = JSON.parse(dataStr);
+                    const text = data.choices?.[0]?.delta?.content || '';
                     if (text) controller.enqueue(encoder.encode(text));
                   } catch (e) {}
                 }

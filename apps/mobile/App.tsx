@@ -15,7 +15,6 @@ import { GlobalErrorBoundary } from './src/components/debug/GlobalErrorBoundary'
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { PerformanceProvider } from './src/context/PerformanceContext';
 import { ToastProvider } from './src/context/ToastContext';
-import { DraggableDebugFAB } from './src/components/debug/DraggableDebugFAB';
 import { useNotifications } from './src/hooks/useNotifications';
 import { voiceService } from './src/services/voiceService';
 import { initGlobalHandlers } from './src/utils/globalDebugger';
@@ -29,16 +28,8 @@ initGlobalHandlers();
 
 import * as SplashScreen from 'expo-splash-screen';
 
-// Diagnostic: Log system color scheme during splash phase
-const colorScheme = Appearance.getColorScheme();
-console.log(`🚀 [APPEARANCE_DEBUG] Detected system theme: ${colorScheme?.toUpperCase() || 'UNKNOWN'}`);
-
-// Keep the splash screen visible while we fetch resources
-SplashScreen.preventAutoHideAsync().then(() => {
-  console.log('✅ [SPLASH_DEBUG] preventAutoHideAsync success');
-}).catch((err) => {
-  console.warn('⚠️  [SPLASH_DEBUG] preventAutoHideAsync failed:', err);
-});
+// Prevent the splash screen from auto-hiding until we're ready
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // Create QueryClient instance
 const queryClient = new QueryClient({

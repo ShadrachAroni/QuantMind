@@ -4,7 +4,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders, handleCors } from '../_shared/cors.ts';
 import { requireAuth } from '../_shared/auth.ts';
-import { rateLimit, rateLimitResponse } from '../_shared/rateLimiter.ts';
+import { rateLimit, rateLimitResponse, rateLimitByIP, checkGlobalPanicMode } from '../_shared/rateLimiter.ts';
 
 const TIER_LIMITS: Record<string, { maxPaths: number; rateLimit: number }> = {
   free:    { maxPaths: 2000,   rateLimit: 5  },
@@ -22,6 +22,7 @@ interface SimulationRequest {
   model_type?: 'gbm' | 'jump_diffusion' | 'fat_tails' | 'regime_switching';
   seed?: number;
   // PRO Parameters
+  simulation_type?: 'monte_carlo' | 'mirofish';
   jump_lambda?: number; // Jumps per year
   jump_size?: number;   // Mean jump size (log)
   jump_vol?: number;    // Jump volatility
@@ -56,6 +57,7 @@ function validateRequest(body: any): SimulationRequest {
     risk_free_rate: body.risk_free_rate,
     model_type: body.model_type || 'gbm',
     seed: body.seed,
+    simulation_type: body.simulation_type || 'monte_carlo',
     jump_lambda: body.jump_lambda ?? 0.05,
     jump_size: body.jump_size ?? -0.15,
     jump_vol: body.jump_vol ?? 0.1,
@@ -68,6 +70,18 @@ serve(async (req: Request) => {
   const corsRes = handleCors(req);
   if (corsRes) return corsRes;
 
+  // 1. DDoS Prevention: Global Panic Switch
+  if (await checkGlobalPanicMode()) {
+    return new Response(JSON.stringify({ error: 'System is currently undergoing maintenance or high-security lockdown.' }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
+    });
+  }
+
+  // 2. DDoS Prevention: IP Rate Limiting (50 req/min/IP for simulations)
+  const ipLimit = await rateLimitByIP(req, 50, 60);
+  if (!ipLimit.allowed) return rateLimitResponse(ipLimit);
+
   try {
     const user = await requireAuth(req);
     const tierConfig = TIER_LIMITS[user.tier] || TIER_LIMITS.free;
@@ -77,6 +91,33 @@ serve(async (req: Request) => {
     if (!limit.allowed) return rateLimitResponse(limit);
 
     const body = await req.json();
+    
+    // --- SPECIAL CASE: MiroFish Swarm Intelligence ---
+    if (body.simulation_type === 'mirofish') {
+      const hfUrl = Deno.env.get('SIMULATION_SERVICE_URL');
+      const hfSecret = Deno.env.get('SIMULATION_SECRET_KEY');
+      
+      const res = await fetch(`${hfUrl}/simulate/mirofish`, {
+        method: 'POST',
+        body: JSON.stringify({
+          simulation_id: `miro_${Date.now()}`,
+          user_id: user.id,
+          seed_context: body.seed, // In MiroFish, 'seed' is the text context
+          steps: 24
+        }),
+        headers: { 
+          'Content-Type': 'application/json', 
+          'X-Simulation-Secret': hfSecret || '' 
+        },
+      });
+      
+      if (!res.ok) throw new Error(`MiroFish Engine Rejected: ${await res.text()}`);
+      
+      return new Response(await res.text(), {
+        headers: { ...corsHeaders(origin), 'Content-Type': 'application/json' },
+      });
+    }
+
     const simReq = validateRequest(body);
 
     // Enforce tier path limit

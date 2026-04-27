@@ -1,6 +1,6 @@
 // Shared Email Utility for QuantMind Edge Functions
 // Implements Resend API with Premium QuantMind Fintech Styling
-// Centralized Source of Truth for Institutional Templates.
+// Centralized Source of Truth for Secure Templates.
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 
@@ -34,11 +34,11 @@ export async function validateRecipient(supabase: any, email: string, userId?: s
       .single();
 
     if (error || !profile) {
-      throw new Error(`Institutional verification failed: No profile found for UID ${userId}`);
+      throw new Error(`Secure verification failed: No profile found for UID ${userId}`);
     }
 
     if (profile.email.toLowerCase() !== email.toLowerCase()) {
-      throw new Error(`Institutional mismatch: Recipient ${email} does not match profile email for UID ${userId}`);
+      throw new Error(`Secure mismatch: Recipient ${email} does not match profile email for UID ${userId}`);
     }
   } else {
     // If no userId is provided, ensure the recipient exists in the platform at all
@@ -49,7 +49,7 @@ export async function validateRecipient(supabase: any, email: string, userId?: s
       .maybeSingle();
 
     if (!profile) {
-      throw new Error(`Institutional restriction: Recipient ${email} is not a registered QuantMind user.`);
+      throw new Error(`Secure restriction: Recipient ${email} is not a registered QuantMind user.`);
     }
   }
 }
@@ -274,7 +274,7 @@ export function getQuantMindWelcomeTemplate(tier: string, userId: string) {
       { title: 'EXPLORE_MARKETS', desc: 'View real-time data feeds for global indices and common assets.' }
     ],
     'pro': [
-      { title: 'CONNECT_NODES', desc: 'Ingest live assets for real-time risk calibration and monitoring.' },
+      { title: 'CONNECT_NODES', desc: 'Ingest live assets for real-time risk Settings and monitoring.' },
       { title: 'CALIBRATE_ENGINE', desc: 'Configure VaR sensitivity and custom Monte Carlo loops.' }
     ],
     'plus': [
@@ -282,7 +282,7 @@ export function getQuantMindWelcomeTemplate(tier: string, userId: string) {
       { title: 'NODE_CORRELATION', desc: 'Apply stress tests across cross-asset correlations in real-time.' }
     ],
     'student': [
-      { title: 'EDUCATIONAL_SIMS', desc: 'Learn quantitative finance through pre-built institutional scenarios.' },
+      { title: 'EDUCATIONAL_SIMS', desc: 'Learn quantitative finance through pre-built Secure scenarios.' },
       { title: 'QUANT_SANDBOX', desc: 'Test your own risk models and ciphers in a safe research environment.' }
     ]
   };
@@ -337,7 +337,7 @@ export function getQuantMindSubscriptionTemplate(details: { tier: string, amount
   const defaultCapabilities = [
     "✓ Low-Latency Simulation Engine Access",
     "✓ AI-Powered Portfolio Risk Forecasting",
-    "✓ Institutional Real-Time Market Feed"
+    "✓ Secure Real-Time Market Feed"
   ];
   
   const capabilities = details.capabilities || defaultCapabilities;
@@ -397,7 +397,7 @@ export function getQuantMindSubscriptionExpiryTemplate(details: { planName: stri
     <div style="text-align: center; margin-bottom: 32px;">
       <div style="display: inline-block; background: rgba(255,255,255,0.02) !important; color: ${accent} !important; padding: 6px 20px; border-radius: 999px; font-size: 10px; font-weight: 900; letter-spacing: 2px; margin-bottom: 16px; border: 1px solid ${accent};">PROTOCOL_EXPIRATION_WARNING</div>
       <h2 style="font-size: 24px; font-weight: 900; color: #fff !important; margin: 0;">Terminal Access Expiring</h2>
-      <div style="font-size: 14px; color: ${TEXT_SECONDARY} !important; margin-top: 12px;">Your ${details.planName.toUpperCase()} nodes are scheduled for de-provisioning on <strong>${details.expiryDate}</strong>.</div>
+      <div style="font-size: 14px; color: ${TEXT_SECONDARY} !important; margin-top: 12px;">Your ${details.planName.toUpperCase()} nodes are scheduled for closing on <strong>${details.expiryDate}</strong>.</div>
     </div>
 
     <div style="border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px; padding: 32px; text-align: center; margin: 32px 0;" class="section-dark">
@@ -414,7 +414,7 @@ export function getQuantMindSubscriptionExpiryTemplate(details: { planName: stri
 
     <a href="${APP_URL}/terminal/billing" class="btn" style="width: 100%; box-sizing: border-box; background-color: ${BRAND_COLOR} !important;">Renew Terminal Lease</a>
     
-    <p style="font-size: 11px; color: #64748b !important; line-height: 1.6; text-align: center;">Failure to renew will result in the loss of high-fidelity simulation history and API uplink access.</p>
+    <p style="font-size: 11px; color: #64748b !important; line-height: 1.6; text-align: center;">Failure to renew will result in the loss of Advanced simulation history and API uplink access.</p>
   `;
   return getQuantMindTemplate(content, "Subscription Notice", false);
 }
@@ -431,7 +431,7 @@ export function getQuantMindSubscriptionExpiredTemplate(details: { planName: str
     </div>
 
     <div style="border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px; padding: 32px; text-align: center; margin: 32px 0;" class="section-dark">
-      <p style="font-size: 16px; line-height: 1.7; color: ${TEXT_PRIMARY} !important; margin: 0;">The terminal has been downgraded to <strong>FREE TIER</strong>. Advanced Monte Carlo kernels and AI Oracle insights have been disabled.</p>
+      <p style="font-size: 16px; line-height: 1.7; color: ${TEXT_PRIMARY} !important; margin: 0;">The terminal has been downgraded to <strong>FREE TIER</strong>. Advanced Monte Carlo kernels and AI Assistant insights have been disabled.</p>
     </div>
 
     <a href="${APP_URL}/terminal/billing" class="btn" style="width: 100%; box-sizing: border-box;">Re-Activate Terminal</a>
@@ -459,7 +459,7 @@ export function getQuantMindOTPTemplate(code: string) {
         <h1 style="font-size: 24px; margin: 0; color: #fff !important; font-weight: 900;">AUTHORIZATION CODE</h1>
         
         <p style="font-size: 15px; color: ${TEXT_SECONDARY} !important; margin: 32px 0; line-height: 1.6;">
-          An administrative access attempt was detected. Enter the following zero-trust code into the terminal to synchronize your session:
+          An administrative access attempt was detected. Enter the following zero-trust code into the terminal to Sync your session:
         </p>
 
         <div style="background: #01040a !important; border: 1px solid rgba(0, 245, 255, 0.2); padding: 40px; border-radius: 20px; margin: 32px 0;">
@@ -501,7 +501,7 @@ export function getQuantMindReceiptTemplate(details: { reference: string, amount
       <div style="padding: 48px 32px;">
         <div style="margin-bottom: 40px;">
           <h1 style="font-size: 32px; font-weight: 900; color: #fff !important; margin: 0;">${details.amount} ${details.currency}</h1>
-          <div style="font-size: 14px; text-transform: uppercase; color: ${TEXT_SECONDARY} !important; margin-top: 8px; letter-spacing: 1px;">INSTITUTIONAL TIER: ${details.tier} ACCESS</div>
+          <div style="font-size: 14px; text-transform: uppercase; color: ${TEXT_SECONDARY} !important; margin-top: 8px; letter-spacing: 1px;">SECURE TIER: ${details.tier} ACCESS</div>
         </div>
 
         <div style="background: rgba(15, 23, 42, 0.4) !important; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px; padding: 24px; margin-bottom: 32px;">
@@ -545,7 +545,7 @@ export function getSupportTicketReceivedTemplate(ticketId: string, subject: stri
       <div style="font-size: 9px; color: ${BRAND_COLOR} !important; font-weight: 900; margin-bottom: 8px;">TICKET_IDENTIFIER</div>
       <div style="font-family: ui-monospace, monospace; font-size: 16px; font-weight: 800; word-break: break-all;">#${ticketId.toUpperCase()}</div>
     </div>
-    <p style="font-size: 13px; margin-top: 32px; opacity: 0.8;">Average response latency for institutional requests is currently &lt; 4 hours.</p>
+    <p style="font-size: 13px; margin-top: 32px; opacity: 0.8;">Average response latency for Secure requests is currently &lt; 4 hours.</p>
   `;
   return getQuantMindTemplate(content, "Ticket Initialized", true);
 }
@@ -587,7 +587,7 @@ export function getQuantMindPasswordReminderTemplate(details: { daysLeft: number
     <div style="text-align: center; margin-bottom: 32px;">
       <div style="display: inline-block; background: rgba(255,255,255,0.02) !important; color: ${accent} !important; padding: 6px 20px; border-radius: 999px; font-size: 10px; font-weight: 900; letter-spacing: 2px; margin-bottom: 16px; border: 1px solid ${accent};">SECURITY_POLICY_ENFORCED</div>
       <h2 style="font-size: 24px; font-weight: 900; color: #fff !important; margin: 0;">Access Key Rotation Due</h2>
-      <div style="font-size: 14px; color: ${TEXT_SECONDARY} !important; margin-top: 12px;">Your institutional access protocol requires periodic credential refreshing.</div>
+      <div style="font-size: 14px; color: ${TEXT_SECONDARY} !important; margin-top: 12px;">Your Secure access protocol requires periodic credential refreshing.</div>
     </div>
 
     <div style="border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 20px; padding: 32px; text-align: center; margin: 32px 0;" class="section-dark">
@@ -605,7 +605,7 @@ export function getQuantMindPasswordReminderTemplate(details: { daysLeft: number
 }
 
 /**
- * Institutional Sender Mapping (Verified Domains)
+ * Secure Sender Mapping (Verified Domains)
  */
 export function getInstitutionalSender(type: string): string {
   const domain = "quantmind.co.ke"; // PRIMARY VERIFIED DOMAIN
@@ -639,8 +639,8 @@ export function getQuantMindBasicWelcomeTemplate(userId: string) {
 export function getQuantMindRecoveryTemplate(token: string, origin: string = APP_URL) {
   const resetLink = `${origin}/auth/callback?type=recovery&code=${token}`;
   const htmlContent = `
-    <p>A request has been initiated to recover the access key for your node. Use the protocol link below to define a new authorization cipher.</p>
-    <a href="${resetLink}" class="btn" style="width: 100%; box-sizing: border-box;">Initialize Cipher Reset</a>
+    <p>A request has been initiated to recover the access key for your node. Use the protocol link below to define a new password.</p>
+    <a href="${resetLink}" class="btn" style="width: 100%; box-sizing: border-box;">Initialize Password Reset</a>
     <div style="font-size: 11px; font-family: ui-monospace, monospace; color: ${TEXT_SECONDARY} !important; padding: 16px; background: rgba(0,0,0,0.2); border-radius: 8px; word-break: break-all;">
       ${resetLink}
     </div>

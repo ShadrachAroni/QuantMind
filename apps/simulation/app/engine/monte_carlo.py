@@ -5,17 +5,43 @@ import httpx
 import zlib
 import os
 from typing import Optional, List, Dict, Any
+from concurrent.futures import ProcessPoolExecutor
 from app.models.simulation import Asset, RiskMetrics, SimulationJob
 from app.engine.optimizer import optimize_portfolio
+
+# CPU-Bound Task Pool for Vast Concurrency
+executor = ProcessPoolExecutor(max_workers=os.cpu_count())
+
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://qvqczzyghhgzaesiwtkj.supabase.co")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
 
-def compute_portfolio_params(assets: List[Asset]) -> tuple[float, float]:
-    mu = sum(a.weight * (a.expected_return or 0.07) for a in assets)
-    sigma_sq = sum((a.weight * (a.volatility or 0.15)) ** 2 for a in assets)
-    sigma = np.sqrt(sigma_sq)
-    return mu, sigma
+def compute_portfolio_params(assets: List[Asset], corr_matrix: Optional[np.ndarray] = None) -> tuple[float, float]:
+    """Compute portfolio mean and volatility using the correlation matrix."""
+    weights = np.array([a.weight for a in assets])
+    vols = np.array([a.volatility or 0.15 for a in assets])
+    returns = np.array([a.expected_return or 0.07 for a in assets])
+    
+    # Expected Return (Weighted Sum)
+    mu = np.dot(weights, returns)
+    
+    # Portfolio Volatility: sqrt(w.T * Sigma * w)
+    # where Sigma is the covariance matrix
+    num_assets = len(assets)
+    if corr_matrix is None or corr_matrix.shape != (num_assets, num_assets):
+        # Fallback: Assume a conservative 0.3 correlation if data is missing
+        # This is MUCH better than assuming 0 (independence)
+        corr_matrix = np.full((num_assets, num_assets), 0.3)
+        np.fill_diagonal(corr_matrix, 1.0)
+    
+    # Convert correlation to covariance: Sigma = diag(vols) * Corr * diag(vols)
+    cov_matrix = np.outer(vols, vols) * corr_matrix
+    
+    # Variance = w.T * Sigma * w
+    portfolio_variance = np.dot(weights.T, np.dot(cov_matrix, weights))
+    sigma = np.sqrt(max(portfolio_variance, 0))
+    
+    return float(mu), float(sigma)
 
 def run_gbm(
     mu: float,
@@ -278,23 +304,57 @@ async def update_simulation_status(simulation_id: str, status: str, result: Opti
         await client.patch(url, json=payload, headers=headers)
 
 async def save_simulation_paths(simulation_id: str, paths: np.ndarray):
+    """
+    Saves simulation paths to Supabase Storage as a compressed binary object.
+    This replaces the legacy bytea table storage for better scalability.
+    """
     try:
+        # 1. Compress the path data
         path_bytes = paths.astype(np.float32).tobytes()
         compressed = zlib.compress(path_bytes)
-        headers = {"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}", "Content-Type": "application/json", "Prefer": "return=minimal"}
-        payload = {"simulation_id": simulation_id, "paths": f"\\x{compressed.hex()}"}
-        url = f"{SUPABASE_URL}/rest/v1/simulation_paths"
+        
+        # 2. Upload to Supabase Storage
+        # Bucket: simulation-results, Path: {simulation_id}.bin
+        bucket_name = "simulation-results"
+        storage_path = f"{simulation_id}.bin"
+        
+        headers = {
+            "apikey": SUPABASE_SERVICE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+            "Content-Type": "application/octet-stream"
+        }
+        
+        upload_url = f"{SUPABASE_URL}/storage/v1/object/{bucket_name}/{storage_path}"
+        
         async with httpx.AsyncClient() as client:
-            resp = await client.post(url, json=payload, headers=headers)
-            resp.raise_for_status()
+            # Upload the binary file
+            upload_resp = await client.post(upload_url, content=compressed, headers=headers)
+            upload_resp.raise_for_status()
+            
+            # 3. Update the simulations record with the storage path
+            db_payload = {"storage_path": storage_path}
+            db_url = f"{SUPABASE_URL}/rest/v1/simulations?id=eq.{simulation_id}"
+            
+            db_headers = {
+                "apikey": SUPABASE_SERVICE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "return=minimal"
+            }
+            await client.patch(db_url, json=db_payload, headers=db_headers)
+            
     except Exception as e:
-        print(f"Error saving simulation paths: {e}")
+        print(f"Error migrating simulation paths to storage: {e}")
 
 async def process_simulation(job: SimulationJob):
     start_time = datetime.now()
     try:
         await update_simulation_status(job.simulation_id, "running")
-        mu, sigma = compute_portfolio_params(job.assets)
+        corr_array = np.array(job.correlation_matrix) if job.correlation_matrix else None
+        mu, sigma = compute_portfolio_params(job.assets, corr_array)
+        
+        # Apply Behavioral Sentiment Shock from MiroFish (if provided)
+        mu += (job.sentiment_shock or 0.0)
         params = job.params
         config = params.advanced_model_config or {}
         
@@ -307,8 +367,9 @@ async def process_simulation(job: SimulationJob):
         elif params.model_type == "stress_test":
             paths = run_stress_test(scenario_key=params.stress_scenario or "lehman_2008", mu=mu, sigma=sigma, initial_value=params.initial_value, time_horizon_years=params.time_horizon_years, num_paths=params.num_paths, seed=params.seed)
         elif params.model_type in ["random_forest_regressor", "lstm_forecast"]:
-            # ML Placeholder: slightly better returns with lower vol for Pro users
-            paths = run_gbm(mu=mu * 1.05, sigma=sigma * 0.95, initial_value=params.initial_value, time_horizon_years=params.time_horizon_years, num_paths=params.num_paths, risk_free_rate=params.risk_free_rate or 0.05, seed=params.seed)
+            # Honest baseline: Use GBM until actual models are deployed
+            # DO NOT add fake multipliers here.
+            paths = run_gbm(mu=mu, sigma=sigma, initial_value=params.initial_value, time_horizon_years=params.time_horizon_years, num_paths=params.num_paths, risk_free_rate=params.risk_free_rate or 0.05, seed=params.seed)
         else:
             paths = run_gbm(mu=mu, sigma=sigma, initial_value=params.initial_value, time_horizon_years=params.time_horizon_years, num_paths=params.num_paths, risk_free_rate=params.risk_free_rate or 0.05, seed=params.seed)
             
@@ -318,6 +379,12 @@ async def process_simulation(job: SimulationJob):
         if params.optimization_params:
             suggestion = optimize_portfolio(job.assets, params.optimization_params)
             metrics.optimization_suggestion = suggestion
+            
+        # Sentiment-Based Auto-Rebalancing (MiroFish Integration)
+        if job.sentiment_shock and abs(job.sentiment_shock) > 0.01:
+            from app.engine.rebalancer import rebalance_by_sentiment
+            rebalance_suggestion = rebalance_by_sentiment(job.assets, job.sentiment_shock)
+            metrics.sentiment_rebalance_suggestion = rebalance_suggestion
 
         percentile_paths = extract_percentile_paths(paths)
         duration = int((datetime.now() - start_time).total_seconds() * 1000)
@@ -326,7 +393,7 @@ async def process_simulation(job: SimulationJob):
             "params": {"portfolio_id": job.portfolio_id, "num_paths": params.num_paths, "time_horizon_years": params.time_horizon_years, "initial_value": params.initial_value, "risk_free_rate": params.risk_free_rate, "model_type": params.model_type, "stress_scenario": params.stress_scenario},
             "metrics": metrics.dict(), "percentile_paths": percentile_paths,
             "terminal_values": paths[:, -1].tolist() if len(paths) <= 1000 else np.random.choice(paths[:, -1], 1000).tolist(),
-            "model_info": {"portfolio_mu": mu, "portfolio_sigma": sigma, "model": params.model_type, "model_version": "1.0.0"},
+            "model_info": {"portfolio_mu": mu, "portfolio_sigma": sigma, "model": params.model_type, "model_version": "1.0.0", "sentiment_shock": job.sentiment_shock},
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
         await update_simulation_status(job.simulation_id, status="completed", result=result, duration_ms=duration)

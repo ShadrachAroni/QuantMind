@@ -29,7 +29,7 @@ serve(async (req: Request) => {
       type = 'signup';
     } else if (email_action_type === 'recovery') {
       html = getQuantMindRecoveryTemplate(token || token_hash);
-      subject = 'Reset your QuantMind Access Cipher';
+      subject = 'Reset your QuantMind Password';
       type = 'recovery';
     } else if (email_action_type === 'email_change') {
       html = getQuantMindVerificationTemplate(token || token_hash);
@@ -43,7 +43,7 @@ serve(async (req: Request) => {
       throw new Error(`Unsupported email action type: ${email_action_type}`);
     }
 
-    // Send via Resend with Institutional Verification
+    // Send via Resend with Secure Verification
     await sendEmail({
       to: user.email,
       from: getInstitutionalSender(type),
