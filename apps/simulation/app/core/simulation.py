@@ -1,6 +1,6 @@
 import json
 import os
-from camel.oasis import Platform, Environment
+from oasis import Platform
 from camel.agents import ChatAgent
 
 from zep_python.client import Zep
