@@ -40,8 +40,6 @@ class GraphIndex:
                     props=rel.properties
                 )
 
-
-
 class KnowledgeIngestor:
     def __init__(self, uri, auth_str):
         # Split 'username:password' into a tuple
