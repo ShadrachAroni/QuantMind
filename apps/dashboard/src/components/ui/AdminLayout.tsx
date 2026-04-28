@@ -8,13 +8,14 @@ import {
   Menu, X, Bell, Search, LayoutDashboard, Wallet, CreditCard, 
   BarChart3, Gift, HelpCircle, Sun, Moon, MoreHorizontal, Home,
   MessageSquare, MapPin, CheckCircle2, AlertTriangle, Zap, ShieldCheck, Star, Radio, Terminal,
-  DollarSign, Cpu
+  DollarSign, Cpu, AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../../components/auth/AuthProvider';
 import { supabase } from '../../lib/supabase';
 import { useTheme } from 'next-themes';
 import { useLoading } from './LoadingProvider';
 import { logSystemEvent } from '../../lib/notifications';
+import { cn } from '../../lib/utils';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -24,7 +25,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { setTheme, theme } = useTheme();
-  const { signOut, user } = useAuth();
+  const { signOut, user, region } = useAuth();
   const { startLoading, stopLoading } = useLoading();
   
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
@@ -194,7 +195,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     e.preventDefault();
     if (searchQuery.trim()) {
       setIsSearchOpen(false);
-      startLoading(`SEARCH_QUERY:_${searchQuery.trim().toUpperCase()}`, 1500);
+      startLoading(`EXECUTING_QUERY:_${searchQuery.trim().toUpperCase()}`, 1500);
       setTimeout(() => {
         router.push(`/users?search=${encodeURIComponent(searchQuery.trim())}`);
         stopLoading();
@@ -219,33 +220,33 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   };
 
   const floatingNav = [
-    { href: '/', label: 'Home', icon: Home },
-    { id: 'search', label: 'Search', icon: Search, onClick: () => setIsSearchOpen(true) },
-    { href: '/analytics', label: 'Analytics', icon: BarChart3 },
-    { href: '/campaigns', label: 'Campaigns', icon: FileText },
-    { href: '/admin/users', label: 'Users', icon: Users },
-    { href: '/payments', label: 'Payments', icon: CreditCard },
+    { href: '/', label: 'Nexus', icon: Home },
+    { id: 'search', label: 'Query', icon: Search, onClick: () => setIsSearchOpen(true) },
+    { href: '/analytics', label: 'Intelligence', icon: BarChart3 },
+    { href: '/campaigns', label: 'Operations', icon: FileText },
+    { href: '/admin/users', label: 'Operators', icon: Users },
+    { href: '/payments', label: 'Fiscal Clearance', icon: CreditCard },
     { id: 'expand', label: 'More', icon: MoreHorizontal, onClick: () => setIsMoreMenuOpen(!isMoreMenuOpen) },
   ];
 
   const moreMenuLinks = [
-    { href: '/admin/notifications', label: 'Alerts', icon: Bell },
-    { href: '/admin/logs', label: 'Audit Logs', icon: Terminal },
-    { href: '/admin/monitoring', label: 'Health', icon: Activity },
+    { href: '/admin/notifications', label: 'Alert Hub', icon: Bell },
+    { href: '/admin/logs', label: 'Protocol Logs', icon: Terminal },
+    { href: '/admin/monitoring', label: 'Kernel Status', icon: Activity },
     { href: '/admin/quota', label: 'AI Quota', icon: Cpu },
-    { href: '/admin/portfolios', label: 'Portfolios', icon: Wallet },
+    { href: '/admin/portfolios', label: 'Asset Library', icon: Wallet },
     { href: '/admin/compliance', label: 'Compliance', icon: ShieldCheck },
-    { href: '/admin/simulations', label: 'Simulations', icon: Zap },
-    { href: '/admin/revenue', label: 'Revenue', icon: DollarSign },
-    { href: '/admin/communications', label: 'Communications', icon: MessageSquare },
-    { href: '/admin/security', label: 'Security', icon: Shield },
-    { href: '/admin/support', label: 'Support', icon: HelpCircle },
-    { href: '/admin/config', label: 'Config', icon: Settings },
-    { href: '/admin/automation', label: 'Automation', icon: Cpu },
-    { href: '/admin/roles', label: 'Roles', icon: Shield },
-    { href: '/admin/integrations', label: 'Integrations', icon: Zap },
-    { href: '/admin/feedback', label: 'Feedback', icon: MessageSquare },
-    { href: '/admin/help', label: 'Help', icon: HelpCircle },
+    { href: '/admin/simulations', label: 'Oracle Sims', icon: Zap },
+    { href: '/admin/revenue', label: 'Revenue Yield', icon: DollarSign },
+    { href: '/admin/communications', label: 'Comms', icon: MessageSquare },
+    { href: '/admin/security', label: 'Encryption', icon: Shield },
+    { href: '/admin/support', label: 'Support Bridge', icon: HelpCircle },
+    { href: '/admin/config', label: 'System Config', icon: Settings },
+    { href: '/admin/automation', label: 'Auto-Bots', icon: Cpu },
+    { href: '/admin/roles', label: 'Privileges', icon: Shield },
+    { href: '/admin/integrations', label: 'API Links', icon: Zap },
+    { href: '/admin/feedback', label: 'Intel Feedback', icon: MessageSquare },
+    { href: '/admin/help', label: 'Manual', icon: HelpCircle },
   ];
 
   return (
@@ -261,12 +262,18 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               <input 
                 autoFocus
                 type="text" 
-                placeholder="Search resources, users, or system logs..."
+                placeholder="Query resources, operators, or system protocols..."
                 className="bg-transparent border-none outline-none text-xl w-full text-white placeholder:text-gray-600"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
-              <button type="button" onClick={() => setIsSearchOpen(false)} className="text-gray-500 hover:text-white">
+              <button 
+                type="button" 
+                onClick={() => setIsSearchOpen(false)} 
+                className="text-gray-500 hover:text-white"
+                aria-label="Close search"
+                title="Close search"
+              >
                 <X size={20} />
               </button>
             </form>
@@ -274,9 +281,21 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </div>
       )}
 
+      {/* Maintenance Banner */}
+      {isMaintenanceMode && (
+        <div className="fixed top-0 left-0 right-0 z-[2000] bg-red-600 text-white h-8 flex items-center justify-center text-[10px] font-black uppercase tracking-[0.3em] shadow-lg">
+          <AlertCircle size={14} className="mr-2 animate-pulse" />
+          SYSTEM_MAINTENANCE_PROTOCOL_ACTIVE
+        </div>
+      )}
+
       {/* Global Alert Banner */}
       {activeAlert && (
-        <div className={`system-alert-banner ${activeAlert.severity}`}>
+        <div className={cn(
+          "fixed left-0 right-0 z-[1900] transition-all duration-300 system-alert-banner",
+          activeAlert.severity,
+          isMaintenanceMode ? "top-8" : "top-0"
+        )}>
           <div className="flex items-center justify-between px-8 h-10 w-full overflow-hidden relative">
              <div className="flex items-center gap-3">
                 <AlertTriangle size={14} className="animate-pulse" />
@@ -284,42 +303,54 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                    {activeAlert.message}
                 </span>
              </div>
-             <button onClick={() => dismissAlert(activeAlert.id)} className="hover:text-white transition-colors">
+             <button 
+               onClick={() => dismissAlert(activeAlert.id)} 
+               className="hover:text-white transition-colors"
+               aria-label="Dismiss alert"
+               title="Dismiss alert"
+             >
                 <X size={14} />
              </button>
              <div className="absolute bottom-0 left-0 h-[1px] bg-white/20 w-full" />
              <div className="alert-pulse-bg absolute inset-0 -z-10" />
           </div>
-          {/* Alert styles moved to main style block */}
         </div>
       )}
 
       {/* Persistent Top Header (Minimal) */}
-      <header className="fixed top-0 left-0 right-0 h-20 px-8 flex items-center justify-between z-[1000] pointer-events-none">
+      <header className={cn(
+        "fixed left-0 right-0 z-[1100] bg-[#05070A]/80 backdrop-blur-md border-b border-white/5 px-4 md:px-8 flex items-center justify-between transition-all duration-300",
+        isMaintenanceMode && activeAlert ? "top-[72px]" : (isMaintenanceMode ? "top-8" : (activeAlert ? "top-10" : "top-0")),
+        "h-16 md:h-20"
+      )}>
         <div className="pointer-events-auto">
-          <Link href="/" className="logo-group group flex items-center h-full" onClick={(e) => handleNavClick('/', 'Home', e)}>
+          <Link href="/" className="logo-group group flex items-center h-full" onClick={(e) => handleNavClick('/', 'Nexus', e)}>
              <div className="relative flex items-center gap-4 group-hover:scale-105 transition-all duration-700">
                <div className="logo-icon-container relative">
                  <div className="logo-scanner-effect absolute inset-0 -inset-x-2 -inset-y-2 bg-gradient-to-t from-cyan-500/0 via-cyan-400/30 to-cyan-500/0 animate-scan pointer-events-none z-10 blur-sm mix-blend-screen" />
-                 <img 
-                   src="/assets/logo-icon.png" 
-                   alt="Q" 
-                   className="h-16 w-16 object-contain drop-shadow-[0_0_20px_rgba(34,211,238,0.4)] group-hover:drop-shadow-[0_0_35px_rgba(34,211,238,0.7)] transition-all duration-700 brightness-125"
-                 />
+                  <img 
+                    src="/logo.png" 
+                    alt="QM" 
+                    className="h-8 w-8 md:h-12 md:w-12 object-contain group-hover:scale-110 transition-transform" 
+                  />
                </div>
-               <div className="flex flex-col">
-                 <span className="text-xl font-black tracking-[0.2em] text-theme-primary leading-none group-hover:neon-text-cyan transition-all duration-500">QUANTMIND</span>
-                 <span className="text-[8px] font-bold tracking-[0.3em] text-cyan-400/60 uppercase mt-1">Institutional Protocol // v1.0.7</span>
-               </div>
+                <div className="hidden md:flex flex-col">
+                  <span className="text-xl font-black tracking-[0.2em] text-theme-primary leading-none group-hover:neon-text-cyan transition-all duration-500">QUANTMIND</span>
+                  <span className="text-[8px] font-bold tracking-[0.3em] text-cyan-400/60 uppercase mt-1">
+                    Institutional Protocol // {region || 'US_EAST_NY'}
+                  </span>
+                </div>
                <div className="absolute inset-0 bg-gradient-to-tr from-purple-500/10 to-cyan-500/10 blur-3xl -z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
              </div>
           </Link>
         </div>
 
-        <div className="header-actions pointer-events-auto bg-[#15161c]/40 backdrop-blur-md px-4 py-2 rounded-2xl border border-white/5 flex items-center gap-3">
+        <div className="header-actions pointer-events-auto bg-[#15161c]/40 backdrop-blur-md px-2 py-1.5 md:px-4 md:py-2 rounded-2xl border border-white/5 flex items-center gap-2 md:gap-3">
             <button 
               onClick={handleToggleMaintenance}
               disabled={isTogglingMaintenance}
+              aria-label={isMaintenanceMode ? 'Disable maintenance mode' : 'Enable maintenance mode'}
+              title={isMaintenanceMode ? 'Disable maintenance mode' : 'Enable maintenance mode'}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all duration-500 overflow-hidden relative group ${
                 isMaintenanceMode 
                   ? 'bg-red-500/20 border-red-500/40 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]' 
@@ -327,7 +358,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               }`}
             >
               <div className={`w-2 h-2 rounded-full ${isMaintenanceMode ? 'bg-red-500 animate-pulse' : 'bg-gray-600'}`} />
-              <span className="text-[10px] font-black uppercase tracking-widest px-1">
+              <span className="hidden md:inline text-[10px] font-black uppercase tracking-widest px-1">
                 {isMaintenanceMode ? 'SYSTEM_OFFLINE' : 'DOWNTIME_CTRL'}
               </span>
               {isTogglingMaintenance && (
@@ -342,6 +373,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             <button 
               className="icon-btn theme-toggle"
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              aria-label="Toggle theme"
+              title="Toggle theme"
             >
               {mounted && (theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />)}
             </button>
@@ -350,6 +383,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               <button 
                 className={`icon-btn ${showNotifications ? 'active' : ''}`}
                 onClick={() => setShowNotifications(!showNotifications)}
+                aria-label="View notifications"
+                title="View notifications"
               >
                 <Bell size={18} />
                 {notifications.length > 0 && <div className="notification-dot" />}
@@ -363,7 +398,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                        {unreadCount > 0 && <span className="bg-cyan-500 text-black text-[9px] font-black px-1.5 py-0.5 rounded-full">{unreadCount}</span>}
                     </div>
                     {unreadCount > 0 && (
-                      <button onClick={markAllAsRead} className="text-[9px] font-black text-cyan-500 hover:text-white transition-colors flex items-center gap-1 bg-cyan-500/10 px-2 py-1 rounded-md border border-cyan-500/20">
+                      <button 
+                        onClick={markAllAsRead} 
+                        className="text-[9px] font-black text-cyan-500 hover:text-white transition-colors flex items-center gap-1 bg-cyan-500/10 px-2 py-1 rounded-md border border-cyan-500/20"
+                        aria-label="Clear all notifications"
+                        title="Clear all notifications"
+                      >
                         <X size={10} />
                         CLEAR ALL
                       </button>
@@ -406,7 +446,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                             <button 
                               onClick={() => markAsRead(n.id)}
                               className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded-md transition-all self-start text-gray-500 hover:text-white"
-                              title="Dismiss"
+                              aria-label="Mark as read"
+                              title="Mark as read"
                             >
                               <X size={14} />
                             </button>
@@ -429,7 +470,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
       {/* Main Content */}
       <main className="main-content-full scroll-smooth">
-        <div className="content-padding pt-24 pb-32">
+        <div className={cn(
+          "content-padding pb-32 transition-all duration-300",
+          isMaintenanceMode && activeAlert ? "pt-[136px] md:pt-[152px]" : 
+          (isMaintenanceMode ? "pt-[96px] md:pt-[112px]" : 
+          (activeAlert ? "pt-[104px] md:pt-[120px]" : "pt-20 md:pt-24"))
+        )}>
           {children}
         </div>
       </main>
@@ -464,14 +510,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
          )}
 
          {/* The Nav Bar */}
-         <nav className="floating-nav-bar relative flex items-center justify-center bg-[#0F1016]/70 backdrop-blur-[32px] border border-white/5 p-2 rounded-[28px] shadow-[0_20px_50px_rgba(0,0,0,0.5),0_0_20px_rgba(124,58,237,0.1)]">
-            <div className="flex items-center gap-1 md:gap-4 px-2">
+          <nav className="floating-nav-bar relative flex items-center justify-center bg-[#0F1016]/70 backdrop-blur-[32px] border border-white/5 p-1 md:p-2 rounded-[24px] md:rounded-[28px] shadow-[0_20px_50px_rgba(0,0,0,0.5),0_0_20px_rgba(124,58,237,0.1)]">
+             <div className="flex items-center gap-0.5 md:gap-4 px-1.5">
               {floatingNav.map((item) => {
                 const isActive = item.href ? pathname === item.href : false;
                 const Icon = item.icon;
                 
                 const content = (
-                  <div className={`nav-icon-container relative p-3 rounded-2xl transition-all duration-300 group ${isActive ? 'bg-white/10 shadow-inner' : 'hover:bg-white/5'}`}>
+                  <div className={`nav-icon-container relative p-1.5 md:p-3 rounded-xl md:rounded-2xl transition-all duration-300 group ${isActive ? 'bg-white/10 shadow-inner' : 'hover:bg-white/5'}`}>
                     <Icon size={22} className={`transition-all duration-300 ${isActive ? 'text-white scale-110 drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]' : 'text-gray-500 group-hover:text-gray-300'}`} />
                     
                     {/* Notification Badge Badge */}
@@ -494,14 +540,26 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
                 if (item.href) {
                   return (
-                    <Link key={item.href} href={item.href} title={item.label} onClick={(e) => handleNavClick(item.href as string, item.label, e)}>
+                    <Link 
+                      key={item.href} 
+                      href={item.href} 
+                      title={item.label} 
+                      aria-label={item.label}
+                      onClick={(e) => handleNavClick(item.href as string, item.label, e)}
+                    >
                       {content}
                     </Link>
                   );
                 }
 
                 return (
-                  <button key={item.id} onClick={item.onClick} title={item.label} className="focus:outline-none">
+                  <button 
+                    key={item.id} 
+                    onClick={item.onClick} 
+                    title={item.label} 
+                    aria-label={item.label}
+                    className="focus:outline-none"
+                  >
                     {content}
                   </button>
                 );
@@ -715,9 +773,19 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
         @media (max-width: 768px) {
           .content-padding { padding-left: 1rem; padding-right: 1rem; }
-          .logo-text { display: none; }
-          .floating-nav-bar { width: 95vw; overflow-x: auto; justify-content: flex-start; }
-          .nav-icon-container { p-2; }
+          .floating-nav-bar { 
+            width: fit-content; 
+            max-width: 95vw; 
+            overflow-x: auto; 
+            margin: 0 auto;
+          }
+          .icon-btn {
+            width: 32px;
+            height: 32px;
+          }
+          .header-actions {
+            gap: 0.5rem;
+          }
         }
       `}</style>
     </>

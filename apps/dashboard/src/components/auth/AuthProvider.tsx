@@ -6,12 +6,16 @@ import { supabase } from '../../lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { useToast } from '../ui/ToastProvider';
 
+export type Tier = 'free' | 'student' | 'plus' | 'pro';
+
 interface AuthContextType {
   user: User | null;
   isAdmin: boolean;
+  tier: Tier;
   loading: boolean;
   mfaVerified: boolean;
   adminMfaVerified: boolean;
+  region: string;
   signOut: () => Promise<void>;
 }
 
@@ -20,6 +24,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [tier, setTier] = useState<Tier>('free');
+  const [region, setRegion] = useState<string>('US_EAST_NY');
   const [loading, setLoading] = useState(true);
   const [mfaVerified, setMfaVerified] = useState(false);
   const [adminMfaVerified, setAdminMfaVerified] = useState(false);
@@ -41,15 +47,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUser(session.user);
       
-      // Check for Admin role
+      // Check for Admin role and Tier
       const { data: profile } = await supabase
         .from('user_profiles')
-        .select('is_admin')
+        .select('is_admin, tier, region')
         .eq('id', session.user.id)
         .single();
       
       const is_admin = !!profile?.is_admin;
       setIsAdmin(is_admin);
+      setTier((profile?.tier as Tier) || 'free');
+      setRegion(profile?.region || 'US_EAST_NY');
 
       // Enforce Admin MFA (Email OTP)
       let admin_mfa_verified = false;
@@ -95,6 +103,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
         setIsAdmin(false);
+        setTier('free');
+        setRegion('US_EAST_NY');
         setMfaVerified(false);
         setAdminMfaVerified(false);
         toastInfo('SESSION_TERMINATED', 'Operator signed out. Terminal transmission secured.');
@@ -119,6 +129,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     setUser(null);
     setIsAdmin(false);
+    setTier('free');
+    setRegion('US_EAST_NY');
     setMfaVerified(false);
     setAdminMfaVerified(false);
     window.location.href = '/login';
@@ -126,7 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 
   return (
-    <AuthContext.Provider value={{ user, isAdmin, loading, mfaVerified, adminMfaVerified, signOut }}>
+    <AuthContext.Provider value={{ user, isAdmin, tier, loading, mfaVerified, adminMfaVerified, region, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -771,7 +771,7 @@ export default function HomePage() {
  
               <div className="contact-info-side">
                 <div className="info-block">
-                  <h3 className="info-title">Global Access Nodes</h3>
+                  <h3 className="info-title">Sovereign Access Protocols</h3>
                   <div className="info-list">
                     <p className="info-item">NY::Wall_Street_v1</p>
                     <p className="info-item">LDN::Canary_Wharf_v3</p>
@@ -779,7 +779,7 @@ export default function HomePage() {
                   </div>
                 </div>
                 <div className="info-block">
-                  <h3 className="info-title">Direct Communications</h3>
+                  <h3 className="info-title">Terminal Uplink</h3>
                   <div className="info-list">
                     <p className="info-item highlight">support@quantmind.co.ke</p>
                     <p className="info-item highlight">+254 746 741 690</p>
@@ -810,7 +810,7 @@ export default function HomePage() {
               </div>
               <div className="footer-col">
                 <label>{t('RESOURCES')}</label>
-                <Link href="/status">{t('SYSTEM STATUS')}</Link>
+                <Link href="/status">{t('NETWORK INTEGRITY')}</Link>
                 <Link href="/whitepaper">{t('WHITEGUST')}</Link>
                 <Link href="/methodology">{t('METHODOLOGY')}</Link>
                 <Link href="/support">{t('SUPPORT LOGS')}</Link>
@@ -1131,6 +1131,15 @@ export default function HomePage() {
           transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
+        @media (max-width: 768px) {
+          :global(.main-nav) {
+            top: 12px;
+            width: calc(100% - 24px);
+            height: 52px;
+            padding: 0 0.75rem;
+          }
+        }
+
         :global(.main-nav:hover) {
           border-color: rgba(0, 240, 255, 0.4);
           box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 240, 255, 0.15);
@@ -1154,6 +1163,12 @@ export default function HomePage() {
           padding: 0.5rem 1rem;
           border-radius: 100px;
         }
+        @media (max-width: 768px) {
+          :global(.brand) {
+            gap: 0.75rem;
+            padding: 0.25rem 0.5rem;
+          }
+        }
         :global(.brand:hover) { 
           transform: none;
           background: transparent; 
@@ -1167,6 +1182,12 @@ export default function HomePage() {
           justify-content: center;
           transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
           position: relative;
+        }
+        @media (max-width: 768px) {
+          :global(.brand-logo-container) {
+            width: 32px;
+            height: 32px;
+          }
         }
         :global(.brand:hover .brand-logo-container) {
           transform: none;
@@ -1186,13 +1207,25 @@ export default function HomePage() {
           color: white;
           transition: none;
         }
+        @media (max-width: 768px) {
+          :global(.brand-name) {
+            font-size: 0.9rem;
+          }
+          :global(.brand-name) {
+            display: none;
+          }
+        }
+        @media (min-width: 480px) {
+          :global(.brand-name) {
+            display: block;
+          }
+        }
 
         :global(.nav-actions) {
           display: flex;
           align-items: center;
           gap: 1rem;
         }
-
         .menu-toggle {
           display: flex;
           align-items: center;
@@ -1207,8 +1240,16 @@ export default function HomePage() {
           transition: all 0.3s ease;
           z-index: 1001;
         }
+        @media (max-width: 768px) {
+          .menu-toggle {
+            width: 36px;
+            height: 36px;
+          }
+        }
 
-        .menu-toggle:hover {
+        @media (min-width: 1000px) {
+          .menu-toggle { display: none; }
+        }       .menu-toggle:hover {
           background: rgba(0, 240, 255, 0.1);
           border-color: rgba(0, 240, 255, 0.5);
           color: #00F0FF;
@@ -1254,7 +1295,7 @@ export default function HomePage() {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 3rem;
+          gap: 2rem;
           width: 100%;
           padding: 2rem;
         }
@@ -1263,7 +1304,7 @@ export default function HomePage() {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 2rem;
+          gap: 1.5rem;
         }
 
         .mobile-nav-links a {

@@ -16,6 +16,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
   ResponsiveContainer, AreaChart, Area, Cell, PieChart, Pie
 } from 'recharts';
+import { FeatureGate } from '../../../components/ui/FeatureGate';
 
 export default function AdminSimulationsPage() {
   return (
@@ -228,6 +229,8 @@ function SimulationsContent() {
                                     onClick={() => terminateJob(sim.id)}
                                     disabled={killLoading === sim.id}
                                     className="p-2 border border-red-500/30 text-red-500 hover:bg-red-500 hover:text-white rounded-lg transition-all"
+                                    aria-label="Terminate Job"
+                                    title="Terminate Job"
                                   >
                                      <Square size={12} fill="currentColor" />
                                   </button>
@@ -277,81 +280,95 @@ function SimulationsContent() {
                </button>
             </GlassCard>
 
-            <GlassCard className="p-6" intensity="low">
-               <div className="flex justify-between items-center mb-6">
-                  <h3 className="mono text-[10px] font-black tracking-widest text-pink-400 uppercase flex items-center gap-2">
-                     <Database size={14} />
-                     Asset_Library
-                  </h3>
-                  <button className="p-1.5 bg-white/5 rounded-lg text-gray-400 hover:text-white">
-                     <Plus size={12} />
-                  </button>
-               </div>
-               
-               <div className="space-y-3">
-                  {['AAPL', 'TSLA', 'BTC', 'ETH', 'GOLD'].map((ticker, i) => (
-                    <div key={ticker} className="p-3 bg-white/5 border border-white/5 rounded-xl flex items-center justify-between group">
-                       <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-[10px] font-bold text-gray-300">
-                             {ticker[0]}
+            <FeatureGate featureName="Advanced Asset Manager" requiredTier="plus">
+               <GlassCard className="p-6" intensity="low">
+                  <div className="flex justify-between items-center mb-6">
+                     <h3 className="mono text-[10px] font-black tracking-widest text-pink-400 uppercase flex items-center gap-2">
+                        <Database size={14} />
+                        Asset_Library
+                     </h3>
+                     <button 
+                        className="p-1.5 bg-white/5 rounded-lg text-gray-400 hover:text-white"
+                        aria-label="Add Asset"
+                        title="Add Asset"
+                     >
+                        <Plus size={12} />
+                     </button>
+                  </div>
+                  
+                  <div className="space-y-3">
+                     {['AAPL', 'TSLA', 'BTC', 'ETH', 'GOLD'].map((ticker, i) => (
+                       <div key={ticker} className="p-3 bg-white/5 border border-white/5 rounded-xl flex items-center justify-between group">
+                          <div className="flex items-center gap-3">
+                             <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-[10px] font-bold text-gray-300">
+                                {ticker[0]}
+                             </div>
+                             <div>
+                                <div className="text-[10px] font-bold text-gray-200">{ticker}</div>
+                                <div className="text-[8px] mono text-gray-600 uppercase">TIER_{i < 3 ? 'FREE' : 'PRO'}</div>
+                             </div>
                           </div>
-                          <div>
-                             <div className="text-[10px] font-bold text-gray-200">{ticker}</div>
-                             <div className="text-[8px] mono text-gray-600 uppercase">TIER_{i < 3 ? 'FREE' : 'PRO'}</div>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                             <button 
+                               className="p-1.5 hover:text-cyan-400 transition-colors"
+                               aria-label="More Options"
+                               title="More Options"
+                             >
+                               <MoreVertical size={12} />
+                             </button>
                           </div>
                        </div>
-                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button className="p-1.5 hover:text-cyan-400 transition-colors"><MoreVertical size={12} /></button>
-                       </div>
-                    </div>
-                  ))}
-               </div>
-            </GlassCard>
+                     ))}
+                  </div>
+               </GlassCard>
+            </FeatureGate>
 
-            <GlassCard className="p-6" intensity="low">
-               <h3 className="mono text-[10px] font-black tracking-widest text-yellow-400 uppercase mb-6 flex items-center gap-2">
-                  <BrainCircuit size={14} />
-                  AI_Oracle_Burn
-               </h3>
-               
-               <div className="h-[200px] w-full mt-4">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={aiConsumption}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={5}
-                        dataKey="tokens"
-                      >
-                        {aiConsumption.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={['#06b6d4', '#8b5cf6', '#eab308'][index % 3]} />
-                        ))}
-                      </Pie>
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: '#0F1016', 
-                          border: '1px solid rgba(255,255,255,0.1)',
-                          borderRadius: '12px',
-                          fontSize: '10px',
-                          fontFamily: 'monospace'
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-               </div>
-               
-               <div className="mt-4 space-y-2">
-                  {aiConsumption.map((m, i) => (
-                    <div key={m.name} className="flex justify-between items-center text-[10px] mono">
-                       <span className="text-gray-500 uppercase">{m.name}</span>
-                       <span className="text-gray-200 font-bold">{m.tokens.toLocaleString()} tokens</span>
-                    </div>
-                  ))}
-               </div>
-            </GlassCard>
+            <FeatureGate featureName="AI Oracle Models" requiredTier="pro">
+               <GlassCard className="p-6" intensity="low">
+                  <h3 className="mono text-[10px] font-black tracking-widest text-yellow-400 uppercase mb-6 flex items-center gap-2">
+                     <BrainCircuit size={14} />
+                     AI_Oracle_Burn
+                  </h3>
+                  
+                  <div className="h-[200px] w-full mt-4">
+                     <ResponsiveContainer width="100%" height="100%">
+                       <PieChart>
+                         <Pie
+                           data={aiConsumption}
+                           cx="50%"
+                           cy="50%"
+                           innerRadius={60}
+                           outerRadius={80}
+                           paddingAngle={5}
+                           dataKey="tokens"
+                         >
+                           {aiConsumption.map((entry, index) => (
+                             <Cell key={`cell-${index}`} fill={['#06b6d4', '#8b5cf6', '#eab308'][index % 3]} />
+                           ))}
+                         </Pie>
+                         <Tooltip 
+                           contentStyle={{ 
+                             backgroundColor: '#0F1016', 
+                             border: '1px solid rgba(255,255,255,0.1)',
+                             borderRadius: '12px',
+                             fontSize: '10px',
+                             fontFamily: 'monospace'
+                           }}
+                         />
+                       </PieChart>
+                     </ResponsiveContainer>
+                  </div>
+                  
+                  <div className="mt-4 space-y-2">
+                     {aiConsumption.map((m, i) => (
+                       <div key={m.name} className="flex justify-between items-center text-[10px] mono">
+                          <span className="text-gray-500 uppercase">{m.name}</span>
+                          <span className="text-gray-200 font-bold">{m.tokens.toLocaleString()} tokens</span>
+                       </div>
+                     ))}
+                  </div>
+               </GlassCard>
+            </FeatureGate>
          </div>
       </div>
 

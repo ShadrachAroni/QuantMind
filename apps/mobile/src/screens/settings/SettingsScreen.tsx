@@ -196,7 +196,7 @@ export function SettingsScreen() {
         <GlassCard style={dynamicStyles.section}>
           <SettingRow 
             icon={GlobeIcon} 
-            title={t('Interface_Language')} 
+            title="Communication Protocol" 
             subtitle={
               interfaceLanguage === 'ENGLISH_INTL' ? t('ENGLISH_INTERNATIONAL') : 
               interfaceLanguage === 'DEUTSCH_EU' ? t('GERMAN_EUROPE') :
@@ -206,7 +206,7 @@ export function SettingsScreen() {
           />
           <SettingRow 
             icon={MapPinIcon} 
-            title={t('Computing_Region')} 
+            title="Institutional Protocol" 
             subtitle={region === 'US_EAST_NY' ? t('REGION_US') : region === 'EU_WEST_LDN' ? t('REGION_EU') : t('REGION_AF')} 
             onPress={() => setSelModal({ visible: true, type: 'region' })}
           />
@@ -216,7 +216,7 @@ export function SettingsScreen() {
         <GlassCard style={dynamicStyles.section}>
           <SettingRow 
             icon={Activity} 
-            title={t('Subscription')} 
+            title="Clearance Level" 
             subtitle={`Current Level: ${tier.toUpperCase()}`} 
             onPress={() => navigation.navigate('Subscription')}
             color={tier === 'free' ? theme.textTertiary : theme.primary}
@@ -373,7 +373,7 @@ export function SettingsScreen() {
         >
           <GlassCard intensity="high" style={dynamicStyles.modalContent}>
             <Typography variant="monoBold" style={[dynamicStyles.modalTitle, { color: theme.textPrimary }]}>
-              {selModal.type === 'lang' ? t('SELECT_INTERFACE_LANGUAGE') : t('SELECT_COMPUTING_REGION')}
+              {selModal.type === 'lang' ? "SELECT COMMUNICATION PROTOCOL" : "SELECT INSTITUTIONAL PROTOCOL"}
             </Typography>
             
             {selModal.type === 'lang' ? (

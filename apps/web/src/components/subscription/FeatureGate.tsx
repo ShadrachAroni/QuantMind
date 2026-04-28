@@ -5,6 +5,7 @@ import { Lock, Zap, ShieldAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUser } from '@/components/UserContext';
 import { UpgradeModal } from './UpgradeModal';
+import { createClient } from '@/lib/supabase';
 
 interface FeatureGateProps {
   children: React.ReactNode;
@@ -17,6 +18,7 @@ interface FeatureGateProps {
 export function FeatureGate({ children, requiredTier, featureName, className, blur = true }: FeatureGateProps) {
   const { profile } = useUser();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const supabase = createClient();
 
   const tierPriority = {
     free: 0,
@@ -32,11 +34,35 @@ export function FeatureGate({ children, requiredTier, featureName, className, bl
     return <>{children}</>;
   }
 
+  const handleGateClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setIsModalOpen(true);
+    
+    // Log Analytics Event for CTR tracking
+    if (profile?.id) {
+      try {
+        await supabase.from('analytics_events').insert({
+          user_id: profile.id,
+          event_type: 'feature_gate_triggered',
+          properties: {
+            feature_name: featureName,
+            required_tier: requiredTier,
+            current_tier: currentTier,
+            location: 'web_dashboard'
+          }
+        });
+      } catch (err) {
+        console.error('Failed to log feature gate event', err);
+      }
+    }
+  };
+
   return (
     <>
       <div 
         className={cn("relative group cursor-pointer", className)}
-        onClick={() => setIsModalOpen(true)}
+        onClickCapture={handleGateClick}
       >
         {/* Children with Blur */}
         <div className={cn(
