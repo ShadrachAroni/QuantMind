@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 import httpx
 import zlib
 import os
+import asyncio
+from functools import partial
 from typing import Optional, List, Dict, Any
 from concurrent.futures import ProcessPoolExecutor
 from app.models.simulation import Asset, RiskMetrics, SimulationJob
@@ -55,37 +57,64 @@ def run_gbm(
 ) -> np.ndarray:
     rng = np.random.default_rng(seed)
     num_steps = max(int(time_horizon_years * 252), 252)
-    drift = (mu - 0.5 * sigma**2) * dt
-    diffusion = sigma * np.sqrt(dt)
-    Z = rng.standard_normal((num_paths, num_steps))
+    
+    # 32-bit floats for memory efficiency
+    drift = np.float32((mu - 0.5 * sigma**2) * dt)
+    diffusion = np.float32(sigma * np.sqrt(dt))
+    
+    # Variance Reduction: Antithetic Variates
+    half_paths = num_paths // 2
+    Z_half = rng.standard_normal((half_paths, num_steps), dtype=np.float32)
+    Z = np.vstack((Z_half, -Z_half))
+    
+    # If odd number of paths, add one more
+    if num_paths % 2 != 0:
+        Z_extra = rng.standard_normal((1, num_steps), dtype=np.float32)
+        Z = np.vstack((Z, Z_extra))
+        
     log_returns = drift + diffusion * Z
-    cum_log = np.concatenate([np.zeros((num_paths, 1)), np.cumsum(log_returns, axis=1)], axis=1)
-    return initial_value * np.exp(cum_log)
+    cum_log = np.concatenate([np.zeros((num_paths, 1), dtype=np.float32), np.cumsum(log_returns, axis=1, dtype=np.float32)], axis=1)
+    return np.float32(initial_value) * np.exp(cum_log)
 
 def run_fat_tails(mu: float, sigma: float, initial_value: float, time_horizon_years: float, num_paths: int, seed: Optional[int], df: int = 4) -> np.ndarray:
     rng = np.random.default_rng(seed)
     num_steps = max(int(time_horizon_years * 252), 252)
     dt = 1/252
     # Adjust scale for t-distribution variance: var = df / (df - 2)
-    scale = sigma * np.sqrt(dt * (df - 2) / df) if df > 2 else sigma * np.sqrt(dt)
-    drift = (mu - 0.5 * sigma**2) * dt
-    Z = rng.standard_t(df, size=(num_paths, num_steps)) * scale + drift
-    cum_log = np.concatenate([np.zeros((num_paths, 1)), np.cumsum(Z, axis=1)], axis=1)
-    return initial_value * np.exp(cum_log)
+    scale = np.float32(sigma * np.sqrt(dt * (df - 2) / df) if df > 2 else sigma * np.sqrt(dt))
+    drift = np.float32((mu - 0.5 * sigma**2) * dt)
+    
+    half_paths = num_paths // 2
+    Z_half = rng.standard_t(df, size=(half_paths, num_steps)).astype(np.float32)
+    Z = np.vstack((Z_half, -Z_half))
+    if num_paths % 2 != 0:
+        Z_extra = rng.standard_t(df, size=(1, num_steps)).astype(np.float32)
+        Z = np.vstack((Z, Z_extra))
+        
+    Z = Z * scale + drift
+    cum_log = np.concatenate([np.zeros((num_paths, 1), dtype=np.float32), np.cumsum(Z, axis=1, dtype=np.float32)], axis=1)
+    return np.float32(initial_value) * np.exp(cum_log)
 
 def run_jump_diffusion(mu: float, sigma: float, initial_value: float, time_horizon_years: float, num_paths: int, seed: Optional[int], lambda_j: float = 0.1, mu_j: float = -0.05, sigma_j: float = 0.1) -> np.ndarray:
     rng = np.random.default_rng(seed)
     num_steps = max(int(time_horizon_years * 252), 252)
     dt = 1/252
-    drift = (mu - 0.5 * sigma**2 - lambda_j * (np.exp(mu_j + 0.5 * sigma_j**2) - 1)) * dt
-    diffusion = sigma * np.sqrt(dt)
-    Z = rng.standard_normal((num_paths, num_steps))
+    drift = np.float32((mu - 0.5 * sigma**2 - lambda_j * (np.exp(mu_j + 0.5 * sigma_j**2) - 1)) * dt)
+    diffusion = np.float32(sigma * np.sqrt(dt))
+    
+    half_paths = num_paths // 2
+    Z_half = rng.standard_normal((half_paths, num_steps), dtype=np.float32)
+    Z = np.vstack((Z_half, -Z_half))
+    if num_paths % 2 != 0:
+        Z_extra = rng.standard_normal((1, num_steps), dtype=np.float32)
+        Z = np.vstack((Z, Z_extra))
+        
     log_returns = drift + diffusion * Z
-    jumps = rng.poisson(lambda_j * dt, (num_paths, num_steps))
-    jump_sizes = rng.normal(mu_j, sigma_j, (num_paths, num_steps))
+    jumps = rng.poisson(lambda_j * dt, (num_paths, num_steps)).astype(np.float32)
+    jump_sizes = rng.normal(mu_j, sigma_j, (num_paths, num_steps)).astype(np.float32)
     log_returns += jumps * jump_sizes
-    cum_log = np.concatenate([np.zeros((num_paths, 1)), np.cumsum(log_returns, axis=1)], axis=1)
-    return initial_value * np.exp(cum_log)
+    cum_log = np.concatenate([np.zeros((num_paths, 1), dtype=np.float32), np.cumsum(log_returns, axis=1, dtype=np.float32)], axis=1)
+    return np.float32(initial_value) * np.exp(cum_log)
 
 def run_regime_switching(mu: float, sigma: float, initial_value: float, time_horizon_years: float, num_paths: int, seed: Optional[int]) -> np.ndarray:
     rng = np.random.default_rng(seed)
@@ -357,21 +386,28 @@ async def process_simulation(job: SimulationJob):
         mu += (job.sentiment_shock or 0.0)
         params = job.params
         config = params.advanced_model_config or {}
+        loop = asyncio.get_running_loop()
         
         if params.model_type == "fat_tails":
-            paths = run_fat_tails(mu=mu, sigma=sigma, initial_value=params.initial_value, time_horizon_years=params.time_horizon_years, num_paths=params.num_paths, seed=params.seed, df=getattr(config, 'df', 4))
+            func = partial(run_fat_tails, mu=mu, sigma=sigma, initial_value=params.initial_value, time_horizon_years=params.time_horizon_years, num_paths=params.num_paths, seed=params.seed, df=getattr(config, 'df', 4))
+            paths = await loop.run_in_executor(executor, func)
         elif params.model_type == "jump_diffusion":
-            paths = run_jump_diffusion(mu=mu, sigma=sigma, initial_value=params.initial_value, time_horizon_years=params.time_horizon_years, num_paths=params.num_paths, seed=params.seed, lambda_j=getattr(config, 'lambda_j', 0.1), mu_j=getattr(config, 'mu_j', -0.05), sigma_j=getattr(config, 'sigma_j', 0.1))
+            func = partial(run_jump_diffusion, mu=mu, sigma=sigma, initial_value=params.initial_value, time_horizon_years=params.time_horizon_years, num_paths=params.num_paths, seed=params.seed, lambda_j=getattr(config, 'lambda_j', 0.1), mu_j=getattr(config, 'mu_j', -0.05), sigma_j=getattr(config, 'sigma_j', 0.1))
+            paths = await loop.run_in_executor(executor, func)
         elif params.model_type == "regime_switching":
-            paths = run_regime_switching(mu=mu, sigma=sigma, initial_value=params.initial_value, time_horizon_years=params.time_horizon_years, num_paths=params.num_paths, seed=params.seed)
+            func = partial(run_regime_switching, mu=mu, sigma=sigma, initial_value=params.initial_value, time_horizon_years=params.time_horizon_years, num_paths=params.num_paths, seed=params.seed)
+            paths = await loop.run_in_executor(executor, func)
         elif params.model_type == "stress_test":
-            paths = run_stress_test(scenario_key=params.stress_scenario or "lehman_2008", mu=mu, sigma=sigma, initial_value=params.initial_value, time_horizon_years=params.time_horizon_years, num_paths=params.num_paths, seed=params.seed)
+            func = partial(run_stress_test, scenario_key=params.stress_scenario or "lehman_2008", mu=mu, sigma=sigma, initial_value=params.initial_value, time_horizon_years=params.time_horizon_years, num_paths=params.num_paths, seed=params.seed)
+            paths = await loop.run_in_executor(executor, func)
         elif params.model_type in ["random_forest_regressor", "lstm_forecast"]:
             # Honest baseline: Use GBM until actual models are deployed
             # DO NOT add fake multipliers here.
-            paths = run_gbm(mu=mu, sigma=sigma, initial_value=params.initial_value, time_horizon_years=params.time_horizon_years, num_paths=params.num_paths, risk_free_rate=params.risk_free_rate or 0.05, seed=params.seed)
+            func = partial(run_gbm, mu=mu, sigma=sigma, initial_value=params.initial_value, time_horizon_years=params.time_horizon_years, num_paths=params.num_paths, risk_free_rate=params.risk_free_rate or 0.05, seed=params.seed)
+            paths = await loop.run_in_executor(executor, func)
         else:
-            paths = run_gbm(mu=mu, sigma=sigma, initial_value=params.initial_value, time_horizon_years=params.time_horizon_years, num_paths=params.num_paths, risk_free_rate=params.risk_free_rate or 0.05, seed=params.seed)
+            func = partial(run_gbm, mu=mu, sigma=sigma, initial_value=params.initial_value, time_horizon_years=params.time_horizon_years, num_paths=params.num_paths, risk_free_rate=params.risk_free_rate or 0.05, seed=params.seed)
+            paths = await loop.run_in_executor(executor, func)
             
         metrics = compute_risk_metrics(paths=paths, initial_value=params.initial_value, time_horizon_years=params.time_horizon_years, risk_free_rate=params.risk_free_rate or 0.05)
         
