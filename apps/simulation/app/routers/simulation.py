@@ -5,11 +5,10 @@ from app.models.mirofish import MiroFishJob
 from app.engine.monte_carlo import process_simulation, executor
 from app.core.simulation import run_market_evolution
 import os
-
-router = APIRouter()
-
 from dotenv import dotenv_values
 from app.core.security import secure_endpoint
+
+router = APIRouter()
 
 env_config = dotenv_values(".env")
 

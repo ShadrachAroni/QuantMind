@@ -11,7 +11,7 @@ class AIService:
         self.base_url = "https://integrate.api.nvidia.com/v1"
         
         self.models = {
-            "risk_analyst": "nvidia/minimax-text-01", # High precision for risk
+            "risk_analyst": "nvidia/minimax-text-01",  # High precision for risk
             "portfolio_strategist": "meta/llama-3.1-70b-instruct",
             "macro_analyst": "mistralai/mixtral-8x22b-instruct"
         }

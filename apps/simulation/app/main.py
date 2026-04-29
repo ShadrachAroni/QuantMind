@@ -9,7 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 import asyncio
 import logging
 import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv, dotenv_values
 from app.routers.simulation import router as simulation_router
 from datetime import datetime, timezone
 
@@ -61,7 +61,7 @@ app.add_middleware(StrictEndpointMiddleware)
 # ---------------------------------------------------------------------------
 # Robust CORS Policy
 # ---------------------------------------------------------------------------
-from dotenv import dotenv_values
+
 env_config = dotenv_values(".env")
 
 allowed_origins_str = env_config.get("ALLOWED_ORIGINS", "https://quantmind.com")

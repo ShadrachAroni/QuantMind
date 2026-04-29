@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { CheckCircle2, Cpu, X, Menu, Smartphone, Apple, ArrowUp, ArrowRight, Shield, Play } from 'lucide-react';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { DownloadModal } from '@/components/ui/DownloadModal';
@@ -383,8 +384,8 @@ export default function HomePage() {
       <nav className="main-nav">
         <div className="nav-container max-width">
           <Link href="/" className="brand">
-            <div className="brand-logo-container">
-              <img src="/logo.png" alt="QuantMind" className="brand-logo-img" />
+            <div className="brand-logo-container relative w-8 h-8">
+              <Image src="/logo.png" alt="QuantMind" fill className="brand-logo-img object-contain" />
             </div>
             <span className="brand-name">QuantMind</span>
           </Link>
@@ -451,10 +452,13 @@ export default function HomePage() {
             </div>
             <div className="hero-visual">
               <div className="visual-glow"></div>
-              <div className="phone-mockup">
-                <img
+              <div className="phone-mockup relative w-full h-[600px]">
+                <Image
                   alt="App Preview"
                   src="/app_preview_mobile.png"
+                  fill
+                  priority
+                  className="object-contain"
                 />
               </div>
             </div>
@@ -795,8 +799,8 @@ export default function HomePage() {
         <div className="footer-container max-width reveal fade-in">
           <div className="footer-main">
             <div className="footer-brand-side">
-              <Link href="/" className="footer-logo mb-6">
-                <img src="/logo.png" alt="QuantMind" className="brand-logo-img" />
+              <Link href="/" className="footer-logo mb-6 relative w-10 h-10 block">
+                <Image src="/logo.png" alt="QuantMind" fill className="brand-logo-img object-contain" />
               </Link>
             </div>
  

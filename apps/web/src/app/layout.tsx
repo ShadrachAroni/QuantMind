@@ -79,32 +79,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <style dangerouslySetInnerHTML={{
-          __html: `
-          body[data-initializing="true"] main, 
-          body[data-initializing="true"] section,
-          body[data-initializing="true"] footer,
-          body[data-initializing="true"] header {
-            opacity: 0 !important;
-            pointer-events: none !important;
-          }
-          #critical-loader-bg {
-            position: fixed;
-            inset: 0;
-            background: #05070A;
-            z-index: 9999;
-            display: block;
-          }
-          body[data-initializing="false"] #critical-loader-bg {
-            display: none;
-          }
-        ` }} />
       </head>
       <body
         className={`${inter.variable} ${spaceGrotesk.variable} ${dmSans.variable} ${jetbrainsMono.variable} ${cormorant.variable} antialiased`}
-        data-initializing="true"
       >
-        <div id="critical-loader-bg" />
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"

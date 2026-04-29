@@ -1,20 +1,20 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
+import { usePathname } from 'next/navigation';
 import { LoadingOverlay } from './LoadingOverlay';
+import { useUser } from '../UserContext';
 
 export function InitialLoader() {
-  const [loading, setLoading] = useState(true);
+  const { loading } = useUser();
+  const pathname = usePathname();
 
-  useEffect(() => {
-    // Show loader and hide content until the application is hydrated and ready.
-    const timer = setTimeout(() => {
-      setLoading(false);
-      document.body.setAttribute('data-initializing', 'false');
-    }, 2000); // 2 seconds total for a smooth high-fidelity reveal
+  // Only show the blocking auth loader on protected routes
+  const isProtectedRoute = pathname?.startsWith('/dashboard') || pathname?.startsWith('/onboarding');
 
-    return () => clearTimeout(timer);
-  }, []);
+  if (!isProtectedRoute) {
+    return null;
+  }
 
   return (
     <LoadingOverlay 
