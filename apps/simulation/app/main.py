@@ -2,8 +2,10 @@
 QuantMind FastAPI Simulation Service
 Monte Carlo GBM simulation engine — modular architecture
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse, JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 import asyncio
 import logging
 import os
@@ -36,12 +38,41 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# ---------------------------------------------------------------------------
+# Strict Endpoint Middleware
+# ---------------------------------------------------------------------------
+class StrictEndpointMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        allowed_endpoints = [
+            "/", "/health", "/robots.txt", "/simulate", "/simulate/mirofish",
+            "/docs", "/openapi.json", "/redoc"
+        ]
+        
+        if request.url.path not in allowed_endpoints:
+            logging.getLogger("quantmind.security").warning(
+                f"Security Event: Blocked access to unauthorized endpoint: {request.url.path} from {request.client.host if request.client else 'unknown'}"
+            )
+            return JSONResponse(status_code=403, content={"detail": "Endpoint not allowed or unrecognized"})
+            
+        return await call_next(request)
+
+app.add_middleware(StrictEndpointMiddleware)
+
+# ---------------------------------------------------------------------------
+# Robust CORS Policy
+# ---------------------------------------------------------------------------
+from dotenv import dotenv_values
+env_config = dotenv_values(".env")
+
+allowed_origins_str = env_config.get("ALLOWED_ORIGINS", "https://quantmind.com")
+allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",") if origin.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[os.getenv("ALLOWED_ORIGIN", "*")],
+    allow_origins=allowed_origins,
     allow_methods=["POST", "GET"],
-    allow_credentials=False,
-    allow_headers=["*"],
+    allow_credentials=True,
+    allow_headers=["Authorization", "Content-Type", "X-HMAC-Signature", "Accept"],
 )
 
 # Include modules
@@ -85,6 +116,10 @@ async def root():
         "version": "1.0.0",
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+async def robots_txt():
+    return "User-agent: *\nDisallow: /\n"
 
 if __name__ == "__main__":
     import uvicorn

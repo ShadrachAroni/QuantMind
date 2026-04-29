@@ -6,6 +6,22 @@ import { corsHeaders, handleCors } from '../_shared/cors.ts';
 import { requireAuth } from '../_shared/auth.ts';
 import { rateLimit, rateLimitResponse, rateLimitByIP, checkGlobalPanicMode } from '../_shared/rateLimiter.ts';
 
+// Web Crypto HMAC Generator for Deno
+async function generateHmac(secret: string, bodyString: string): Promise<string> {
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, enc.encode(bodyString));
+  return Array.from(new Uint8Array(signature))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 const TIER_LIMITS: Record<string, { maxPaths: number; rateLimit: number }> = {
   free:    { maxPaths: 2000,   rateLimit: 5  },
   plus:    { maxPaths: 10000,  rateLimit: 20 },
@@ -95,19 +111,25 @@ serve(async (req: Request) => {
     // --- SPECIAL CASE: MiroFish Swarm Intelligence ---
     if (body.simulation_type === 'mirofish') {
       const hfUrl = Deno.env.get('SIMULATION_SERVICE_URL');
-      const hfSecret = Deno.env.get('SIMULATION_SECRET_KEY');
+      const hmacSecret = Deno.env.get('HMAC_SECRET_KEY') || '';
+      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SERVICE_ROLE_KEY') || '';
       
+      const payload = {
+        simulation_id: `miro_${Date.now()}`,
+        user_id: user.id,
+        seed_context: body.seed,
+        steps: 24
+      };
+      const bodyString = JSON.stringify(payload);
+      const hmacSignature = await generateHmac(hmacSecret, bodyString);
+
       const res = await fetch(`${hfUrl}/simulate/mirofish`, {
         method: 'POST',
-        body: JSON.stringify({
-          simulation_id: `miro_${Date.now()}`,
-          user_id: user.id,
-          seed_context: body.seed, // In MiroFish, 'seed' is the text context
-          steps: 24
-        }),
+        body: bodyString,
         headers: { 
           'Content-Type': 'application/json', 
-          'X-Simulation-Secret': hfSecret || '' 
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+          'X-HMAC-Signature': hmacSignature
         },
       });
       
@@ -211,7 +233,9 @@ serve(async (req: Request) => {
     // --- Primary Simulation Engine: Hugging Face Handover ---
     try {
       const hfUrl = Deno.env.get('SIMULATION_SERVICE_URL');
-      const hfSecret = Deno.env.get('SIMULATION_SECRET_KEY');
+      const hmacSecret = Deno.env.get('HMAC_SECRET_KEY') || '';
+      // We already fetched supabaseServiceKey earlier, so we can reuse it
+      const sRoleKey = supabaseServiceKey;
 
       if (hfUrl && hfUrl.startsWith('http')) {
         console.log(`[simulate] Handover Init: ${hfUrl}/simulate`);
@@ -225,13 +249,16 @@ serve(async (req: Request) => {
           assets: portfolio.assets, 
           params: { ...simReq, seed } 
         };
+        const bodyString = JSON.stringify(hfPayload);
+        const hmacSignature = await generateHmac(hmacSecret, bodyString);
         
         const res = await fetch(`${hfUrl}/simulate`, {
           method: 'POST',
-          body: JSON.stringify(hfPayload),
+          body: bodyString,
           headers: { 
             'Content-Type': 'application/json', 
-            'X-Simulation-Secret': hfSecret || '' 
+            'Authorization': `Bearer ${sRoleKey}`,
+            'X-HMAC-Signature': hmacSignature
           },
         });
 

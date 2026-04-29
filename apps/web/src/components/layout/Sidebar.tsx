@@ -65,26 +65,7 @@ export function Sidebar() {
   const [newTicketsCount, setNewTicketsCount] = React.useState(0);
   const supabase = createClient();
 
-  React.useEffect(() => {
-    if (!profile?.is_admin) return;
 
-    const channel = supabase
-      .channel('sidebar-support-alerts')
-      .on('postgres_changes', { 
-        event: 'INSERT', 
-        schema: 'public', 
-        table: 'support_tickets',
-        filter: 'status=eq.open'
-      }, () => {
-        setNewTicketsCount(prev => prev + 1);
-        // Play subtle sound or trigger vibration?
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [profile?.is_admin]);
 
   return (
     <>
@@ -148,37 +129,7 @@ export function Sidebar() {
             );
           })}
 
-          {profile?.is_admin && (
-            <div className="pt-4 border-t border-white/5 mt-4">
-              <span className="px-3 text-[10px] font-bold uppercase tracking-[0.3em] text-[#848D97] font-mono">Admin_Control</span>
-              <Link
-                href="/dashboard/admin/support"
-                className={cn(
-                  'group flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 mt-2',
-                  pathname === '/dashboard/admin/support' 
-                    ? 'bg-[#FFD60A]/10 text-[#FFD60A] border border-[#FFD60A]/20 shadow-[0_4px_12px_rgba(255,214,10,0.1)]' 
-                    : 'text-[#848D97] hover:text-white hover:bg-white/5 border border-transparent'
-                )}
-                onClick={() => {
-                  setNewTicketsCount(0);
-                  close();
-                }}
-              >
-                <div className="relative">
-                  <Mail size={20} className={cn('shrink-0', pathname === '/dashboard/admin/support' ? 'text-[#FFD60A]' : 'group-hover:text-white')} />
-                  {newTicketsCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-[#FF453A] border-2 border-[#05070A] rounded-full animate-pulse shadow-[0_0_8px_#FF453A]" />
-                  )}
-                </div>
-                <span className="text-sm font-medium">Ticketing_System</span>
-                {newTicketsCount > 0 && (
-                  <span className="ml-auto text-[8px] font-bold bg-[#FF453A] text-white px-1.5 py-0.5 rounded-full uppercase tracking-widest font-mono shadow-[0_0_10px_rgba(255,69,58,0.2)]">
-                    New::{newTicketsCount}
-                  </span>
-                )}
-              </Link>
-            </div>
-          )}
+
         </nav>
 
         {/* Bottom Actions */}

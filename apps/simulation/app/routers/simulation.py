@@ -8,19 +8,19 @@ import os
 
 router = APIRouter()
 
-SIMULATION_SECRET = os.getenv("SIMULATION_SECRET_KEY", "")
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://qvqczzyghhgzaesiwtkj.supabase.co")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+from dotenv import dotenv_values
+from app.core.security import secure_endpoint
 
-def verify_secret(x_simulation_secret: str = Header(...)):
-    if not SIMULATION_SECRET or x_simulation_secret != SIMULATION_SECRET:
-        raise HTTPException(status_code=401, detail="Invalid simulation secret")
-    return x_simulation_secret
+env_config = dotenv_values(".env")
+
+SIMULATION_SECRET = env_config.get("SIMULATION_SECRET_KEY", "")
+SUPABASE_URL = env_config.get("SUPABASE_URL", "https://qvqczzyghhgzaesiwtkj.supabase.co")
+SUPABASE_SERVICE_KEY = env_config.get("SUPABASE_SERVICE_ROLE_KEY", "")
 
 @router.post("/simulate")
 async def run_simulation(
     job: SimulationJob,
-    _: str = Depends(verify_secret),
+    token_payload: dict = Depends(secure_endpoint),
 ):
     """Accept a simulation job and process it in a separate process pool."""
     loop = asyncio.get_event_loop()
@@ -32,7 +32,7 @@ async def run_simulation(
 @router.post("/simulate/mirofish")
 async def run_mirofish(
     job: MiroFishJob,
-    _: str = Depends(verify_secret),
+    token_payload: dict = Depends(secure_endpoint),
 ):
     """Execute a MiroFish swarm simulation and persist result to Supabase Storage."""
     from datetime import datetime, timezone
