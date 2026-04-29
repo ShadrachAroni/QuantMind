@@ -32,6 +32,7 @@ function SimulationsContent() {
   const [loading, setLoading] = useState(true);
   const [loaderProgress, setLoaderProgress] = useState(0);
   const [isMuted, setIsMuted] = useState(true);
+  const [selectedSim, setSelectedSim] = useState<any | null>(null);
   const [killLoading, setKillLoading] = useState<string | null>(null);
   const { success, error, info } = useToast();
 
@@ -151,7 +152,109 @@ function SimulationsContent() {
   );
 
   return (
-    <div className="space-y-8 animate-fade-in pb-20">
+    <div className="space-y-8 animate-fade-in pb-20 relative">
+      {/* Sovereign Intelligence Overlay */}
+      {selectedSim && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 md:p-8">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-2xl" onClick={() => setSelectedSim(null)} />
+          <GlassCard className="relative w-full max-w-5xl h-[85vh] overflow-hidden flex flex-col border-white/10 shadow-2xl animate-scale-in" intensity="high">
+             <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/5">
+                <div className="flex items-center gap-4">
+                   <div className="p-3 bg-purple-500/20 rounded-2xl">
+                      <BrainCircuit className="text-purple-400" size={24} />
+                   </div>
+                   <div>
+                      <h2 className="text-xl font-black text-white italic mono tracking-tighter uppercase">SOVEREIGN_INTELLIGENCE_REPORT</h2>
+                      <p className="text-[10px] text-gray-500 mono uppercase tracking-widest">Ensemble Multi-Model Optimization // Job_{selectedSim.id.split('-')[0]}</p>
+                   </div>
+                </div>
+                <button 
+                  onClick={() => setSelectedSim(null)} 
+                  className="p-2 hover:bg-white/10 rounded-xl transition-colors"
+                  aria-label="Close Sovereign Intelligence Report"
+                  title="Close Report"
+                >
+                   <X size={20} className="text-gray-500" />
+                </button>
+             </div>
+
+             <div className="flex-1 overflow-y-auto p-8 space-y-12 custom-scrollbar">
+                {/* Confidence Meter */}
+                <div className="flex items-center justify-between p-6 bg-white/[0.02] border border-white/5 rounded-3xl">
+                   <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full border-4 border-purple-500/20 border-t-purple-500 flex items-center justify-center">
+                         <span className="text-xs font-black text-purple-400">{(selectedSim.sovereign_intelligence?.confidence_score * 100).toFixed(0)}%</span>
+                      </div>
+                      <div>
+                         <span className="text-[10px] font-black text-gray-500 mono uppercase block mb-1">Inference_Confidence</span>
+                         <span className="text-xs font-medium text-white italic">Multi-agent consensus achieved.</span>
+                      </div>
+                   </div>
+                   <div className="flex gap-2">
+                      <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-[8px] mono text-gray-400 uppercase">Minimax-M2.7</span>
+                      <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-[8px] mono text-gray-400 uppercase">Llama-3.1-70B</span>
+                      <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-[8px] mono text-gray-400 uppercase">Mixtral-8x22B</span>
+                   </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                   {/* Risk Report (Minimax) */}
+                   <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-pink-400">
+                         <Shield size={16} />
+                         <span className="text-[11px] font-black mono uppercase tracking-widest">Tail_Risk_Audit // MINIMAX</span>
+                      </div>
+                      <div className="p-6 bg-pink-500/5 border border-pink-500/10 rounded-3xl min-h-[200px]">
+                         <p className="text-xs text-gray-300 leading-relaxed font-medium whitespace-pre-wrap">
+                            {selectedSim.sovereign_intelligence?.risk_report || "NO_RISK_DATA_AVAILABLE"}
+                         </p>
+                      </div>
+                   </div>
+
+                   {/* Strategy Report (Llama) */}
+                   <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-cyan-400">
+                         <BrainCircuit size={16} />
+                         <span className="text-[11px] font-black mono uppercase tracking-widest">Alpha_Strategy // LLAMA_3.1</span>
+                      </div>
+                      <div className="p-6 bg-cyan-500/5 border border-cyan-500/10 rounded-3xl min-h-[200px]">
+                         <p className="text-xs text-gray-300 leading-relaxed font-medium whitespace-pre-wrap">
+                            {selectedSim.sovereign_intelligence?.strategy_report || "NO_STRATEGY_DATA_AVAILABLE"}
+                         </p>
+                      </div>
+                   </div>
+                </div>
+
+                {/* Macro Insight (Mixtral) */}
+                <div className="space-y-4">
+                   <div className="flex items-center gap-2 text-purple-400">
+                      <Activity size={16} />
+                      <span className="text-[11px] font-black mono uppercase tracking-widest">Global_Macro_Context // MIXTRAL</span>
+                   </div>
+                   <div className="p-8 bg-purple-500/5 border border-purple-500/10 rounded-3xl">
+                      <p className="text-xs text-gray-300 leading-relaxed font-medium italic">
+                         {selectedSim.sovereign_intelligence?.macro_report || "GLOBAL_CORRELATION_NOMINAL"}
+                      </p>
+                   </div>
+                </div>
+             </div>
+
+             <div className="p-6 border-t border-white/5 bg-black/40 flex justify-between items-center">
+                <div className="flex items-center gap-2 text-[10px] mono text-gray-600">
+                   <Info size={12} />
+                   Sovereign Intelligence reports are generated using NVIDIA NIM cloud-native ensembles.
+                </div>
+                <button 
+                  onClick={() => setSelectedSim(null)}
+                  className="px-6 py-2.5 bg-white text-black text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-gray-200 transition-all"
+                >
+                   CLOSE_TERMINAL
+                </button>
+             </div>
+          </GlassCard>
+        </div>
+      )}
+
       <header className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
           <span className="mono text-[10px] text-cyan-400 uppercase tracking-[0.3em] mb-2 block">Terminal // Simulation_Control</span>
@@ -203,9 +306,16 @@ function SimulationsContent() {
                         {activeSims.map((sim) => (
                           <tr key={sim.id} className="hover:bg-white/[0.02] transition-colors group">
                              <td className="p-4">
-                                <div className="flex flex-col">
-                                   <span className="text-[11px] font-bold text-gray-200">{sim.user_profiles?.email || 'SYSTEM'}</span>
-                                   <span className="text-[8px] mono text-gray-600">{sim.id.split('-')[0]}</span>
+                                <div className="flex items-center gap-3">
+                                   <div className="flex flex-col">
+                                      <span className="text-[11px] font-bold text-gray-200">{sim.user_profiles?.email || 'SYSTEM'}</span>
+                                      <span className="text-[8px] mono text-gray-600">{sim.id.split('-')[0]}</span>
+                                   </div>
+                                   {sim.sovereign_intelligence && (
+                                     <div className="p-1.5 bg-purple-500/20 rounded-lg text-purple-400 animate-pulse" title="Sovereign Intelligence Active">
+                                        <BrainCircuit size={10} />
+                                     </div>
+                                   )}
                                 </div>
                              </td>
                              <td className="p-4">
@@ -224,21 +334,33 @@ function SimulationsContent() {
                                 </span>
                              </td>
                              <td className="p-4 text-right">
-                                {sim.status === 'running' || sim.status === 'pending' ? (
-                                  <button 
-                                    onClick={() => terminateJob(sim.id)}
-                                    disabled={killLoading === sim.id}
-                                    className="p-2 border border-red-500/30 text-red-500 hover:bg-red-500 hover:text-white rounded-lg transition-all"
-                                    aria-label="Terminate Job"
-                                    title="Terminate Job"
-                                  >
-                                     <Square size={12} fill="currentColor" />
-                                  </button>
-                                ) : (
-                                  <div className="p-2 text-gray-700 opacity-20">
-                                     <RefreshCcw size={12} />
-                                  </div>
-                                )}
+                                <div className="flex justify-end gap-2">
+                                   {sim.sovereign_intelligence && (
+                                     <button 
+                                       onClick={() => setSelectedSim(sim)}
+                                       className="p-2 border border-purple-500/30 text-purple-400 hover:bg-purple-500 hover:text-white rounded-lg transition-all"
+                                       aria-label="View Intelligence Report"
+                                       title="View Intelligence Report"
+                                     >
+                                        <BrainCircuit size={12} />
+                                     </button>
+                                   )}
+                                   {sim.status === 'running' || sim.status === 'pending' ? (
+                                     <button 
+                                       onClick={() => terminateJob(sim.id)}
+                                       disabled={killLoading === sim.id}
+                                       className="p-2 border border-red-500/30 text-red-500 hover:bg-red-500 hover:text-white rounded-lg transition-all"
+                                       aria-label="Terminate Job"
+                                       title="Terminate Job"
+                                     >
+                                        <Square size={12} fill="currentColor" />
+                                     </button>
+                                   ) : (
+                                     <div className="p-2 text-gray-700 opacity-20">
+                                        <RefreshCcw size={12} />
+                                     </div>
+                                   )}
+                                </div>
                              </td>
                           </tr>
                         ))}

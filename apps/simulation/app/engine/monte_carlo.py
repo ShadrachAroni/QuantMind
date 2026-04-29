@@ -10,6 +10,7 @@ from typing import Optional, List, Dict, Any
 from concurrent.futures import ProcessPoolExecutor
 from app.models.simulation import Asset, RiskMetrics, SimulationJob
 from app.engine.optimizer import optimize_portfolio
+from app.services.ai_service import ai_service
 
 # CPU-Bound Task Pool for Vast Concurrency
 executor = ProcessPoolExecutor(max_workers=os.cpu_count())
@@ -325,7 +326,12 @@ def extract_percentile_paths(paths: np.ndarray, num_points: int = 100) -> Dict[s
 async def update_simulation_status(simulation_id: str, status: str, result: Optional[Dict] = None, error_message: Optional[str] = None, duration_ms: Optional[int] = None):
     headers = {"apikey": SUPABASE_SERVICE_KEY, "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}", "Content-Type": "application/json", "Prefer": "return=minimal"}
     payload = {"status": status, "updated_at": datetime.now(timezone.utc).isoformat()}
-    if result: payload["result"] = result
+    if result: 
+        payload["result"] = result
+        # Promote sovereign_intelligence to its own column for faster querying/indexing
+        if "sovereign_intelligence" in result and result["sovereign_intelligence"]:
+            payload["sovereign_intelligence"] = result["sovereign_intelligence"]
+            
     if error_message: payload["error_message"] = error_message
     if duration_ms: payload["duration_ms"] = duration_ms
     url = f"{SUPABASE_URL}/rest/v1/simulations?id=eq.{simulation_id}"
@@ -423,11 +429,21 @@ async def process_simulation(job: SimulationJob):
             metrics.sentiment_rebalance_suggestion = rebalance_suggestion
 
         percentile_paths = extract_percentile_paths(paths)
+        
+        # 4. Sovereign Intelligence: NVIDIA Multi-Model Optimization
+        # Only run if a tier or explicitly requested to save costs/tokens
+        sovereign_intel = None
+        try:
+            sovereign_intel = await ai_service.get_ensemble_optimization(job.assets, metrics)
+        except Exception as e:
+            print(f"Sovereign Intelligence failed: {e}")
+
         duration = int((datetime.now() - start_time).total_seconds() * 1000)
         result = {
             "id": job.simulation_id, "user_id": job.user_id, "portfolio_id": job.portfolio_id,
             "params": {"portfolio_id": job.portfolio_id, "num_paths": params.num_paths, "time_horizon_years": params.time_horizon_years, "initial_value": params.initial_value, "risk_free_rate": params.risk_free_rate, "model_type": params.model_type, "stress_scenario": params.stress_scenario},
             "metrics": metrics.dict(), "percentile_paths": percentile_paths,
+            "sovereign_intelligence": sovereign_intel,
             "terminal_values": paths[:, -1].tolist() if len(paths) <= 1000 else np.random.choice(paths[:, -1], 1000).tolist(),
             "model_info": {"portfolio_mu": mu, "portfolio_sigma": sigma, "model": params.model_type, "model_version": "1.0.0", "sentiment_shock": job.sentiment_shock},
             "created_at": datetime.now(timezone.utc).isoformat(),
